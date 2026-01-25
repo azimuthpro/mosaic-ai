@@ -64,7 +64,18 @@ Represents a configuration for gathering and logical analysis.
 - `is_active`: Boolean
 - `created_at`: Timestamp
 
-### 4.3. `sources`
+### 4.3. `agent_members` (Sharing & Permissions)
+
+- `id`: UUID
+- `agent_id`: UUID (FK to agents.id)
+- `user_id`: UUID (FK to users.id)
+- `role`: Enum ('owner', 'admin', 'member')
+  - **Owner**: Can edit, delete, and manage members.
+  - **Admin**: Can edit configuration.
+  - **Member**: Read-only access to reports.
+- `created_at`: Timestamp
+
+### 4.4. `sources`
 
 URLs associated with an agent to be scraped.
 
@@ -135,6 +146,9 @@ The actual data extracted/analyzed.
   - Input List of URLs.
   - Select Frequency (Daily, Weekly, etc.).
   - Connect Google Drive (OAuth flow to select/create Sheet).
+- **Sharing**:
+  - Invite users by email to access an Agent.
+  - Assign Role: Owner, Admin, Member.
 
 - **Simple Agent Creator (Wizard)**:
   - Step-by-step guide for non-technical users to define source, prompt, and output style without dealing with complex configs.
@@ -192,7 +206,9 @@ Users can configure specific "Automations" for each Agent to handle the generate
 
 ## 7. Security & Privacy
 
-- **RLS (Row Level Security)**: Enabled on all Supabase tables. Users can only read/write their own Agents/Reports.
+- **RLS (Row Level Security)**: Enabled on all Supabase tables.
+  - Users can read/write their own Agents.
+  - Shared Agents are accessible based on `agent_members` role.
 - **API Keys**: Firecrawl and GOOGLE AI keys stored in Vercel Environment Variables (Server-side only).
 - **OAuth Tokens**: Google tokens stored securely in `user_secrets` table or Supabase Vault.
 
