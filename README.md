@@ -41,6 +41,17 @@ For a detailed technical overview, please refer to the [Project Specification](d
 
 ## Version History
 
+### 0.2.0 (2026-01-25)
+
+- Core application scaffold with full authentication flow (login, signup, OAuth callback)
+- Dashboard with agent management: create, edit, view, and run agents
+- Reports system for viewing and filtering analysis results
+- Marketing landing page
+- API routes for agent execution, cron triggers, and allowlist verification
+- UI component library with shadcn/ui and Radix primitives
+- Supabase database migrations and TypeScript type definitions
+- Proxy middleware and Vercel deployment configuration
+
 ### 0.1.1 (2026-01-25)
 
 - Added CLAUDE.md for Claude Code guidance

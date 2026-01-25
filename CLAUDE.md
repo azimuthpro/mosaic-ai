@@ -56,6 +56,14 @@ npm run lint     # Run ESLint
 ### Key API Routes
 
 - `/api/cron/trigger` - Protected endpoint for scheduled job execution
+- `/api/agents/run` - Manual agent execution endpoint
+- `/api/auth/check-allowlist` - Email allowlist verification for signup
+
+### Route Groups
+
+- `(auth)` - Authentication pages (login, signup, callback)
+- `(dashboard)` - Protected app pages (dashboard, agents, reports)
+- `(marketing)` - Public landing page
 
 ## Path Alias
 
