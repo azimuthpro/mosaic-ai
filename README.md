@@ -38,3 +38,16 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ## Documentation
 
 For a detailed technical overview, please refer to the [Project Specification](docs/specification.md).
+
+## Version History
+
+### 0.1.1 (2026-01-25)
+
+- Added CLAUDE.md for Claude Code guidance
+- Added technical specification document (docs/specification.md)
+- Updated README with documentation link
+
+### 0.1.0 (Initial)
+
+- Initial Next.js 16 project setup with App Router
+- TypeScript, Tailwind CSS v4, ESLint configuration
