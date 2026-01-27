@@ -16,20 +16,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Monitor your agents and recent activity.
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/agents/new">
-            <Plus className="mr-2 h-4 w-4" />
-            New Agent
-          </Link>
-        </Button>
-      </div>
+
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -110,9 +97,6 @@ export default async function DashboardPage() {
                           {agent.is_active ? 'Active' : 'Paused'}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {agent.description || 'No description'}
-                      </p>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>{agent.sources?.length || 0} sources</span>
                         <span>{cronToSchedule(agent.schedule_cron)}</span>

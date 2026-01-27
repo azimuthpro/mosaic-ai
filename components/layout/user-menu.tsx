@@ -35,6 +35,11 @@ export function UserMenu({ user }: UserMenuProps) {
     router.refresh()
   }
 
+  async function handleDashboard() {
+    router.push('/dashboard')
+    router.refresh()
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -59,16 +64,10 @@ export function UserMenu({ user }: UserMenuProps) {
             </p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <UserIcon className="mr-2 h-4 w-4" />
-          <span>Profile</span>
+         <DropdownMenuItem onClick={handleDashboard}>
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Dashboard</span>
         </DropdownMenuItem>
-        <DropdownMenuItem>
-          <Settings className="mr-2 h-4 w-4" />
-          <span>Settings</span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>

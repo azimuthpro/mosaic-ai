@@ -55,9 +55,6 @@ export function AgentCard({ agent }: AgentCardProps) {
             />
           </div>
         </div>
-        <CardDescription className="line-clamp-2">
-          {agent.description || 'No description'}
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between text-sm text-muted-foreground">

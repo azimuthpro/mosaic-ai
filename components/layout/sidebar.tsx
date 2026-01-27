@@ -3,11 +3,10 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Bot, FileText, Home, Plus, Settings } from 'lucide-react'
+import { Bot, FileText, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Agents', href: '/agents', icon: Bot },
   { name: 'Reports', href: '/reports', icon: FileText },
 ]
@@ -24,7 +23,7 @@ export function Sidebar() {
         </Link>
       </div>
       <div className="flex-1 space-y-1 p-4">
-        <Button asChild className="w-full justify-start gap-2" size="sm">
+        <Button asChild variant="outline" className="w-full justify-start gap-2" size="sm">
           <Link href="/agents/new">
             <Plus className="h-4 w-4" />
             New Agent
@@ -50,15 +49,6 @@ export function Sidebar() {
             )
           })}
         </nav>
-      </div>
-      <div className="border-t p-4">
-        <Link
-          href="/settings"
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <Settings className="h-4 w-4" />
-          Settings
-        </Link>
       </div>
     </div>
   )

@@ -52,9 +52,6 @@ export default async function AgentDetailPage({
               {agent.is_active ? 'Active' : 'Paused'}
             </Badge>
           </div>
-          <p className="text-muted-foreground pl-10">
-            {agent.description || 'No description'}
-          </p>
           <div className="flex items-center gap-4 text-sm text-muted-foreground pl-10">
             <span className="flex items-center gap-1">
               <Globe className="h-4 w-4" />
