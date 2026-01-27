@@ -19,18 +19,21 @@ export interface Database {
           email: string
           created_at: string
           invited_by: string | null
+          is_active: boolean
         }
         Insert: {
           id?: string
           email: string
           created_at?: string
           invited_by?: string | null
+          is_active?: boolean
         }
         Update: {
           id?: string
           email?: string
           created_at?: string
           invited_by?: string | null
+          is_active?: boolean
         }
       }
       users: {

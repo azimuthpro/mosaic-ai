@@ -24,6 +24,7 @@ export async function isEmailAllowed(email: string): Promise<boolean> {
     .from('allowlist')
     .select('id')
     .eq('email', email.toLowerCase())
+    .eq('is_active', true)
     .single()
 
   if (error || !data) {
@@ -31,4 +32,18 @@ export async function isEmailAllowed(email: string): Promise<boolean> {
   }
 
   return true
+}
+
+// Add an email to the allowlist (default to inactive)
+export async function addToAllowlist(email: string): Promise<{ error: any }> {
+  const supabase = createAdminClient()
+
+  const { error } = await supabase
+    .from('allowlist')
+    .insert({
+      email: email.toLowerCase(),
+      is_active: false
+    } as any)
+
+  return { error }
 }
