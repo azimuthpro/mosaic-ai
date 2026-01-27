@@ -41,6 +41,15 @@ For a detailed technical overview, please refer to the [Project Specification](d
 
 ## Version History
 
+### 0.3.0 (2026-01-27)
+
+- Agent toggle switch for enabling/disabling agents directly from cards
+- Invite request form and workflow for marketing page
+- Vercel Analytics integration
+- Removed description field from agent creation wizard
+- Fixed Supabase security linter warnings
+- Updated OpenAPI specification with missing schemas and security specs
+
 ### 0.2.0 (2026-01-25)
 
 - Core application scaffold with full authentication flow (login, signup, OAuth callback)
