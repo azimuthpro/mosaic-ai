@@ -8,12 +8,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { LogOut, Settings, User as UserIcon } from 'lucide-react'
+import { LogOut as LogoutIcon, LayoutDashboard as DashboardIcon } from 'lucide-react'
 
 interface UserMenuProps {
   user: User
@@ -65,11 +64,11 @@ export function UserMenu({ user }: UserMenuProps) {
           </div>
         </DropdownMenuLabel>
          <DropdownMenuItem onClick={handleDashboard}>
-          <LogOut className="mr-2 h-4 w-4" />
+          <DashboardIcon className="mr-2 h-4 w-4" />
           <span>Dashboard</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleSignOut}>
-          <LogOut className="mr-2 h-4 w-4" />
+          <LogoutIcon className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
