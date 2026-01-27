@@ -41,9 +41,8 @@ function getStepIndicatorClass(index: number, currentStepIndex: number): string 
 }
 
 function getSourceDisplayName(source: Source): string {
-  if (source.name) {
-    return source.name
-  }
+  if (source.name) return source.name
+
   try {
     return new URL(source.url).hostname
   } catch {
@@ -59,7 +58,6 @@ export function AgentWizard(): React.ReactElement {
 
   // Form state
   const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
   const [sources, setSources] = useState<Source[]>([{ url: '', name: '' }])
   const [systemPrompt, setSystemPrompt] = useState('')
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('text')
@@ -102,7 +100,6 @@ export function AgentWizard(): React.ReactElement {
 
     const formData = new FormData()
     formData.append('name', name)
-    formData.append('description', description)
     formData.append('systemPrompt', systemPrompt)
     formData.append('outputFormat', outputFormat)
     formData.append('scheduleCron', scheduleCron)
@@ -128,8 +125,6 @@ export function AgentWizard(): React.ReactElement {
       case 'schedule':
       case 'review':
         return true
-      default:
-        return false
     }
   }
 
@@ -141,8 +136,9 @@ export function AgentWizard(): React.ReactElement {
     }
   }
 
-  const validSources = sources.filter((s) => s.url)
-  const selectedScheduleLabel = scheduleOptions.find((o) => o.value === scheduleCron)?.label || 'Manual'
+  const validSources = sources.filter((s) => s.url.trim())
+  const selectedScheduleLabel =
+    scheduleOptions.find((o) => o.value === scheduleCron)?.label ?? 'Manual'
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -188,15 +184,6 @@ export function AgentWizard(): React.ReactElement {
                 placeholder="My News Monitor"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Describe what this agent does..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
               />
             </div>
           </div>
@@ -287,12 +274,17 @@ export function AgentWizard(): React.ReactElement {
               <div className="grid gap-2">
                 {scheduleOptions.map((option) => {
                   const isSelected = scheduleCron === option.value
+                  const labelClass = isSelected
+                    ? 'border-primary bg-primary/5'
+                    : ''
+                  const radioClass = isSelected
+                    ? 'border-primary bg-primary'
+                    : 'border-muted-foreground'
+
                   return (
                     <label
                       key={option.value}
-                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50 ${
-                        isSelected ? 'border-primary bg-primary/5' : ''
-                      }`}
+                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50 ${labelClass}`}
                     >
                       <input
                         type="radio"
@@ -302,11 +294,7 @@ export function AgentWizard(): React.ReactElement {
                         onChange={(e) => setScheduleCron(e.target.value)}
                         className="sr-only"
                       />
-                      <div
-                        className={`h-4 w-4 rounded-full border-2 ${
-                          isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'
-                        }`}
-                      />
+                      <div className={`h-4 w-4 rounded-full border-2 ${radioClass}`} />
                       <span>{option.label}</span>
                     </label>
                   )
@@ -324,12 +312,6 @@ export function AgentWizard(): React.ReactElement {
                 <span className="text-sm text-muted-foreground">Name</span>
                 <p className="font-medium">{name}</p>
               </div>
-              {description && (
-                <div>
-                  <span className="text-sm text-muted-foreground">Description</span>
-                  <p>{description}</p>
-                </div>
-              )}
               <div>
                 <span className="text-sm text-muted-foreground">Sources</span>
                 <div className="flex flex-wrap gap-2 mt-1">
