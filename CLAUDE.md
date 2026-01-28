@@ -30,17 +30,21 @@ npm run lint     # Run ESLint
 
 ### Core Concepts
 
-- **Agents**: User-configured intelligence gathering tasks with source URLs, prompts, and schedules
-- **Sources**: URLs associated with agents to be scraped
+- **Agents**: User-configured intelligence gathering tasks with sources, prompts, and schedules
+- **Sources**: Data inputs for agents. Two types:
+  - `url`: Web pages scraped via Firecrawl
+  - `agent_report`: Output from another agent (enables chaining)
 - **Jobs**: Execution records for agent runs
-- **Reports**: Analyzed data extracted from scraped content
+- **Reports**: Analyzed data extracted from source content
 
 ### Data Flow
 
-1. User configures Agent via dashboard (URLs, prompt, schedule)
+1. User configures Agent via dashboard (sources, prompt, schedule)
 2. Vercel Cron triggers serverless function at scheduled interval
-3. Function calls Firecrawl to scrape target URLs
-4. Scraped content sent to LLM with user's system prompt
+3. Content fetcher processes sources by type:
+   - URL sources: Firecrawl scrapes web pages
+   - Agent report sources: Fetches latest report from referenced agent
+4. Combined content sent to LLM with user's system prompt
 5. Structured result stored in Supabase
 6. Data appended to user's Google Sheet
 
@@ -49,9 +53,14 @@ npm run lint     # Run ESLint
 - `users` - Managed by Supabase Auth
 - `allowlist` - Email-based access control (invite-only)
 - `agents` - Agent configurations (name, prompt, schedule, output format)
-- `sources` - URLs linked to agents
+- `sources` - Data inputs linked to agents (type, url, source_reference_id)
 - `jobs` - Execution history with status tracking
 - `reports` - Extracted analysis results (JSONB)
+
+### Key Utilities
+
+- `lib/sources/content-fetcher.ts` - Unified content fetching for all source types
+- `lib/utils/dependency-graph.ts` - Circular dependency detection for agent references
 
 ### Key API Routes
 

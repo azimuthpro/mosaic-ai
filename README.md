@@ -41,6 +41,16 @@ For a detailed technical overview, please refer to the [Project Specification](d
 
 ## Version History
 
+### 0.4.0 (2026-01-28)
+
+- Source types system: agents can now use URL sources or other agents' reports as input
+- Agent-as-source feature enables chaining agents for multi-stage analysis pipelines
+- Circular dependency detection prevents invalid agent reference loops
+- Unified content fetcher handles both web scraping and agent report retrieval
+- Updated wizard and source list UI with type selection (Web URL / Agent Report)
+- Database migration adds source_type enum, reference columns, and RLS policies
+- Skills system integration for agent customization
+
 ### 0.3.0 (2026-01-27)
 
 - Agent toggle switch for enabling/disabling agents directly from cards
