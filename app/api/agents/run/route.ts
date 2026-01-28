@@ -2,7 +2,11 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { analyzeContent } from "@/lib/ai/gemini";
-import { scrapeUrls } from "@/lib/firecrawl/client";
+import {
+  fetchAllSourcesContent,
+  getSourceIdentifiers,
+  getSourceTypeBreakdown,
+} from "@/lib/sources/content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type {
@@ -45,7 +49,7 @@ export async function POST(request: Request): Promise<Response> {
       .select(
         `
         *,
-        sources (*)
+        sources!sources_agent_id_fkey (*)
       `,
       )
       .eq("id", agentId)
@@ -91,37 +95,38 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     try {
-      // Scrape all sources
-      const activeSourceUrls = typedAgent.sources
-        .filter((s) => s.is_active)
-        .map((s) => s.url);
-
-      const scrapeResults = await scrapeUrls(activeSourceUrls);
+      // Fetch content from all sources (URLs and agent reports)
+      const sourceResults = await fetchAllSourcesContent(
+        typedAgent.sources,
+        adminClient,
+      );
 
       // Update source last_scraped_at
       const now = new Date().toISOString();
       await Promise.all(
-        typedAgent.sources.map((source) =>
-          adminClient
-            .from("sources")
-            .update({ last_scraped_at: now } as never)
-            .eq("id", source.id),
-        ),
+        typedAgent.sources
+          .filter((s) => s.is_active)
+          .map((source) =>
+            adminClient
+              .from("sources")
+              .update({ last_scraped_at: now } as never)
+              .eq("id", source.id),
+          ),
       );
 
-      // Collect successful scrapes
-      const successfulScrapes = scrapeResults.filter(
+      // Collect successful fetches
+      const successfulFetches = sourceResults.filter(
         (r) => r.success && r.content,
       );
-      const scrapedContent = successfulScrapes.map((r) => r.content!);
+      const fetchedContent = successfulFetches.map((r) => r.content!);
 
-      if (scrapedContent.length === 0) {
-        throw new Error("No content could be scraped from sources");
+      if (fetchedContent.length === 0) {
+        throw new Error("No content could be fetched from sources");
       }
 
       // Analyze with AI
       const analysis = await analyzeContent(
-        scrapedContent,
+        fetchedContent,
         typedAgent.system_prompt,
         typedAgent.output_format,
         typedAgent.language,
@@ -131,13 +136,17 @@ export async function POST(request: Request): Promise<Response> {
         throw new Error(analysis.error || "AI analysis failed");
       }
 
+      // Get source identifiers for report (handles both URL and agent sources)
+      const sourceIdentifiers = getSourceIdentifiers(sourceResults);
+      const sourceBreakdown = getSourceTypeBreakdown(sourceResults);
+
       // Create report
       const reportInsert: ReportInsert = {
         job_id: job.id,
         agent_id: agentId,
         content: analysis.content,
         format: typedAgent.output_format,
-        source_urls: activeSourceUrls,
+        source_urls: sourceIdentifiers,
       };
 
       const { error: reportError } = await adminClient
@@ -153,8 +162,10 @@ export async function POST(request: Request): Promise<Response> {
         status: "completed",
         completed_at: new Date().toISOString(),
         metadata: {
-          sources_scraped: successfulScrapes.length,
-          sources_failed: scrapeResults.length - successfulScrapes.length,
+          sources_total: sourceResults.length,
+          sources_succeeded: successfulFetches.length,
+          sources_failed: sourceResults.length - successfulFetches.length,
+          ...sourceBreakdown,
         },
       };
 

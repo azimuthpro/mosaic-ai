@@ -3,14 +3,15 @@
 import {
   ArrowLeft,
   ArrowRight,
+  Bot,
   Check,
+  Globe,
   Loader2,
-  Plus,
   Sparkles,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,10 +33,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { createAgent } from "@/lib/actions/agents";
+import {
+  createAgent,
+  getUserAgentsForSourceSelection,
+} from "@/lib/actions/agents";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { getScheduleOptions } from "@/lib/utils";
-import type { LanguageCode, OutputFormat } from "@/types/database";
+import type { LanguageCode, OutputFormat, SourceType } from "@/types/database";
 
 import { SkillsGallery } from "./skills-gallery";
 
@@ -50,18 +54,18 @@ const steps: { id: Step; title: string }[] = [
 ];
 
 interface Source {
+  type: SourceType;
   url: string;
   name: string;
+  sourceReferenceId?: string;
+  agentName?: string; // For display purposes
 }
 
 function getStepIndicatorClass(
   index: number,
   currentStepIndex: number,
 ): string {
-  const isCompleted = index < currentStepIndex;
-  const isCurrent = index === currentStepIndex;
-
-  if (isCompleted || isCurrent) {
+  if (index <= currentStepIndex) {
     return "bg-primary text-primary-foreground";
   }
   return "bg-muted text-muted-foreground";
@@ -69,12 +73,15 @@ function getStepIndicatorClass(
 
 function getSourceDisplayName(source: Source): string {
   if (source.name) return source.name;
-
-  try {
-    return new URL(source.url).hostname;
-  } catch {
-    return source.url;
+  if (source.type === "agent_report" && source.agentName) return source.agentName;
+  if (source.type === "url" && source.url) {
+    try {
+      return new URL(source.url).hostname;
+    } catch {
+      return source.url;
+    }
   }
+  return source.type === "agent_report" ? "Agent Report" : "URL";
 }
 
 export function AgentWizard(): React.ReactElement {
@@ -85,12 +92,32 @@ export function AgentWizard(): React.ReactElement {
 
   // Form state
   const [name, setName] = useState("");
-  const [sources, setSources] = useState<Source[]>([{ url: "", name: "" }]);
+  const [sources, setSources] = useState<Source[]>([
+    { type: "url", url: "", name: "" },
+  ]);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("text");
   const [language, setLanguage] = useState<LanguageCode>("en");
   const [scheduleCron, setScheduleCron] = useState("");
   const [showSkillsGallery, setShowSkillsGallery] = useState(false);
+  const [availableAgents, setAvailableAgents] = useState<
+    { id: string; name: string }[]
+  >([]);
+
+  // Load available agents when on sources step
+  useEffect(() => {
+    if (currentStep === "sources") {
+      let cancelled = false;
+      getUserAgentsForSourceSelection().then((agents) => {
+        if (!cancelled) {
+          setAvailableAgents(agents);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [currentStep]);
 
   const currentStepIndex = steps.findIndex((s) => s.id === currentStep);
   const isFirstStep = currentStepIndex === 0;
@@ -109,8 +136,8 @@ export function AgentWizard(): React.ReactElement {
     }
   }
 
-  function addSource(): void {
-    setSources([...sources, { url: "", name: "" }]);
+  function addSource(type: SourceType = "url"): void {
+    setSources([...sources, { type, url: "", name: "" }]);
   }
 
   function removeSource(index: number): void {
@@ -119,11 +146,33 @@ export function AgentWizard(): React.ReactElement {
 
   function updateSource(
     index: number,
-    field: "url" | "name",
+    field: "url" | "name" | "type" | "sourceReferenceId" | "agentName",
     value: string,
   ): void {
     const updated = [...sources];
-    updated[index][field] = value;
+    if (field === "type") {
+      updated[index] = {
+        type: value as SourceType,
+        url: "",
+        name: updated[index].name,
+      };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    setSources(updated);
+  }
+
+  function updateAgentSource(
+    index: number,
+    agentId: string,
+    agentName: string,
+  ): void {
+    const updated = [...sources];
+    updated[index] = {
+      ...updated[index],
+      sourceReferenceId: agentId,
+      agentName,
+    };
     setSources(updated);
   }
 
@@ -137,10 +186,7 @@ export function AgentWizard(): React.ReactElement {
     formData.append("outputFormat", outputFormat);
     formData.append("language", language);
     formData.append("scheduleCron", scheduleCron);
-    formData.append(
-      "sources",
-      JSON.stringify(sources.filter((s) => s.url.trim())),
-    );
+    formData.append("sources", JSON.stringify(sources.filter(isValidSource)));
 
     const result = await createAgent(formData);
 
@@ -151,12 +197,17 @@ export function AgentWizard(): React.ReactElement {
     // Redirect happens in the server action
   }
 
+  function isValidSource(s: Source): boolean {
+    if (s.type === "url") return s.url.trim().length > 0;
+    return Boolean(s.sourceReferenceId);
+  }
+
   function canProceed(): boolean {
     switch (currentStep) {
       case "basics":
         return name.trim().length > 0;
       case "sources":
-        return sources.some((s) => s.url.trim().length > 0);
+        return sources.some(isValidSource);
       case "instructions":
         return systemPrompt.trim().length > 0;
       case "schedule":
@@ -173,7 +224,7 @@ export function AgentWizard(): React.ReactElement {
     }
   }
 
-  const validSources = sources.filter((s) => s.url.trim());
+  const validSources = sources.filter(isValidSource);
   const selectedScheduleLabel =
     scheduleOptions.find((o) => o.value === scheduleCron)?.label ?? "Manual";
 
@@ -234,47 +285,122 @@ export function AgentWizard(): React.ReactElement {
         {currentStep === "sources" && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Add the web pages you want this agent to monitor.
+              Add sources for this agent to monitor. You can use web URLs or
+              reports from other agents.
             </p>
             {sources.map((source, index) => (
-              <div key={index} className="flex gap-2">
-                <div className="flex-1 space-y-2">
-                  <Input
-                    placeholder="https://example.com/page"
-                    value={source.url}
-                    onChange={(e) => updateSource(index, "url", e.target.value)}
-                  />
-                </div>
-                <div className="w-32">
-                  <Input
-                    placeholder="Label"
-                    value={source.name}
-                    onChange={(e) =>
-                      updateSource(index, "name", e.target.value)
-                    }
-                  />
-                </div>
-                {sources.length > 1 && (
+              <div
+                key={index}
+                className="space-y-2 rounded-lg border p-3 bg-muted/30"
+              >
+                <div className="flex gap-2">
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeSource(index)}
+                    size="sm"
+                    variant={source.type === "url" ? "default" : "outline"}
+                    onClick={() => updateSource(index, "type", "url")}
                   >
-                    <X className="h-4 w-4" />
+                    <Globe className="mr-2 h-4 w-4" />
+                    Web URL
                   </Button>
-                )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={
+                      source.type === "agent_report" ? "default" : "outline"
+                    }
+                    onClick={() => updateSource(index, "type", "agent_report")}
+                    disabled={availableAgents.length === 0}
+                  >
+                    <Bot className="mr-2 h-4 w-4" />
+                    Agent Report
+                  </Button>
+                  {sources.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="ml-auto"
+                      onClick={() => removeSource(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    {source.type === "url" ? (
+                      <Input
+                        placeholder="https://example.com/page"
+                        value={source.url}
+                        onChange={(e) =>
+                          updateSource(index, "url", e.target.value)
+                        }
+                      />
+                    ) : (
+                      <Select
+                        value={source.sourceReferenceId || ""}
+                        onValueChange={(value) => {
+                          const agent = availableAgents.find(
+                            (a) => a.id === value,
+                          );
+                          if (agent) {
+                            updateAgentSource(index, agent.id, agent.name);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              availableAgents.length === 0
+                                ? "No agents available"
+                                : "Select an agent"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableAgents.map((agent) => (
+                            <SelectItem key={agent.id} value={agent.id}>
+                              {agent.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  <div className="w-32">
+                    <Input
+                      placeholder="Label"
+                      value={source.name}
+                      onChange={(e) =>
+                        updateSource(index, "name", e.target.value)
+                      }
+                    />
+                  </div>
+                </div>
               </div>
             ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addSource}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Source
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addSource("url")}
+              >
+                <Globe className="mr-2 h-4 w-4" />
+                Add URL
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addSource("agent_report")}
+                disabled={availableAgents.length === 0}
+              >
+                <Bot className="mr-2 h-4 w-4" />
+                Add Agent
+              </Button>
+            </div>
           </div>
         )}
 
@@ -402,7 +528,16 @@ export function AgentWizard(): React.ReactElement {
                 <span className="text-sm text-muted-foreground">Sources</span>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {validSources.map((source, i) => (
-                    <Badge key={i} variant="secondary">
+                    <Badge
+                      key={i}
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
+                      {source.type === "url" ? (
+                        <Globe className="h-3 w-3" />
+                      ) : (
+                        <Bot className="h-3 w-3" />
+                      )}
                       {getSourceDisplayName(source)}
                     </Badge>
                   ))}

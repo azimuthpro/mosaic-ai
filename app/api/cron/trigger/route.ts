@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { analyzeContent } from "@/lib/ai/gemini";
-import { scrapeUrls } from "@/lib/firecrawl/client";
+import {
+  fetchAllSourcesContent,
+  getSourceIdentifiers,
+  getSourceTypeBreakdown,
+} from "@/lib/sources/content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   Agent,
@@ -55,37 +59,38 @@ async function processAgent(
   }
 
   try {
-    // Scrape sources
-    const activeSourceUrls = agent.sources
-      .filter((s) => s.is_active)
-      .map((s) => s.url);
-
-    const scrapeResults = await scrapeUrls(activeSourceUrls);
+    // Fetch content from all sources (URLs and agent reports)
+    const sourceResults = await fetchAllSourcesContent(
+      agent.sources,
+      adminClient,
+    );
 
     // Update source timestamps
     const now = new Date().toISOString();
     await Promise.all(
-      agent.sources.map((source) =>
-        adminClient
-          .from("sources")
-          .update({ last_scraped_at: now } as never)
-          .eq("id", source.id),
-      ),
+      agent.sources
+        .filter((s) => s.is_active)
+        .map((source) =>
+          adminClient
+            .from("sources")
+            .update({ last_scraped_at: now } as never)
+            .eq("id", source.id),
+        ),
     );
 
-    // Get successful scrapes
-    const successfulScrapes = scrapeResults.filter(
+    // Get successful fetches
+    const successfulFetches = sourceResults.filter(
       (r) => r.success && r.content,
     );
-    const scrapedContent = successfulScrapes.map((r) => r.content!);
+    const fetchedContent = successfulFetches.map((r) => r.content!);
 
-    if (scrapedContent.length === 0) {
-      throw new Error("No content scraped");
+    if (fetchedContent.length === 0) {
+      throw new Error("No content fetched");
     }
 
     // Analyze with AI
     const analysis = await analyzeContent(
-      scrapedContent,
+      fetchedContent,
       agent.system_prompt,
       agent.output_format,
       agent.language,
@@ -95,13 +100,17 @@ async function processAgent(
       throw new Error(analysis.error || "Analysis failed");
     }
 
+    // Get source identifiers for report (handles both URL and agent sources)
+    const sourceIdentifiers = getSourceIdentifiers(sourceResults);
+    const sourceBreakdown = getSourceTypeBreakdown(sourceResults);
+
     // Create report
     const reportInsert: ReportInsert = {
       job_id: job.id,
       agent_id: agent.id,
       content: analysis.content,
       format: agent.output_format,
-      source_urls: activeSourceUrls,
+      source_urls: sourceIdentifiers,
     };
 
     await adminClient.from("reports").insert(reportInsert as never);
@@ -111,8 +120,10 @@ async function processAgent(
       status: "completed",
       completed_at: new Date().toISOString(),
       metadata: {
-        sources_scraped: successfulScrapes.length,
-        sources_failed: scrapeResults.length - successfulScrapes.length,
+        sources_total: sourceResults.length,
+        sources_succeeded: successfulFetches.length,
+        sources_failed: sourceResults.length - successfulFetches.length,
+        ...sourceBreakdown,
       },
     };
 
@@ -158,7 +169,7 @@ export async function GET(request: Request): Promise<Response> {
       .select(
         `
         *,
-        sources (*)
+        sources!sources_agent_id_fkey (*)
       `,
       )
       .eq("is_active", true)

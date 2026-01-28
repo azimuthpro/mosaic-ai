@@ -10,6 +10,7 @@ export type OutputFormat = "text" | "list" | "table" | "json";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 export type MemberRole = "owner" | "admin" | "member";
 export type LanguageCode = "en" | "pl" | "es" | "it" | "de";
+export type SourceType = "url" | "agent_report";
 export type SkillCategory =
   | "news"
   | "market"
@@ -147,32 +148,41 @@ export interface Database {
         Row: {
           id: string;
           agent_id: string;
-          url: string;
+          url: string | null;
           name: string | null;
           is_active: boolean;
           last_scraped_at: string | null;
           created_at: string;
           updated_at: string;
+          type: SourceType;
+          source_reference_id: string | null;
+          config: Json;
         };
         Insert: {
           id?: string;
           agent_id: string;
-          url: string;
+          url?: string | null;
           name?: string | null;
           is_active?: boolean;
           last_scraped_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          type?: SourceType;
+          source_reference_id?: string | null;
+          config?: Json;
         };
         Update: {
           id?: string;
           agent_id?: string;
-          url?: string;
+          url?: string | null;
           name?: string | null;
           is_active?: boolean;
           last_scraped_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          type?: SourceType;
+          source_reference_id?: string | null;
+          config?: Json;
         };
       };
       jobs: {
@@ -326,4 +336,8 @@ export type JobWithReport = Job & {
 export type ReportWithAgent = Report & {
   agent: Agent;
   job: Job;
+};
+
+export type SourceWithReferencedAgent = Source & {
+  referenced_agent?: Agent | null;
 };

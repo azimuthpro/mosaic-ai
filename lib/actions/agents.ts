@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient, getUser } from "@/lib/supabase/server";
+import { wouldCreateCircularDependency } from "@/lib/utils/dependency-graph";
 import type {
   Agent,
   AgentInsert,
@@ -12,6 +13,7 @@ import type {
   OutputFormat,
   Source,
   SourceInsert,
+  SourceType,
 } from "@/types/database";
 
 export type AgentWithSources = Agent & { sources: Source[] };
@@ -35,7 +37,7 @@ export async function getAgents(): Promise<AgentWithSources[]> {
     .select(
       `
       *,
-      sources (*)
+      sources!sources_agent_id_fkey (*)
     `,
     )
     .eq("owner_id", user.id)
@@ -62,7 +64,7 @@ export async function getAgent(id: string): Promise<AgentWithSources | null> {
     .select(
       `
       *,
-      sources (*)
+      sources!sources_agent_id_fkey (*)
     `,
     )
     .eq("id", id)
@@ -93,8 +95,13 @@ export async function createAgent(formData: FormData) {
   const scheduleCron = formData.get("scheduleCron") as string | null;
   const sourcesJson = formData.get("sources") as string;
 
-  // Parse sources
-  let sources: { url: string; name?: string }[] = [];
+  // Parse sources (frontend sends camelCase)
+  let sources: {
+    url?: string;
+    name?: string;
+    type?: SourceType;
+    sourceReferenceId?: string;
+  }[] = [];
   try {
     sources = JSON.parse(sourcesJson || "[]");
   } catch {
@@ -128,10 +135,33 @@ export async function createAgent(formData: FormData) {
 
   // Create sources
   if (sources.length > 0) {
+    // Check for circular dependencies in agent_report sources
+    for (const source of sources) {
+      if (source.type === "agent_report" && source.sourceReferenceId) {
+        const { wouldCreateCycle } = await wouldCreateCircularDependency(
+          supabase,
+          user.id,
+          agent.id,
+          source.sourceReferenceId,
+        );
+        if (wouldCreateCycle) {
+          // Delete the agent we just created since sources have circular dependency
+          await supabase.from("agents").delete().eq("id", agent.id);
+          return {
+            error:
+              "Cannot create agent: adding this agent as a source would create a circular dependency",
+          };
+        }
+      }
+    }
+
     const sourceData: SourceInsert[] = sources.map((s) => ({
       agent_id: agent.id,
-      url: s.url,
+      url: s.type === "url" ? s.url : null,
       name: s.name || null,
+      type: s.type || "url",
+      source_reference_id:
+        s.type === "agent_report" ? s.sourceReferenceId : null,
     }));
 
     const { error: sourcesError } = await supabase
@@ -261,13 +291,32 @@ export async function toggleAgentActive(id: string) {
 }
 
 // Source management
-export async function addSource(agentId: string, url: string, name?: string) {
+interface AddSourceParams {
+  agentId: string;
+  type?: SourceType;
+  url?: string;
+  name?: string;
+  sourceReferenceId?: string;
+}
+
+export async function addSource(
+  agentId: string,
+  urlOrParams: string | AddSourceParams,
+  name?: string,
+) {
   const supabase = await createClient();
   const user = await getUser();
 
   if (!user) {
     return { error: "Not authenticated" };
   }
+
+  const params: AddSourceParams =
+    typeof urlOrParams === "string"
+      ? { agentId, type: "url", url: urlOrParams, name }
+      : { ...urlOrParams, agentId };
+
+  const sourceType = params.type ?? "url";
 
   // Verify agent ownership
   const { data: agent } = await supabase
@@ -281,10 +330,46 @@ export async function addSource(agentId: string, url: string, name?: string) {
     return { error: "Agent not found" };
   }
 
+  // For agent_report type, verify ownership of referenced agent and check for circular dependencies
+  if (sourceType === "agent_report") {
+    if (!params.sourceReferenceId) {
+      return { error: "Agent report source requires a reference agent" };
+    }
+
+    // Verify ownership of referenced agent
+    const { data: referencedAgent } = await supabase
+      .from("agents")
+      .select("id, name")
+      .eq("id", params.sourceReferenceId)
+      .eq("owner_id", user.id)
+      .single();
+
+    if (!referencedAgent) {
+      return { error: "Referenced agent not found or not owned by you" };
+    }
+
+    // Check for circular dependency
+    const { wouldCreateCycle, cycle } = await wouldCreateCircularDependency(
+      supabase,
+      user.id,
+      agentId,
+      params.sourceReferenceId,
+    );
+
+    if (wouldCreateCycle) {
+      return {
+        error: `Cannot add source: would create circular dependency${cycle ? ` (${cycle.join(" -> ")})` : ""}`,
+      };
+    }
+  }
+
+  const isUrlSource = sourceType === "url";
   const sourceInsert: SourceInsert = {
     agent_id: agentId,
-    url,
-    name: name || null,
+    type: sourceType,
+    url: isUrlSource ? params.url : null,
+    name: params.name ?? null,
+    source_reference_id: isUrlSource ? null : params.sourceReferenceId,
   };
 
   const { data, error } = await supabase
@@ -338,4 +423,38 @@ export async function deleteSource(sourceId: string) {
 
   revalidatePath(`/agents/${typedSource.agent_id}`);
   return { success: true };
+}
+
+/**
+ * Gets user's agents that can be used as sources for another agent.
+ * Excludes the agent being edited to prevent self-reference.
+ */
+export async function getUserAgentsForSourceSelection(
+  excludeAgentId?: string,
+): Promise<{ id: string; name: string }[]> {
+  const supabase = await createClient();
+  const user = await getUser();
+
+  if (!user) {
+    return [];
+  }
+
+  let query = supabase
+    .from("agents")
+    .select("id, name")
+    .eq("owner_id", user.id)
+    .order("name", { ascending: true });
+
+  if (excludeAgentId) {
+    query = query.neq("id", excludeAgentId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching agents for source selection:", error);
+    return [];
+  }
+
+  return (data || []) as { id: string; name: string }[];
 }
