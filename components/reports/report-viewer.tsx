@@ -1,34 +1,32 @@
-'use client'
+"use client";
 
-import type { Json, OutputFormat } from '@/types/database'
+import type { Json, OutputFormat } from "@/types/database";
 
 interface ReportViewerProps {
-  content: Json
-  format: OutputFormat
+  content: Json;
+  format: OutputFormat;
 }
 
 export function ReportViewer({ content, format }: ReportViewerProps) {
   if (!content) {
-    return (
-      <p className="text-muted-foreground">No content available.</p>
-    )
+    return <p className="text-muted-foreground">No content available.</p>;
   }
 
   // Safely cast content
-  const data = content as Record<string, unknown>
+  const data = content as Record<string, unknown>;
 
   // Text format
-  if (format === 'text' || data.text) {
+  if (format === "text" || data.text) {
     return (
       <div className="prose prose-sm dark:prose-invert max-w-none">
         <p className="whitespace-pre-wrap">{String(data.text || data)}</p>
       </div>
-    )
+    );
   }
 
   // List format
-  if (format === 'list' || data.items) {
-    const items = data.items as string[] || []
+  if (format === "list" || data.items) {
+    const items = (data.items as string[]) || [];
     return (
       <ul className="space-y-2">
         {items.map((item, index) => (
@@ -38,13 +36,13 @@ export function ReportViewer({ content, format }: ReportViewerProps) {
           </li>
         ))}
       </ul>
-    )
+    );
   }
 
   // Table format
-  if (format === 'table' || (data.headers && data.rows)) {
-    const headers = data.headers as string[] || []
-    const rows = data.rows as string[][] || []
+  if (format === "table" || (data.headers && data.rows)) {
+    const headers = (data.headers as string[]) || [];
+    const rows = (data.rows as string[][]) || [];
     return (
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
@@ -73,7 +71,7 @@ export function ReportViewer({ content, format }: ReportViewerProps) {
           </tbody>
         </table>
       </div>
-    )
+    );
   }
 
   // JSON format (or fallback)
@@ -81,5 +79,5 @@ export function ReportViewer({ content, format }: ReportViewerProps) {
     <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-sm">
       <code>{JSON.stringify(content, null, 2)}</code>
     </pre>
-  )
+  );
 }

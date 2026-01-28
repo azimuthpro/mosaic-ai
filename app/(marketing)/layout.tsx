@@ -1,14 +1,14 @@
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-import { getUser } from '@/lib/supabase/server'
-import { Header } from '@/components/layout/header'
+import { Header } from "@/components/layout/header";
+import { getUser } from "@/lib/supabase/server";
 
 export default async function MarketingLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const user = await getUser()
+  const user = await getUser();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -22,5 +22,5 @@ export default async function MarketingLayout({
         </div>
       </footer>
     </div>
-  )
+  );
 }

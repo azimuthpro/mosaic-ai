@@ -1,46 +1,50 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { CheckCircle2, AlertCircle } from "lucide-react"
-import { requestInvite } from "@/lib/actions/invite"
+import { AlertCircle, CheckCircle2 } from "lucide-react";
+import * as React from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { requestInvite } from "@/lib/actions/invite";
 
 export function InviteForm() {
-  const [email, setEmail] = React.useState("")
-  const [isLoading, setIsLoading] = React.useState(false)
-  const [isSubmitted, setIsSubmitted] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [email, setEmail] = React.useState("");
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError(null)
-    
-    const result = await requestInvite(email)
-    
-    setIsLoading(false)
-    
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    const result = await requestInvite(email);
+
+    setIsLoading(false);
+
     if (result.error) {
-      setError(result.error)
+      setError(result.error);
     } else {
-      setIsSubmitted(true)
-      setEmail("")
+      setIsSubmitted(true);
+      setEmail("");
     }
-  }
+  };
 
   if (isSubmitted) {
     return (
       <div className="flex items-center gap-2 text-green-600 font-medium py-2">
         <CheckCircle2 className="h-5 w-5" />
-        <span>Request sent! We'll get back to you soon.</span>
+        <span>Request sent! We&apos;ll get back to you soon.</span>
       </div>
-    )
+    );
   }
 
   return (
     <div className="flex flex-col w-full max-w-sm gap-2">
-      <form onSubmit={handleSubmit} className="flex w-full items-center space-x-2">
+      <form
+        onSubmit={handleSubmit}
+        className="flex w-full items-center space-x-2"
+      >
         <Input
           type="email"
           placeholder="Enter your email"
@@ -61,5 +65,5 @@ export function InviteForm() {
         </div>
       )}
     </div>
-  )
+  );
 }

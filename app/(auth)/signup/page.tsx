@@ -1,42 +1,52 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-  const supabase = createClient()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setIsLoading(true)
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
 
     // First check if email is allowed (via API endpoint)
-    const checkResponse = await fetch('/api/auth/check-allowlist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const checkResponse = await fetch("/api/auth/check-allowlist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
-    })
+    });
 
-    const checkResult = await checkResponse.json()
+    const checkResult = await checkResponse.json();
 
     if (!checkResult.allowed) {
-      setError('This email is not on the invite list. Please request an invite.')
-      setIsLoading(false)
-      return
+      setError(
+        "This email is not on the invite list. Please request an invite.",
+      );
+      setIsLoading(false);
+      return;
     }
 
     const { error } = await supabase.auth.signUp({
@@ -47,23 +57,25 @@ export default function SignupPage() {
           full_name: fullName,
         },
       },
-    })
+    });
 
     if (error) {
-      setError(error.message)
-      setIsLoading(false)
-      return
+      setError(error.message);
+      setIsLoading(false);
+      return;
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    router.push("/dashboard");
+    router.refresh();
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
+          <CardTitle className="text-2xl font-bold">
+            Create an account
+          </CardTitle>
           <CardDescription>
             Enter your details to create your account. Invite only.
           </CardDescription>
@@ -121,8 +133,11 @@ export default function SignupPage() {
               Create account
             </Button>
             <p className="text-center text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <Link href="/login" className="text-primary underline-offset-4 hover:underline">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="text-primary underline-offset-4 hover:underline"
+              >
                 Sign in
               </Link>
             </p>
@@ -130,5 +145,5 @@ export default function SignupPage() {
         </form>
       </Card>
     </div>
-  )
+  );
 }

@@ -1,23 +1,24 @@
-import { NextResponse } from 'next/server'
-import { isEmailAllowed } from '@/lib/supabase/admin'
+import { NextResponse } from "next/server";
+
+import { isEmailAllowed } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json()
+    const { email } = await request.json();
 
     if (!email) {
       return NextResponse.json(
-        { allowed: false, error: 'Email is required' },
-        { status: 400 }
-      )
+        { allowed: false, error: "Email is required" },
+        { status: 400 },
+      );
     }
 
-    const allowed = await isEmailAllowed(email)
-    return NextResponse.json({ allowed })
+    const allowed = await isEmailAllowed(email);
+    return NextResponse.json({ allowed });
   } catch {
     return NextResponse.json(
-      { allowed: false, error: 'Internal server error' },
-      { status: 500 }
-    )
+      { allowed: false, error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

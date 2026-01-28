@@ -1,42 +1,49 @@
-'use client'
+"use client";
 
-import { User } from '@supabase/supabase-js'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { User } from "@supabase/supabase-js";
+import {
+  LayoutDashboard as DashboardIcon,
+  LogOut as LogoutIcon,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
-import { LogOut as LogoutIcon, LayoutDashboard as DashboardIcon } from 'lucide-react'
+} from "@/components/ui/dropdown-menu";
+import { createClient } from "@/lib/supabase/client";
 
 interface UserMenuProps {
-  user: User
+  user: User;
 }
 
 export function UserMenu({ user }: UserMenuProps) {
-  const router = useRouter()
-  const supabase = createClient()
+  const router = useRouter();
+  const supabase = createClient();
 
-  const initials = user.user_metadata?.full_name
-    ?.split(' ')
-    .map((n: string) => n[0])
-    .join('')
-    .toUpperCase() || user.email?.[0].toUpperCase() || '?'
+  const initials =
+    user.user_metadata?.full_name
+      ?.split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .toUpperCase() ||
+    user.email?.[0].toUpperCase() ||
+    "?";
 
   async function handleSignOut() {
-    await supabase.auth.signOut()
-    router.push('/')
-    router.refresh()
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
   }
 
   async function handleDashboard() {
-    router.push('/dashboard')
-    router.refresh()
+    router.push("/dashboard");
+    router.refresh();
   }
 
   return (
@@ -46,7 +53,7 @@ export function UserMenu({ user }: UserMenuProps) {
           <Avatar className="h-8 w-8">
             <AvatarImage
               src={user.user_metadata?.avatar_url}
-              alt={user.user_metadata?.full_name || user.email || ''}
+              alt={user.user_metadata?.full_name || user.email || ""}
             />
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
@@ -56,14 +63,14 @@ export function UserMenu({ user }: UserMenuProps) {
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">
-              {user.user_metadata?.full_name || 'User'}
+              {user.user_metadata?.full_name || "User"}
             </p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
             </p>
           </div>
         </DropdownMenuLabel>
-         <DropdownMenuItem onClick={handleDashboard}>
+        <DropdownMenuItem onClick={handleDashboard}>
           <DashboardIcon className="mr-2 h-4 w-4" />
           <span>Dashboard</span>
         </DropdownMenuItem>
@@ -73,5 +80,5 @@ export function UserMenu({ user }: UserMenuProps) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }

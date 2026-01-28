@@ -1,12 +1,13 @@
-import Link from 'next/link'
-import { getAgents } from '@/lib/actions/agents'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Plus, Bot } from 'lucide-react'
-import { AgentCard } from '@/components/agents/agent-card'
+import { Bot, Plus } from "lucide-react";
+import Link from "next/link";
+
+import { AgentCard } from "@/components/agents/agent-card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { getAgents } from "@/lib/actions/agents";
 
 export default async function AgentsPage() {
-  const agents = await getAgents()
+  const agents = await getAgents();
 
   return (
     <div className="space-y-6">
@@ -31,7 +32,8 @@ export default async function AgentsPage() {
             <Bot className="h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-lg font-semibold">No agents yet</h3>
             <p className="mt-2 text-sm text-muted-foreground text-center max-w-sm">
-              Create your first agent to start gathering intelligence from the web.
+              Create your first agent to start gathering intelligence from the
+              web.
             </p>
             <Button asChild className="mt-4">
               <Link href="/agents/new">
@@ -49,5 +51,5 @@ export default async function AgentsPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

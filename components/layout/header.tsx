@@ -1,12 +1,13 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { User } from '@supabase/supabase-js'
-import { UserMenu } from './user-menu'
-import { Bot } from 'lucide-react'
+import { User } from "@supabase/supabase-js";
+import { Bot } from "lucide-react";
+import Link from "next/link";
+
+import { UserMenu } from "./user-menu";
 
 interface HeaderProps {
-  user: User | null
+  user: User | null;
 }
 
 export function Header({ user }: HeaderProps) {
@@ -14,7 +15,10 @@ export function Header({ user }: HeaderProps) {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
         <div className="mr-4 flex">
-          <Link href={user ? '/dashboard' : '/'} className="mr-6 flex items-center space-x-2">
+          <Link
+            href={user ? "/dashboard" : "/"}
+            className="mr-6 flex items-center space-x-2"
+          >
             <Bot className="h-6 w-6" />
             <span className="font-bold">Mosaic AI</span>
           </Link>
@@ -41,5 +45,5 @@ export function Header({ user }: HeaderProps) {
         </div>
       </div>
     </header>
-  )
+  );
 }

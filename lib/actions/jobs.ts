@@ -1,103 +1,107 @@
-'use server'
+"use server";
 
-import { createClient, getUser } from '@/lib/supabase/server'
-import type { Job, JobInsert, Agent } from '@/types/database'
+import { createClient, getUser } from "@/lib/supabase/server";
+import type { Agent, Job, JobInsert } from "@/types/database";
 
-export async function getRecentJobs(limit: number = 10): Promise<(Job & { agent: Agent | null })[]> {
-  const supabase = await createClient()
-  const user = await getUser()
+export async function getRecentJobs(
+  limit: number = 10,
+): Promise<(Job & { agent: Agent | null })[]> {
+  const supabase = await createClient();
+  const user = await getUser();
 
   if (!user) {
-    return []
+    return [];
   }
 
   const { data, error } = await supabase
-    .from('jobs')
-    .select(`
+    .from("jobs")
+    .select(
+      `
       *,
       agent:agents (*)
-    `)
-    .eq('agents.owner_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(limit)
+    `,
+    )
+    .eq("agents.owner_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
   if (error) {
-    console.error('Error fetching jobs:', error)
-    return []
+    console.error("Error fetching jobs:", error);
+    return [];
   }
 
-  return data as (Job & { agent: Agent | null })[]
+  return data as (Job & { agent: Agent | null })[];
 }
 
 export async function getJobsForAgent(agentId: string): Promise<Job[]> {
-  const supabase = await createClient()
-  const user = await getUser()
+  const supabase = await createClient();
+  const user = await getUser();
 
   if (!user) {
-    return []
+    return [];
   }
 
   // Verify ownership
   const { data: agent } = await supabase
-    .from('agents')
-    .select('id')
-    .eq('id', agentId)
-    .eq('owner_id', user.id)
-    .single()
+    .from("agents")
+    .select("id")
+    .eq("id", agentId)
+    .eq("owner_id", user.id)
+    .single();
 
   if (!agent) {
-    return []
+    return [];
   }
 
   const { data, error } = await supabase
-    .from('jobs')
-    .select('*')
-    .eq('agent_id', agentId)
-    .order('created_at', { ascending: false })
+    .from("jobs")
+    .select("*")
+    .eq("agent_id", agentId)
+    .order("created_at", { ascending: false });
 
   if (error) {
-    console.error('Error fetching jobs:', error)
-    return []
+    console.error("Error fetching jobs:", error);
+    return [];
   }
 
-  return (data || []) as Job[]
+  return (data || []) as Job[];
 }
 
 export async function createJob(agentId: string): Promise<Job | null> {
-  const supabase = await createClient()
-  const user = await getUser()
+  const supabase = await createClient();
+  const user = await getUser();
 
   if (!user) {
-    return null
+    return null;
   }
 
   // Verify ownership
   const { data: agent } = await supabase
-    .from('agents')
-    .select('id')
-    .eq('id', agentId)
-    .eq('owner_id', user.id)
-    .single()
+    .from("agents")
+    .select("id")
+    .eq("id", agentId)
+    .eq("owner_id", user.id)
+    .single();
 
   if (!agent) {
-    return null
+    return null;
   }
 
   const jobInsert: JobInsert = {
     agent_id: agentId,
-    status: 'pending',
-  }
+    status: "pending",
+  };
 
   const { data, error } = await supabase
-    .from('jobs')
+    .from("jobs")
     .insert(jobInsert as never)
     .select()
-    .single()
+    .single();
 
   if (error) {
-    console.error('Error creating job:', error)
-    return null
+    console.error("Error creating job:", error);
+    return null;
   }
 
-  return data
+  return data;
 }

@@ -1,7 +1,17 @@
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Bot, Globe, Sparkles, Clock, FileText, Shield, Share2, Layers } from 'lucide-react'
-import { InviteForm } from '@/components/marketing/invite-form'
+import {
+  Bot,
+  Clock,
+  FileText,
+  Globe,
+  Layers,
+  Share2,
+  Shield,
+  Sparkles,
+} from "lucide-react";
+import Link from "next/link";
+
+import { InviteForm } from "@/components/marketing/invite-form";
+import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   return (
@@ -15,14 +25,17 @@ export default function HomePage() {
             with Intelligent Agents
           </h1>
           <p className="max-w-[750px] text-lg text-muted-foreground sm:text-xl">
-            Create custom agents that automatically read web pages, analyze content with AI,
-            and deliver structured insights directly to your Google Sheets.
+            Create custom agents that automatically read web pages, analyze
+            content with AI, and deliver structured insights directly to your
+            Google Sheets.
           </p>
         </div>
         <div className="flex flex-col items-center gap-4 w-full max-w-sm">
           <InviteForm />
           <div className="flex gap-4 items-center">
-            <span className="text-sm text-muted-foreground">Already have access?</span>
+            <span className="text-sm text-muted-foreground">
+              Already have access?
+            </span>
             <Button variant="link" size="sm" asChild className="px-0">
               <Link href="/login">Sign In</Link>
             </Button>
@@ -51,7 +64,8 @@ export default function HomePage() {
             <div className="mt-4 space-y-2">
               <h3 className="font-bold">Intelligent Agents</h3>
               <p className="text-sm text-muted-foreground">
-                Define custom instructions for agents to gather and extract precisely the data you need.
+                Define custom instructions for agents to gather and extract
+                precisely the data you need.
               </p>
             </div>
           </div>
@@ -62,7 +76,8 @@ export default function HomePage() {
             <div className="mt-4 space-y-2">
               <h3 className="font-bold">Web Reader</h3>
               <p className="text-sm text-muted-foreground">
-                Automatically read and parse any public web page, from news sites to complex directories.
+                Automatically read and parse any public web page, from news
+                sites to complex directories.
               </p>
             </div>
           </div>
@@ -73,7 +88,8 @@ export default function HomePage() {
             <div className="mt-4 space-y-2">
               <h3 className="font-bold">AI Analysis</h3>
               <p className="text-sm text-muted-foreground">
-                Process gathered content with advanced LLMs to extract structured facts and deep insights.
+                Process gathered content with advanced LLMs to extract
+                structured facts and deep insights.
               </p>
             </div>
           </div>
@@ -84,7 +100,8 @@ export default function HomePage() {
             <div className="mt-4 space-y-2">
               <h3 className="font-bold">Automated Scheduling</h3>
               <p className="text-sm text-muted-foreground">
-                Set up recurring schedules (daily, weekly) to keep your datasets constantly updated.
+                Set up recurring schedules (daily, weekly) to keep your datasets
+                constantly updated.
               </p>
             </div>
           </div>
@@ -95,7 +112,8 @@ export default function HomePage() {
             <div className="mt-4 space-y-2">
               <h3 className="font-bold">Google Sheets Integration</h3>
               <p className="text-sm text-muted-foreground">
-                Automatically append every new report as a structured row in your Google Drive spreadsheets.
+                Automatically append every new report as a structured row in
+                your Google Drive spreadsheets.
               </p>
             </div>
           </div>
@@ -106,7 +124,8 @@ export default function HomePage() {
             <div className="mt-4 space-y-2">
               <h3 className="font-bold">Collaboration</h3>
               <p className="text-sm text-muted-foreground">
-                Invite team members and manage permissions to work together on intelligence workflows.
+                Invite team members and manage permissions to work together on
+                intelligence workflows.
               </p>
             </div>
           </div>
@@ -127,7 +146,8 @@ export default function HomePage() {
             </div>
             <h3 className="mt-4 text-xl font-bold">Define Instructions</h3>
             <p className="mt-2 text-muted-foreground">
-              Add your sources (URLs or other agents) and provide clear instructions for what to extract.
+              Add your sources (URLs or other agents) and provide clear
+              instructions for what to extract.
             </p>
           </div>
           <div className="flex flex-col items-center text-center">
@@ -136,7 +156,8 @@ export default function HomePage() {
             </div>
             <h3 className="mt-4 text-xl font-bold">Set a Schedule</h3>
             <p className="mt-2 text-muted-foreground">
-              Choose your frequency—daily or weekly—and let the platform handle the heavy lifting.
+              Choose your frequency—daily or weekly—and let the platform handle
+              the heavy lifting.
             </p>
           </div>
           <div className="flex flex-col items-center text-center">
@@ -145,7 +166,8 @@ export default function HomePage() {
             </div>
             <h3 className="mt-4 text-xl font-bold">Automate Results</h3>
             <p className="mt-2 text-muted-foreground">
-              Watch as your Google Sheets are automatically updated with fresh, structured intelligence.
+              Watch as your Google Sheets are automatically updated with fresh,
+              structured intelligence.
             </p>
           </div>
         </div>
@@ -158,7 +180,8 @@ export default function HomePage() {
             Go Deeper with Chaining
           </h2>
           <p className="max-w-[85%] leading-normal text-muted-foreground sm:text-lg sm:leading-7">
-            Mosaic AI allows you to build complex research workflows by connecting agents together.
+            Mosaic AI allows you to build complex research workflows by
+            connecting agents together.
           </p>
         </div>
         <div className="mx-auto grid justify-center gap-4 sm:grid-cols-2 md:max-w-[64rem] mt-8">
@@ -169,8 +192,9 @@ export default function HomePage() {
             <div className="mt-4 space-y-2">
               <h3 className="font-bold">Recursive Research</h3>
               <p className="text-sm text-muted-foreground">
-                Use the output of one agent as the source for another. Build a hierarchy of intelligence 
-                where broad discovery feeds into deep, specialized analysis.
+                Use the output of one agent as the source for another. Build a
+                hierarchy of intelligence where broad discovery feeds into deep,
+                specialized analysis.
               </p>
             </div>
           </div>
@@ -181,8 +205,9 @@ export default function HomePage() {
             <div className="mt-4 space-y-2">
               <h3 className="font-bold">Fact Triangulation</h3>
               <p className="text-sm text-muted-foreground">
-                Cross-verify critical facts across multiple sources. Our chaining engine ensures 
-                high-confidence data by triangulating information from diverse origins.
+                Cross-verify critical facts across multiple sources. Our
+                chaining engine ensures high-confidence data by triangulating
+                information from diverse origins.
               </p>
             </div>
           </div>
@@ -196,7 +221,8 @@ export default function HomePage() {
             Ready to get started?
           </h2>
           <p className="max-w-[85%] leading-normal text-muted-foreground sm:text-lg sm:leading-7">
-            Join our invite-only platform and start building your intelligence gathering workflows today.
+            Join our invite-only platform and start building your intelligence
+            gathering workflows today.
           </p>
           <div className="mt-4 w-full flex justify-center">
             <InviteForm />
@@ -204,5 +230,5 @@ export default function HomePage() {
         </div>
       </section>
     </div>
-  )
+  );
 }

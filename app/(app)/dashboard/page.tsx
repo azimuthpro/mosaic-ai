@@ -1,23 +1,31 @@
-import Link from 'next/link'
-import { getAgents } from '@/lib/actions/agents'
-import { getRecentJobs } from '@/lib/actions/jobs'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Plus, Bot, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react'
-import { formatRelativeTime, cronToSchedule } from '@/lib/utils'
+import { Bot, CheckCircle, Clock, Loader2, Plus, XCircle } from "lucide-react";
+import Link from "next/link";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getAgents } from "@/lib/actions/agents";
+import { getRecentJobs } from "@/lib/actions/jobs";
+import { cronToSchedule, formatRelativeTime } from "@/lib/utils";
 
 export default async function DashboardPage() {
-  const agents = await getAgents()
-  const recentJobs = await getRecentJobs(5)
+  const agents = await getAgents();
+  const recentJobs = await getRecentJobs(5);
 
-  const activeAgents = agents.filter(a => a.is_active).length
-  const totalSources = agents.reduce((acc, a) => acc + (a.sources?.length || 0), 0)
+  const activeAgents = agents.filter((a) => a.is_active).length;
+  const totalSources = agents.reduce(
+    (acc, a) => acc + (a.sources?.length || 0),
+    0,
+  );
 
   return (
     <div className="space-y-8">
-
-
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -51,9 +59,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{recentJobs.length}</div>
-            <p className="text-xs text-muted-foreground">
-              In the last 7 days
-            </p>
+            <p className="text-xs text-muted-foreground">In the last 7 days</p>
           </CardContent>
         </Card>
       </div>
@@ -93,8 +99,10 @@ export default async function DashboardPage() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold">{agent.name}</h3>
-                        <Badge variant={agent.is_active ? 'success' : 'secondary'}>
-                          {agent.is_active ? 'Active' : 'Paused'}
+                        <Badge
+                          variant={agent.is_active ? "success" : "secondary"}
+                        >
+                          {agent.is_active ? "Active" : "Paused"}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -118,9 +126,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Recent Jobs</CardTitle>
-            <CardDescription>
-              Latest agent execution history.
-            </CardDescription>
+            <CardDescription>Latest agent execution history.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -130,22 +136,26 @@ export default async function DashboardPage() {
                   className="flex items-center justify-between rounded-lg border p-4"
                 >
                   <div className="flex items-center gap-4">
-                    {job.status === 'completed' && (
+                    {job.status === "completed" && (
                       <CheckCircle className="h-5 w-5 text-green-500" />
                     )}
-                    {job.status === 'failed' && (
+                    {job.status === "failed" && (
                       <XCircle className="h-5 w-5 text-red-500" />
                     )}
-                    {job.status === 'processing' && (
+                    {job.status === "processing" && (
                       <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
                     )}
-                    {job.status === 'pending' && (
+                    {job.status === "pending" && (
                       <Clock className="h-5 w-5 text-muted-foreground" />
                     )}
                     <div>
-                      <p className="font-medium">{job.agent?.name || 'Unknown Agent'}</p>
+                      <p className="font-medium">
+                        {job.agent?.name || "Unknown Agent"}
+                      </p>
                       <p className="text-sm text-muted-foreground">
-                        {job.status === 'failed' ? job.error_message : `Status: ${job.status}`}
+                        {job.status === "failed"
+                          ? job.error_message
+                          : `Status: ${job.status}`}
                       </p>
                     </div>
                   </div>
@@ -159,5 +169,5 @@ export default async function DashboardPage() {
         </Card>
       )}
     </div>
-  )
+  );
 }

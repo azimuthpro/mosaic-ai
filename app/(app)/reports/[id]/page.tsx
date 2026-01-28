@@ -1,26 +1,33 @@
-import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { getReport } from '@/lib/actions/reports'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { ReportViewer } from '@/components/reports/report-viewer'
-import { ArrowLeft, Bot, Clock, Globe } from 'lucide-react'
-import { formatDateTime } from '@/lib/utils'
+import { ArrowLeft, Bot, Clock, Globe } from "lucide-react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { ReportViewer } from "@/components/reports/report-viewer";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getReport } from "@/lib/actions/reports";
+import { formatDateTime } from "@/lib/utils";
 
 export default async function ReportDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = await params
-  const report = await getReport(id)
+  const { id } = await params;
+  const report = await getReport(id);
 
   if (!report) {
-    notFound()
+    notFound();
   }
 
-  const agent = report.agent as { id: string; name: string } | null
+  const agent = report.agent as { id: string; name: string } | null;
 
   return (
     <div className="space-y-6">
@@ -39,7 +46,7 @@ export default async function ReportDetailPage({
           <div className="flex items-center gap-4 text-sm text-muted-foreground pl-10">
             <span className="flex items-center gap-1">
               <Bot className="h-4 w-4" />
-              {agent?.name || 'Unknown Agent'}
+              {agent?.name || "Unknown Agent"}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
@@ -93,5 +100,5 @@ export default async function ReportDetailPage({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

@@ -1,49 +1,56 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { addSource, deleteSource } from '@/lib/actions/agents'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Globe, Plus, Trash2, Loader2 } from 'lucide-react'
-import { getDomain, formatRelativeTime } from '@/lib/utils'
-import type { Source } from '@/types/database'
+import { Globe, Loader2, Plus, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { addSource, deleteSource } from "@/lib/actions/agents";
+import { formatRelativeTime, getDomain } from "@/lib/utils";
+import type { Source } from "@/types/database";
 
 interface SourceListProps {
-  agentId: string
-  sources: Source[]
+  agentId: string;
+  sources: Source[];
 }
 
 export function SourceList({ agentId, sources }: SourceListProps) {
-  const router = useRouter()
-  const [isAdding, setIsAdding] = useState(false)
-  const [newUrl, setNewUrl] = useState('')
-  const [newName, setNewName] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const router = useRouter();
+  const [isAdding, setIsAdding] = useState(false);
+  const [newUrl, setNewUrl] = useState("");
+  const [newName, setNewName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function handleAdd() {
-    if (!newUrl.trim()) return
+    if (!newUrl.trim()) return;
 
-    setIsLoading(true)
-    const result = await addSource(agentId, newUrl, newName || undefined)
+    setIsLoading(true);
+    const result = await addSource(agentId, newUrl, newName || undefined);
 
     if (result?.success) {
-      setNewUrl('')
-      setNewName('')
-      setIsAdding(false)
-      router.refresh()
+      setNewUrl("");
+      setNewName("");
+      setIsAdding(false);
+      router.refresh();
     }
 
-    setIsLoading(false)
+    setIsLoading(false);
   }
 
   async function handleDelete(sourceId: string) {
-    setDeletingId(sourceId)
-    await deleteSource(sourceId)
-    router.refresh()
-    setDeletingId(null)
+    setDeletingId(sourceId);
+    await deleteSource(sourceId);
+    router.refresh();
+    setDeletingId(null);
   }
 
   return (
@@ -76,7 +83,11 @@ export function SourceList({ agentId, sources }: SourceListProps) {
               />
             </div>
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleAdd} disabled={isLoading || !newUrl.trim()}>
+              <Button
+                size="sm"
+                onClick={handleAdd}
+                disabled={isLoading || !newUrl.trim()}
+              >
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Add
               </Button>
@@ -84,9 +95,9 @@ export function SourceList({ agentId, sources }: SourceListProps) {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  setIsAdding(false)
-                  setNewUrl('')
-                  setNewName('')
+                  setIsAdding(false);
+                  setNewUrl("");
+                  setNewName("");
                 }}
               >
                 Cancel
@@ -117,7 +128,8 @@ export function SourceList({ agentId, sources }: SourceListProps) {
                     </p>
                     {source.last_scraped_at && (
                       <p className="text-xs text-muted-foreground">
-                        Last scraped: {formatRelativeTime(source.last_scraped_at)}
+                        Last scraped:{" "}
+                        {formatRelativeTime(source.last_scraped_at)}
                       </p>
                     )}
                   </div>
@@ -140,5 +152,5 @@ export function SourceList({ agentId, sources }: SourceListProps) {
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

@@ -1,40 +1,51 @@
-import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { getAgent } from '@/lib/actions/agents'
-import { getJobsForAgent } from '@/lib/actions/jobs'
-import { getReportsForAgent } from '@/lib/actions/reports'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AgentSettings } from '@/components/agents/agent-settings'
-import { SourceList } from '@/components/agents/source-list'
-import { RunAgentButton } from '@/components/agents/run-agent-button'
 import {
   ArrowLeft,
-  Clock,
   CheckCircle,
-  XCircle,
-  Loader2,
-  Globe,
+  Clock,
   FileText,
-} from 'lucide-react'
-import { formatRelativeTime, cronToSchedule, formatDateTime } from '@/lib/utils'
+  Globe,
+  Loader2,
+  XCircle,
+} from "lucide-react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { AgentSettings } from "@/components/agents/agent-settings";
+import { RunAgentButton } from "@/components/agents/run-agent-button";
+import { SourceList } from "@/components/agents/source-list";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAgent } from "@/lib/actions/agents";
+import { getJobsForAgent } from "@/lib/actions/jobs";
+import { getReportsForAgent } from "@/lib/actions/reports";
+import {
+  cronToSchedule,
+  formatDateTime,
+  formatRelativeTime,
+} from "@/lib/utils";
 
 export default async function AgentDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = await params
-  const agent = await getAgent(id)
+  const { id } = await params;
+  const agent = await getAgent(id);
 
   if (!agent) {
-    notFound()
+    notFound();
   }
 
-  const jobs = await getJobsForAgent(id)
-  const reports = await getReportsForAgent(id)
+  const jobs = await getJobsForAgent(id);
+  const reports = await getReportsForAgent(id);
 
   return (
     <div className="space-y-6">
@@ -48,8 +59,8 @@ export default async function AgentDetailPage({
               </Link>
             </Button>
             <h1 className="text-3xl font-bold tracking-tight">{agent.name}</h1>
-            <Badge variant={agent.is_active ? 'success' : 'secondary'}>
-              {agent.is_active ? 'Active' : 'Paused'}
+            <Badge variant={agent.is_active ? "success" : "secondary"}>
+              {agent.is_active ? "Active" : "Paused"}
             </Badge>
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground pl-10">
@@ -99,22 +110,26 @@ export default async function AgentDetailPage({
                       className="flex items-center justify-between rounded-lg border p-3"
                     >
                       <div className="flex items-center gap-3">
-                        {job.status === 'completed' && (
+                        {job.status === "completed" && (
                           <CheckCircle className="h-5 w-5 text-green-500" />
                         )}
-                        {job.status === 'failed' && (
+                        {job.status === "failed" && (
                           <XCircle className="h-5 w-5 text-red-500" />
                         )}
-                        {job.status === 'processing' && (
+                        {job.status === "processing" && (
                           <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
                         )}
-                        {job.status === 'pending' && (
+                        {job.status === "pending" && (
                           <Clock className="h-5 w-5 text-muted-foreground" />
                         )}
                         <div>
-                          <p className="text-sm font-medium capitalize">{job.status}</p>
+                          <p className="text-sm font-medium capitalize">
+                            {job.status}
+                          </p>
                           {job.error_message && (
-                            <p className="text-xs text-destructive">{job.error_message}</p>
+                            <p className="text-xs text-destructive">
+                              {job.error_message}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -137,7 +152,9 @@ export default async function AgentDetailPage({
           <Card>
             <CardHeader>
               <CardTitle>Reports</CardTitle>
-              <CardDescription>Analysis results from agent runs</CardDescription>
+              <CardDescription>
+                Analysis results from agent runs
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {reports.length === 0 ? (
@@ -178,5 +195,5 @@ export default async function AgentDetailPage({
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

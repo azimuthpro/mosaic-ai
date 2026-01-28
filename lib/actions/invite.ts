@@ -1,20 +1,20 @@
-'use server'
+"use server";
 
-import { addToAllowlist } from '@/lib/supabase/admin'
+import { addToAllowlist } from "@/lib/supabase/admin";
 
 export async function requestInvite(email: string) {
-  if (!email || !email.includes('@')) {
-    return { error: 'Invalid email address' }
+  if (!email || !email.includes("@")) {
+    return { error: "Invalid email address" };
   }
 
-  const { error } = await addToAllowlist(email)
+  const { error } = await addToAllowlist(email);
 
   if (error) {
-    if (error.code === '23505') {
-      return { error: 'This email has already requested an invite.' }
+    if (error.code === "23505") {
+      return { error: "This email has already requested an invite." };
     }
-    return { error: 'Failed to request invite. Please try again later.' }
+    return { error: "Failed to request invite. Please try again later." };
   }
 
-  return { success: true }
+  return { success: true };
 }

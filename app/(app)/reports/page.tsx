@@ -1,17 +1,22 @@
-import Link from 'next/link'
-import { getAllReports } from '@/lib/actions/reports'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { FileText, Bot } from 'lucide-react'
-import { formatDateTime } from '@/lib/utils'
+import { Bot, FileText } from "lucide-react";
+import Link from "next/link";
+
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getAllReports } from "@/lib/actions/reports";
+import { formatDateTime } from "@/lib/utils";
 
 export default async function ReportsPage() {
-  const reports = await getAllReports()
+  const reports = await getAllReports();
 
   return (
     <div className="space-y-6">
-
-
       {reports.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
@@ -33,7 +38,8 @@ export default async function ReportsPage() {
                       <Bot className="h-5 w-5 text-muted-foreground" />
                       <div>
                         <CardTitle className="text-base">
-                          {(report.agent as { name: string } | null)?.name || 'Unknown Agent'}
+                          {(report.agent as { name: string } | null)?.name ||
+                            "Unknown Agent"}
                         </CardTitle>
                         <CardDescription>
                           {formatDateTime(report.created_at)}
@@ -54,5 +60,5 @@ export default async function ReportsPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

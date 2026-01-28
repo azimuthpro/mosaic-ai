@@ -1,144 +1,181 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Loader2,
+  Plus,
+  Sparkles,
+  X,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-import { createAgent } from '@/lib/actions/agents'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { Loader2, Plus, X, ArrowLeft, ArrowRight, Check } from 'lucide-react'
-import { getScheduleOptions } from '@/lib/utils'
-import type { OutputFormat } from '@/types/database'
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { createAgent } from "@/lib/actions/agents";
+import { LANGUAGES } from "@/lib/constants/languages";
+import { getScheduleOptions } from "@/lib/utils";
+import type { LanguageCode, OutputFormat } from "@/types/database";
 
-type Step = 'basics' | 'sources' | 'instructions' | 'schedule' | 'review'
+import { SkillsGallery } from "./skills-gallery";
+
+type Step = "basics" | "sources" | "instructions" | "schedule" | "review";
 
 const steps: { id: Step; title: string }[] = [
-  { id: 'basics', title: 'Basic Info' },
-  { id: 'sources', title: 'Sources' },
-  { id: 'instructions', title: 'Instructions' },
-  { id: 'schedule', title: 'Schedule' },
-  { id: 'review', title: 'Review' },
-]
+  { id: "basics", title: "Basic Info" },
+  { id: "sources", title: "Sources" },
+  { id: "instructions", title: "Instructions" },
+  { id: "schedule", title: "Schedule" },
+  { id: "review", title: "Review" },
+];
 
 interface Source {
-  url: string
-  name: string
+  url: string;
+  name: string;
 }
 
-function getStepIndicatorClass(index: number, currentStepIndex: number): string {
-  const isCompleted = index < currentStepIndex
-  const isCurrent = index === currentStepIndex
+function getStepIndicatorClass(
+  index: number,
+  currentStepIndex: number,
+): string {
+  const isCompleted = index < currentStepIndex;
+  const isCurrent = index === currentStepIndex;
 
   if (isCompleted || isCurrent) {
-    return 'bg-primary text-primary-foreground'
+    return "bg-primary text-primary-foreground";
   }
-  return 'bg-muted text-muted-foreground'
+  return "bg-muted text-muted-foreground";
 }
 
 function getSourceDisplayName(source: Source): string {
-  if (source.name) return source.name
+  if (source.name) return source.name;
 
   try {
-    return new URL(source.url).hostname
+    return new URL(source.url).hostname;
   } catch {
-    return source.url
+    return source.url;
   }
 }
 
 export function AgentWizard(): React.ReactElement {
-  const router = useRouter()
-  const [currentStep, setCurrentStep] = useState<Step>('basics')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const router = useRouter();
+  const [currentStep, setCurrentStep] = useState<Step>("basics");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Form state
-  const [name, setName] = useState('')
-  const [sources, setSources] = useState<Source[]>([{ url: '', name: '' }])
-  const [systemPrompt, setSystemPrompt] = useState('')
-  const [outputFormat, setOutputFormat] = useState<OutputFormat>('text')
-  const [scheduleCron, setScheduleCron] = useState('')
+  const [name, setName] = useState("");
+  const [sources, setSources] = useState<Source[]>([{ url: "", name: "" }]);
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>("text");
+  const [language, setLanguage] = useState<LanguageCode>("en");
+  const [scheduleCron, setScheduleCron] = useState("");
+  const [showSkillsGallery, setShowSkillsGallery] = useState(false);
 
-  const currentStepIndex = steps.findIndex((s) => s.id === currentStep)
-  const isFirstStep = currentStepIndex === 0
-  const isLastStep = currentStepIndex === steps.length - 1
-  const scheduleOptions = getScheduleOptions()
+  const currentStepIndex = steps.findIndex((s) => s.id === currentStep);
+  const isFirstStep = currentStepIndex === 0;
+  const isLastStep = currentStepIndex === steps.length - 1;
+  const scheduleOptions = getScheduleOptions();
 
   function goNext(): void {
     if (!isLastStep) {
-      setCurrentStep(steps[currentStepIndex + 1].id)
+      setCurrentStep(steps[currentStepIndex + 1].id);
     }
   }
 
   function goBack(): void {
     if (!isFirstStep) {
-      setCurrentStep(steps[currentStepIndex - 1].id)
+      setCurrentStep(steps[currentStepIndex - 1].id);
     }
   }
 
   function addSource(): void {
-    setSources([...sources, { url: '', name: '' }])
+    setSources([...sources, { url: "", name: "" }]);
   }
 
   function removeSource(index: number): void {
-    setSources(sources.filter((_, i) => i !== index))
+    setSources(sources.filter((_, i) => i !== index));
   }
 
-  function updateSource(index: number, field: 'url' | 'name', value: string): void {
-    const updated = [...sources]
-    updated[index][field] = value
-    setSources(updated)
+  function updateSource(
+    index: number,
+    field: "url" | "name",
+    value: string,
+  ): void {
+    const updated = [...sources];
+    updated[index][field] = value;
+    setSources(updated);
   }
 
   async function handleSubmit(): Promise<void> {
-    setIsLoading(true)
-    setError(null)
+    setIsLoading(true);
+    setError(null);
 
-    const formData = new FormData()
-    formData.append('name', name)
-    formData.append('systemPrompt', systemPrompt)
-    formData.append('outputFormat', outputFormat)
-    formData.append('scheduleCron', scheduleCron)
-    formData.append('sources', JSON.stringify(sources.filter((s) => s.url.trim())))
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("systemPrompt", systemPrompt);
+    formData.append("outputFormat", outputFormat);
+    formData.append("language", language);
+    formData.append("scheduleCron", scheduleCron);
+    formData.append(
+      "sources",
+      JSON.stringify(sources.filter((s) => s.url.trim())),
+    );
 
-    const result = await createAgent(formData)
+    const result = await createAgent(formData);
 
     if (result?.error) {
-      setError(result.error)
-      setIsLoading(false)
+      setError(result.error);
+      setIsLoading(false);
     }
     // Redirect happens in the server action
   }
 
   function canProceed(): boolean {
     switch (currentStep) {
-      case 'basics':
-        return name.trim().length > 0
-      case 'sources':
-        return sources.some((s) => s.url.trim().length > 0)
-      case 'instructions':
-        return systemPrompt.trim().length > 0
-      case 'schedule':
-      case 'review':
-        return true
+      case "basics":
+        return name.trim().length > 0;
+      case "sources":
+        return sources.some((s) => s.url.trim().length > 0);
+      case "instructions":
+        return systemPrompt.trim().length > 0;
+      case "schedule":
+      case "review":
+        return true;
     }
   }
 
   function handleBackClick(): void {
     if (isFirstStep) {
-      router.back()
+      router.back();
     } else {
-      goBack()
+      goBack();
     }
   }
 
-  const validSources = sources.filter((s) => s.url.trim())
+  const validSources = sources.filter((s) => s.url.trim());
   const selectedScheduleLabel =
-    scheduleOptions.find((o) => o.value === scheduleCron)?.label ?? 'Manual'
+    scheduleOptions.find((o) => o.value === scheduleCron)?.label ?? "Manual";
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -155,11 +192,15 @@ export function AgentWizard(): React.ReactElement {
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${getStepIndicatorClass(index, currentStepIndex)}`}
               >
-                {index < currentStepIndex ? <Check className="h-4 w-4" /> : index + 1}
+                {index < currentStepIndex ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  index + 1
+                )}
               </div>
               {index < steps.length - 1 && (
                 <div
-                  className={`h-0.5 w-8 ${index < currentStepIndex ? 'bg-primary' : 'bg-muted'}`}
+                  className={`h-0.5 w-8 ${index < currentStepIndex ? "bg-primary" : "bg-muted"}`}
                 />
               )}
             </div>
@@ -175,7 +216,7 @@ export function AgentWizard(): React.ReactElement {
         )}
 
         {/* Step: Basics */}
-        {currentStep === 'basics' && (
+        {currentStep === "basics" && (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Agent Name *</Label>
@@ -190,7 +231,7 @@ export function AgentWizard(): React.ReactElement {
         )}
 
         {/* Step: Sources */}
-        {currentStep === 'sources' && (
+        {currentStep === "sources" && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               Add the web pages you want this agent to monitor.
@@ -201,14 +242,16 @@ export function AgentWizard(): React.ReactElement {
                   <Input
                     placeholder="https://example.com/page"
                     value={source.url}
-                    onChange={(e) => updateSource(index, 'url', e.target.value)}
+                    onChange={(e) => updateSource(index, "url", e.target.value)}
                   />
                 </div>
                 <div className="w-32">
                   <Input
                     placeholder="Label"
                     value={source.name}
-                    onChange={(e) => updateSource(index, 'name', e.target.value)}
+                    onChange={(e) =>
+                      updateSource(index, "name", e.target.value)
+                    }
                   />
                 </div>
                 {sources.length > 1 && (
@@ -223,7 +266,12 @@ export function AgentWizard(): React.ReactElement {
                 )}
               </div>
             ))}
-            <Button type="button" variant="outline" size="sm" onClick={addSource}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addSource}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add Source
             </Button>
@@ -231,10 +279,21 @@ export function AgentWizard(): React.ReactElement {
         )}
 
         {/* Step: Instructions */}
-        {currentStep === 'instructions' && (
+        {currentStep === "instructions" && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="systemPrompt">Instructions *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="systemPrompt">Instructions *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowSkillsGallery(true)}
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Browse Skills
+                </Button>
+              </div>
               <p className="text-sm text-muted-foreground">
                 Tell the AI what to look for and how to analyze the content.
               </p>
@@ -246,25 +305,50 @@ export function AgentWizard(): React.ReactElement {
                 className="min-h-[150px]"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="outputFormat">Report Format</Label>
-              <Select value={outputFormat} onValueChange={(v) => setOutputFormat(v as OutputFormat)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="text">Text (paragraph)</SelectItem>
-                  <SelectItem value="list">List (bullet points)</SelectItem>
-                  <SelectItem value="table">Table (structured data)</SelectItem>
-                  <SelectItem value="json">JSON (raw data)</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="language">Language</Label>
+                <Select
+                  value={language}
+                  onValueChange={(v) => setLanguage(v as LanguageCode)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGES.map((lang) => (
+                      <SelectItem key={lang.value} value={lang.value}>
+                        {lang.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="outputFormat">Report Format</Label>
+                <Select
+                  value={outputFormat}
+                  onValueChange={(v) => setOutputFormat(v as OutputFormat)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">Text (paragraph)</SelectItem>
+                    <SelectItem value="list">List (bullet points)</SelectItem>
+                    <SelectItem value="table">
+                      Table (structured data)
+                    </SelectItem>
+                    <SelectItem value="json">JSON (raw data)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         )}
 
         {/* Step: Schedule */}
-        {currentStep === 'schedule' && (
+        {currentStep === "schedule" && (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Schedule</Label>
@@ -273,13 +357,13 @@ export function AgentWizard(): React.ReactElement {
               </p>
               <div className="grid gap-2">
                 {scheduleOptions.map((option) => {
-                  const isSelected = scheduleCron === option.value
+                  const isSelected = scheduleCron === option.value;
                   const labelClass = isSelected
-                    ? 'border-primary bg-primary/5'
-                    : ''
+                    ? "border-primary bg-primary/5"
+                    : "";
                   const radioClass = isSelected
-                    ? 'border-primary bg-primary'
-                    : 'border-muted-foreground'
+                    ? "border-primary bg-primary"
+                    : "border-muted-foreground";
 
                   return (
                     <label
@@ -294,10 +378,12 @@ export function AgentWizard(): React.ReactElement {
                         onChange={(e) => setScheduleCron(e.target.value)}
                         className="sr-only"
                       />
-                      <div className={`h-4 w-4 rounded-full border-2 ${radioClass}`} />
+                      <div
+                        className={`h-4 w-4 rounded-full border-2 ${radioClass}`}
+                      />
                       <span>{option.label}</span>
                     </label>
-                  )
+                  );
                 })}
               </div>
             </div>
@@ -305,7 +391,7 @@ export function AgentWizard(): React.ReactElement {
         )}
 
         {/* Step: Review */}
-        {currentStep === 'review' && (
+        {currentStep === "review" && (
           <div className="space-y-4">
             <div className="rounded-lg border p-4 space-y-3">
               <div>
@@ -323,16 +409,29 @@ export function AgentWizard(): React.ReactElement {
                 </div>
               </div>
               <div>
-                <span className="text-sm text-muted-foreground">Instructions</span>
+                <span className="text-sm text-muted-foreground">
+                  Instructions
+                </span>
                 <p className="text-sm">{systemPrompt}</p>
               </div>
               <div className="flex gap-4">
+                <div>
+                  <span className="text-sm text-muted-foreground">
+                    Language
+                  </span>
+                  <p>
+                    {LANGUAGES.find((l) => l.value === language)?.label ??
+                      "English"}
+                  </p>
+                </div>
                 <div>
                   <span className="text-sm text-muted-foreground">Format</span>
                   <p>{outputFormat}</p>
                 </div>
                 <div>
-                  <span className="text-sm text-muted-foreground">Schedule</span>
+                  <span className="text-sm text-muted-foreground">
+                    Schedule
+                  </span>
                   <p>{selectedScheduleLabel}</p>
                 </div>
               </div>
@@ -344,7 +443,7 @@ export function AgentWizard(): React.ReactElement {
       <CardFooter className="flex justify-between">
         <Button type="button" variant="outline" onClick={handleBackClick}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          {isFirstStep ? 'Cancel' : 'Back'}
+          {isFirstStep ? "Cancel" : "Back"}
         </Button>
         {isLastStep ? (
           <Button onClick={handleSubmit} disabled={isLoading}>
@@ -358,6 +457,15 @@ export function AgentWizard(): React.ReactElement {
           </Button>
         )}
       </CardFooter>
+
+      <SkillsGallery
+        open={showSkillsGallery}
+        onOpenChange={setShowSkillsGallery}
+        onSelect={(prompt) => {
+          setSystemPrompt(prompt);
+          setShowSkillsGallery(false);
+        }}
+      />
     </Card>
-  )
+  );
 }

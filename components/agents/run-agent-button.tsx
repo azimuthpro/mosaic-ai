@@ -1,36 +1,37 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Play, Loader2 } from 'lucide-react'
+import { Loader2, Play } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
 
 interface RunAgentButtonProps {
-  agentId: string
+  agentId: string;
 }
 
 export function RunAgentButton({ agentId }: RunAgentButtonProps) {
-  const router = useRouter()
-  const [isRunning, setIsRunning] = useState(false)
+  const router = useRouter();
+  const [isRunning, setIsRunning] = useState(false);
 
   async function handleRun() {
-    setIsRunning(true)
+    setIsRunning(true);
 
     try {
-      const response = await fetch('/api/agents/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/agents/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agentId }),
-      })
+      });
 
       if (response.ok) {
-        router.refresh()
+        router.refresh();
       }
     } catch (error) {
-      console.error('Failed to run agent:', error)
+      console.error("Failed to run agent:", error);
     }
 
-    setIsRunning(false)
+    setIsRunning(false);
   }
 
   return (
@@ -42,5 +43,5 @@ export function RunAgentButton({ agentId }: RunAgentButtonProps) {
       )}
       Run Now
     </Button>
-  )
+  );
 }

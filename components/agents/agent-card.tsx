@@ -1,38 +1,45 @@
-'use client'
+"use client";
 
-import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Switch } from '@/components/ui/switch'
-import { toggleAgentActive } from '@/lib/actions/agents'
-import { formatRelativeTime, cronToSchedule } from '@/lib/utils'
-import type { AgentWithSources } from '@/lib/actions/agents'
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import type { AgentWithSources } from "@/lib/actions/agents";
+import { toggleAgentActive } from "@/lib/actions/agents";
+import { cronToSchedule, formatRelativeTime } from "@/lib/utils";
 
 interface AgentCardProps {
-  agent: AgentWithSources
+  agent: AgentWithSources;
 }
 
 export function AgentCard({ agent }: AgentCardProps) {
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
-  const [optimisticIsActive, setOptimisticIsActive] = useState(agent.is_active)
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [optimisticIsActive, setOptimisticIsActive] = useState(agent.is_active);
 
   function handleCardClick(): void {
-    router.push(`/agents/${agent.id}`)
+    router.push(`/agents/${agent.id}`);
   }
 
   function handleToggle(checked: boolean): void {
-    setOptimisticIsActive(checked)
+    setOptimisticIsActive(checked);
     startTransition(async () => {
-      const result = await toggleAgentActive(agent.id)
+      const result = await toggleAgentActive(agent.id);
       if (result.error) {
-        setOptimisticIsActive(!checked)
+        setOptimisticIsActive(!checked);
       }
-    })
+    });
   }
 
   function stopPropagation(e: React.MouseEvent): void {
-    e.stopPropagation()
+    e.stopPropagation();
   }
 
   return (
@@ -45,13 +52,13 @@ export function AgentCard({ agent }: AgentCardProps) {
           <CardTitle className="text-lg">{agent.name}</CardTitle>
           <div className="flex items-center gap-2" onClick={stopPropagation}>
             <span className="text-xs text-muted-foreground">
-              {optimisticIsActive ? 'Active' : 'Paused'}
+              {optimisticIsActive ? "Active" : "Paused"}
             </span>
             <Switch
               checked={optimisticIsActive}
               onCheckedChange={handleToggle}
               disabled={isPending}
-              aria-label={`Toggle ${agent.name} ${optimisticIsActive ? 'off' : 'on'}`}
+              aria-label={`Toggle ${agent.name} ${optimisticIsActive ? "off" : "on"}`}
             />
           </div>
         </div>
@@ -66,5 +73,5 @@ export function AgentCard({ agent }: AgentCardProps) {
         </p>
       </CardContent>
     </Card>
-  )
+  );
 }
