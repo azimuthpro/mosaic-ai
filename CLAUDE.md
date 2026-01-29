@@ -31,9 +31,11 @@ npm run lint     # Run ESLint
 ### Core Concepts
 
 - **Agents**: User-configured intelligence gathering tasks with sources, prompts, and schedules
-- **Sources**: Data inputs for agents. Two types:
+- **Sources**: Data inputs for agents. Three types:
   - `url`: Web pages scraped via Firecrawl
   - `agent_report`: Output from another agent (enables chaining)
+  - `web_search`: AI-powered web search via Tavily API
+- **Agent Sharing**: Role-based access control for collaborative agent management (owner/admin/member)
 - **Jobs**: Execution records for agent runs
 - **Reports**: Analyzed data extracted from source content
 

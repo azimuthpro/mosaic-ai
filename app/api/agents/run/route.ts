@@ -121,7 +121,20 @@ export async function POST(request: Request): Promise<Response> {
       const fetchedContent = successfulFetches.map((r) => r.content!);
 
       if (fetchedContent.length === 0) {
-        throw new Error("No content could be fetched from sources");
+        // Collect errors from failed sources for debugging
+        const sourceErrors = sourceResults
+          .filter((r) => !r.success)
+          .map((r) => ({
+            identifier: r.identifier,
+            type: r.sourceType,
+            error: r.error,
+          }));
+
+        console.error("All sources failed:", sourceErrors);
+
+        throw new Error(
+          `No content could be fetched from sources. Errors: ${sourceErrors.map((e) => e.error).join("; ")}`,
+        );
       }
 
       // Analyze with AI

@@ -234,6 +234,14 @@ export async function createAgent(formData: FormData) {
       }
     }
 
+    // Validate web_search sources have required config
+    for (const source of sources) {
+      if (source.type === "web_search" && !source.config?.query) {
+        await supabase.from("agents").delete().eq("id", agent.id);
+        return { error: "Web search source requires a search query" };
+      }
+    }
+
     const sourceData: SourceInsert[] = sources.map((s) => ({
       agent_id: agent.id,
       url: s.type === "url" ? s.url : null,
@@ -253,7 +261,9 @@ export async function createAgent(formData: FormData) {
 
     if (sourcesError) {
       console.error("Error creating sources:", sourcesError);
-      // Don't fail the whole operation, agent was created
+      // Rollback: delete the agent we just created
+      await supabase.from("agents").delete().eq("id", agent.id);
+      return { error: "Failed to create sources" };
     }
   }
 
