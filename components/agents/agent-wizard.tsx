@@ -7,6 +7,7 @@ import {
   Check,
   Globe,
   Loader2,
+  Search,
   Sparkles,
   X,
 } from "lucide-react";
@@ -59,6 +60,10 @@ interface Source {
   name: string;
   sourceReferenceId?: string;
   agentName?: string; // For display purposes
+  // Web search fields
+  searchQuery?: string;
+  searchDepth?: "basic" | "advanced";
+  maxResults?: number;
 }
 
 function getStepIndicatorClass(
@@ -73,7 +78,11 @@ function getStepIndicatorClass(
 
 function getSourceDisplayName(source: Source): string {
   if (source.name) return source.name;
-  if (source.type === "agent_report" && source.agentName) return source.agentName;
+  if (source.type === "agent_report" && source.agentName)
+    return source.agentName;
+  if (source.type === "web_search" && source.searchQuery) {
+    return `Search: ${source.searchQuery}`;
+  }
   if (source.type === "url" && source.url) {
     try {
       return new URL(source.url).hostname;
@@ -81,7 +90,14 @@ function getSourceDisplayName(source: Source): string {
       return source.url;
     }
   }
+  if (source.type === "web_search") return "Web Search";
   return source.type === "agent_report" ? "Agent Report" : "URL";
+}
+
+function getSourceIcon(type: SourceType) {
+  if (type === "agent_report") return Bot;
+  if (type === "web_search") return Search;
+  return Globe;
 }
 
 export function AgentWizard(): React.ReactElement {
@@ -146,8 +162,16 @@ export function AgentWizard(): React.ReactElement {
 
   function updateSource(
     index: number,
-    field: "url" | "name" | "type" | "sourceReferenceId" | "agentName",
-    value: string,
+    field:
+      | "url"
+      | "name"
+      | "type"
+      | "sourceReferenceId"
+      | "agentName"
+      | "searchQuery"
+      | "searchDepth"
+      | "maxResults",
+    value: string | number,
   ): void {
     const updated = [...sources];
     if (field === "type") {
@@ -155,6 +179,9 @@ export function AgentWizard(): React.ReactElement {
         type: value as SourceType,
         url: "",
         name: updated[index].name,
+        searchQuery: "",
+        searchDepth: "basic",
+        maxResults: 5,
       };
     } else {
       updated[index] = { ...updated[index], [field]: value };
@@ -180,13 +207,28 @@ export function AgentWizard(): React.ReactElement {
     setIsLoading(true);
     setError(null);
 
+    // Transform sources to include config for web_search type
+    const transformedSources = sources.filter(isValidSource).map((s) => {
+      if (s.type === "web_search") {
+        return {
+          ...s,
+          config: {
+            query: s.searchQuery,
+            search_depth: s.searchDepth || "basic",
+            max_results: s.maxResults || 5,
+          },
+        };
+      }
+      return s;
+    });
+
     const formData = new FormData();
     formData.append("name", name);
     formData.append("systemPrompt", systemPrompt);
     formData.append("outputFormat", outputFormat);
     formData.append("language", language);
     formData.append("scheduleCron", scheduleCron);
-    formData.append("sources", JSON.stringify(sources.filter(isValidSource)));
+    formData.append("sources", JSON.stringify(transformedSources));
 
     const result = await createAgent(formData);
 
@@ -199,6 +241,7 @@ export function AgentWizard(): React.ReactElement {
 
   function isValidSource(s: Source): boolean {
     if (s.type === "url") return s.url.trim().length > 0;
+    if (s.type === "web_search") return Boolean(s.searchQuery?.trim());
     return Boolean(s.sourceReferenceId);
   }
 
@@ -285,15 +328,15 @@ export function AgentWizard(): React.ReactElement {
         {currentStep === "sources" && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Add sources for this agent to monitor. You can use web URLs or
-              reports from other agents.
+              Add sources for this agent to monitor. You can use web URLs, web
+              search, or reports from other agents.
             </p>
             {sources.map((source, index) => (
               <div
                 key={index}
                 className="space-y-2 rounded-lg border p-3 bg-muted/30"
               >
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
                     size="sm"
@@ -302,6 +345,17 @@ export function AgentWizard(): React.ReactElement {
                   >
                     <Globe className="mr-2 h-4 w-4" />
                     Web URL
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={
+                      source.type === "web_search" ? "default" : "outline"
+                    }
+                    onClick={() => updateSource(index, "type", "web_search")}
+                  >
+                    <Search className="mr-2 h-4 w-4" />
+                    Web Search
                   </Button>
                   <Button
                     type="button"
@@ -327,60 +381,131 @@ export function AgentWizard(): React.ReactElement {
                     </Button>
                   )}
                 </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    {source.type === "url" ? (
+                <div className="space-y-2">
+                  {source.type === "url" && (
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="https://example.com/page"
+                          value={source.url}
+                          onChange={(e) =>
+                            updateSource(index, "url", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="w-32">
+                        <Input
+                          placeholder="Label"
+                          value={source.name}
+                          onChange={(e) =>
+                            updateSource(index, "name", e.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {source.type === "web_search" && (
+                    <>
                       <Input
-                        placeholder="https://example.com/page"
-                        value={source.url}
+                        placeholder="Search query (e.g., latest AI developments)"
+                        value={source.searchQuery || ""}
                         onChange={(e) =>
-                          updateSource(index, "url", e.target.value)
+                          updateSource(index, "searchQuery", e.target.value)
                         }
                       />
-                    ) : (
-                      <Select
-                        value={source.sourceReferenceId || ""}
-                        onValueChange={(value) => {
-                          const agent = availableAgents.find(
-                            (a) => a.id === value,
-                          );
-                          if (agent) {
-                            updateAgentSource(index, agent.id, agent.name);
+                      <div className="flex gap-2">
+                        <Select
+                          value={source.searchDepth || "basic"}
+                          onValueChange={(v) =>
+                            updateSource(index, "searchDepth", v)
                           }
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              availableAgents.length === 0
-                                ? "No agents available"
-                                : "Select an agent"
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="basic">Basic Search</SelectItem>
+                            <SelectItem value="advanced">
+                              Deep Search
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={String(source.maxResults || 5)}
+                          onValueChange={(v) =>
+                            updateSource(index, "maxResults", Number(v))
+                          }
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[3, 5, 7, 10].map((n) => (
+                              <SelectItem key={n} value={String(n)}>
+                                {n} results
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="w-32">
+                          <Input
+                            placeholder="Label"
+                            value={source.name}
+                            onChange={(e) =>
+                              updateSource(index, "name", e.target.value)
                             }
                           />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableAgents.map((agent) => (
-                            <SelectItem key={agent.id} value={agent.id}>
-                              {agent.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                  <div className="w-32">
-                    <Input
-                      placeholder="Label"
-                      value={source.name}
-                      onChange={(e) =>
-                        updateSource(index, "name", e.target.value)
-                      }
-                    />
-                  </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {source.type === "agent_report" && (
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Select
+                          value={source.sourceReferenceId || ""}
+                          onValueChange={(value) => {
+                            const agent = availableAgents.find(
+                              (a) => a.id === value,
+                            );
+                            if (agent) {
+                              updateAgentSource(index, agent.id, agent.name);
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={
+                                availableAgents.length === 0
+                                  ? "No agents available"
+                                  : "Select an agent"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableAgents.map((agent) => (
+                              <SelectItem key={agent.id} value={agent.id}>
+                                {agent.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="w-32">
+                        <Input
+                          placeholder="Label"
+                          value={source.name}
+                          onChange={(e) =>
+                            updateSource(index, "name", e.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -389,6 +514,15 @@ export function AgentWizard(): React.ReactElement {
               >
                 <Globe className="mr-2 h-4 w-4" />
                 Add URL
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addSource("web_search")}
+              >
+                <Search className="mr-2 h-4 w-4" />
+                Add Search
               </Button>
               <Button
                 type="button"
@@ -527,20 +661,19 @@ export function AgentWizard(): React.ReactElement {
               <div>
                 <span className="text-sm text-muted-foreground">Sources</span>
                 <div className="flex flex-wrap gap-2 mt-1">
-                  {validSources.map((source, i) => (
-                    <Badge
-                      key={i}
-                      variant="secondary"
-                      className="flex items-center gap-1"
-                    >
-                      {source.type === "url" ? (
-                        <Globe className="h-3 w-3" />
-                      ) : (
-                        <Bot className="h-3 w-3" />
-                      )}
-                      {getSourceDisplayName(source)}
-                    </Badge>
-                  ))}
+                  {validSources.map((source, i) => {
+                    const Icon = getSourceIcon(source.type);
+                    return (
+                      <Badge
+                        key={i}
+                        variant="secondary"
+                        className="flex items-center gap-1"
+                      >
+                        <Icon className="h-3 w-3" />
+                        {getSourceDisplayName(source)}
+                      </Badge>
+                    );
+                  })}
                 </div>
               </div>
               <div>

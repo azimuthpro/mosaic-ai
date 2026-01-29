@@ -5,11 +5,13 @@ import {
   FileText,
   Globe,
   Loader2,
+  Users,
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AgentMembers } from "@/components/agents/agent-members";
 import { AgentSettings } from "@/components/agents/agent-settings";
 import { RunAgentButton } from "@/components/agents/run-agent-button";
 import { SourceList } from "@/components/agents/source-list";
@@ -25,12 +27,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAgent } from "@/lib/actions/agents";
 import { getJobsForAgent } from "@/lib/actions/jobs";
+import { getAgentMembers, getUserAgentRole } from "@/lib/actions/members";
 import { getReportsForAgent } from "@/lib/actions/reports";
-import {
-  cronToSchedule,
-  formatDateTime,
-  formatRelativeTime,
-} from "@/lib/utils";
+import { createClient } from "@/lib/supabase/server";
+import { cronToSchedule, formatDateTime } from "@/lib/utils";
 
 export default async function AgentDetailPage({
   params,
@@ -44,8 +44,24 @@ export default async function AgentDetailPage({
     notFound();
   }
 
-  const jobs = await getJobsForAgent(id);
-  const reports = await getReportsForAgent(id);
+  const [jobs, reports, members, userRole] = await Promise.all([
+    getJobsForAgent(id),
+    getReportsForAgent(id),
+    getAgentMembers(id),
+    getUserAgentRole(id),
+  ]);
+
+  // Get owner email for display
+  const supabase = await createClient();
+  const { data: ownerData } = await supabase
+    .from("users")
+    .select("email")
+    .eq("id", agent.owner_id)
+    .single();
+  const owner = ownerData as { email: string } | null;
+  const ownerEmail = owner?.email || "Unknown";
+
+  const isOwnerOrAdmin = userRole === "owner" || userRole === "admin";
 
   return (
     <div className="space-y-6">
@@ -78,7 +94,7 @@ export default async function AgentDetailPage({
             </span>
           </div>
         </div>
-        <RunAgentButton agentId={agent.id} />
+        {isOwnerOrAdmin && <RunAgentButton agentId={agent.id} />}
       </div>
 
       {/* Tabs */}
@@ -87,7 +103,18 @@ export default async function AgentDetailPage({
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="sources">Sources</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="team" className="flex items-center gap-1">
+            <Users className="h-4 w-4" />
+            Team
+            {members.length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                {members.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          {isOwnerOrAdmin && (
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -190,9 +217,22 @@ export default async function AgentDetailPage({
           </Card>
         </TabsContent>
 
-        <TabsContent value="settings">
-          <AgentSettings agent={agent} />
+        <TabsContent value="team">
+          {userRole && (
+            <AgentMembers
+              agentId={agent.id}
+              members={members}
+              ownerEmail={ownerEmail}
+              userRole={userRole}
+            />
+          )}
         </TabsContent>
+
+        {isOwnerOrAdmin && (
+          <TabsContent value="settings">
+            <AgentSettings agent={agent} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

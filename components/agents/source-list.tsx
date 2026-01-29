@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Globe, Loader2, Plus, Trash2 } from "lucide-react";
+import { Bot, Globe, Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -26,7 +26,7 @@ import {
   getUserAgentsForSourceSelection,
 } from "@/lib/actions/agents";
 import { formatRelativeTime, getDomain } from "@/lib/utils";
-import type { Source, SourceType } from "@/types/database";
+import type { Source, SourceType, WebSearchConfig } from "@/types/database";
 
 interface SourceListProps {
   agentId: string;
@@ -40,6 +40,9 @@ export function SourceList({ agentId, sources }: SourceListProps) {
   const [newUrl, setNewUrl] = useState("");
   const [newName, setNewName] = useState("");
   const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchDepth, setSearchDepth] = useState<"basic" | "advanced">("basic");
+  const [maxResults, setMaxResults] = useState(5);
   const [availableAgents, setAvailableAgents] = useState<
     { id: string; name: string }[]
   >([]);
@@ -65,6 +68,9 @@ export function SourceList({ agentId, sources }: SourceListProps) {
     setNewUrl("");
     setNewName("");
     setSelectedAgentId("");
+    setSearchQuery("");
+    setSearchDepth("basic");
+    setMaxResults(5);
     setSourceType("url");
     setError(null);
   }
@@ -74,6 +80,15 @@ export function SourceList({ agentId, sources }: SourceListProps) {
     if (!isSourceValid()) return;
     setIsLoading(true);
 
+    const config =
+      sourceType === "web_search"
+        ? {
+            query: searchQuery,
+            search_depth: searchDepth,
+            max_results: maxResults,
+          }
+        : undefined;
+
     const result = await addSource(agentId, {
       agentId,
       type: sourceType,
@@ -81,6 +96,7 @@ export function SourceList({ agentId, sources }: SourceListProps) {
       name: newName || undefined,
       sourceReferenceId:
         sourceType === "agent_report" ? selectedAgentId : undefined,
+      config,
     });
 
     if (result?.error) {
@@ -107,17 +123,36 @@ export function SourceList({ agentId, sources }: SourceListProps) {
 
   function isSourceValid(): boolean {
     if (sourceType === "url") return newUrl.trim().length > 0;
+    if (sourceType === "web_search") return searchQuery.trim().length > 0;
     return selectedAgentId.length > 0;
   }
 
   function getSourceDisplayName(source: Source): string {
     if (source.name) return source.name;
     if (source.type === "url" && source.url) return getDomain(source.url);
+    if (source.type === "web_search") {
+      const config = source.config as WebSearchConfig | null;
+      return config?.query ? `Search: ${config.query}` : "Web Search";
+    }
     return "Agent Report";
   }
 
   function getSourceSubtitle(source: Source): string {
-    return source.type === "url" && source.url ? source.url : "From another agent";
+    if (source.type === "url" && source.url) return source.url;
+    if (source.type === "web_search") {
+      const config = source.config as WebSearchConfig | null;
+      const depth =
+        config?.search_depth === "advanced" ? "Deep search" : "Basic search";
+      const results = config?.max_results || 5;
+      return `${depth} - ${results} results`;
+    }
+    return "From another agent";
+  }
+
+  function getSourceIcon(source: Source) {
+    if (source.type === "agent_report") return Bot;
+    if (source.type === "web_search") return Search;
+    return Globe;
   }
 
   return (
@@ -143,7 +178,7 @@ export function SourceList({ agentId, sources }: SourceListProps) {
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 size="sm"
@@ -152,6 +187,15 @@ export function SourceList({ agentId, sources }: SourceListProps) {
               >
                 <Globe className="mr-2 h-4 w-4" />
                 Web URL
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={sourceType === "web_search" ? "default" : "outline"}
+                onClick={() => setSourceType("web_search")}
+              >
+                <Search className="mr-2 h-4 w-4" />
+                Web Search
               </Button>
               <Button
                 type="button"
@@ -165,13 +209,54 @@ export function SourceList({ agentId, sources }: SourceListProps) {
             </div>
 
             <div className="space-y-2">
-              {sourceType === "url" ? (
+              {sourceType === "url" && (
                 <Input
                   placeholder="https://example.com/page"
                   value={newUrl}
                   onChange={(e) => setNewUrl(e.target.value)}
                 />
-              ) : (
+              )}
+              {sourceType === "web_search" && (
+                <>
+                  <Input
+                    placeholder="Search query (e.g., latest AI developments)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Select
+                      value={searchDepth}
+                      onValueChange={(v) =>
+                        setSearchDepth(v as "basic" | "advanced")
+                      }
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="basic">Basic Search</SelectItem>
+                        <SelectItem value="advanced">Deep Search</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={String(maxResults)}
+                      onValueChange={(v) => setMaxResults(Number(v))}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[3, 5, 7, 10].map((n) => (
+                          <SelectItem key={n} value={String(n)}>
+                            {n} results
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+              {sourceType === "agent_report" && (
                 <Select
                   value={selectedAgentId}
                   onValueChange={setSelectedAgentId}
@@ -230,43 +315,43 @@ export function SourceList({ agentId, sources }: SourceListProps) {
         ) : (
           <div className="space-y-3">
             {sources.map((source) => {
-              const Icon = source.type === "agent_report" ? Bot : Globe;
+              const Icon = getSourceIcon(source);
               return (
-              <div
-                key={source.id}
-                className="flex items-center justify-between rounded-lg border p-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">
-                      {getSourceDisplayName(source)}
-                    </p>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {getSourceSubtitle(source)}
-                    </p>
-                    {source.last_scraped_at && (
-                      <p className="text-xs text-muted-foreground">
-                        Last fetched:{" "}
-                        {formatRelativeTime(source.last_scraped_at)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDelete(source.id)}
-                  disabled={deletingId === source.id}
+                <div
+                  key={source.id}
+                  className="flex items-center justify-between rounded-lg border p-3"
                 >
-                  {deletingId === source.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  )}
-                </Button>
-              </div>
-            );
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">
+                        {getSourceDisplayName(source)}
+                      </p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {getSourceSubtitle(source)}
+                      </p>
+                      {source.last_scraped_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Last fetched:{" "}
+                          {formatRelativeTime(source.last_scraped_at)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(source.id)}
+                    disabled={deletingId === source.id}
+                  >
+                    {deletingId === source.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    )}
+                  </Button>
+                </div>
+              );
             })}
           </div>
         )}

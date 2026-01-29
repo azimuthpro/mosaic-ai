@@ -1,12 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { scrapeUrl } from "@/lib/firecrawl/client";
-import type { Database, Json, Report, Source } from "@/types/database";
+import { formatSearchResultsAsMarkdown, searchWeb } from "@/lib/search/tavily";
+import type {
+  Database,
+  Json,
+  Report,
+  Source,
+  WebSearchConfig,
+} from "@/types/database";
 
 export interface SourceContent {
   sourceId: string;
-  sourceType: "url" | "agent_report";
-  identifier: string; // URL for url type, agent name for agent_report
+  sourceType: "url" | "agent_report" | "web_search";
+  identifier: string; // URL for url type, agent name for agent_report, query for web_search
   success: boolean;
   content?: string;
   title?: string;
@@ -16,6 +23,7 @@ export interface SourceContent {
     reportCreatedAt?: string;
     agentId?: string;
     agentName?: string;
+    searchResultCount?: number;
   };
 }
 
@@ -32,6 +40,8 @@ export async function fetchSourceContent(
     return fetchUrlContent(source);
   } else if (source.type === "agent_report") {
     return fetchAgentReportContent(source, adminClient);
+  } else if (source.type === "web_search") {
+    return fetchWebSearchContent(source);
   }
 
   return {
@@ -150,6 +160,53 @@ async function fetchAgentReportContent(
 }
 
 /**
+ * Fetches search results using Tavily web search.
+ */
+async function fetchWebSearchContent(source: Source): Promise<SourceContent> {
+  const config = source.config as WebSearchConfig | null;
+
+  if (!config?.query) {
+    return {
+      sourceId: source.id,
+      sourceType: "web_search",
+      identifier: "no-query",
+      success: false,
+      error: "Web search source is missing search query",
+    };
+  }
+
+  try {
+    const results = await searchWeb(config.query, {
+      searchDepth: config.search_depth,
+      maxResults: config.max_results,
+      includeRawContent: config.include_raw_content,
+    });
+
+    const content = formatSearchResultsAsMarkdown(config.query, results);
+
+    return {
+      sourceId: source.id,
+      sourceType: "web_search",
+      identifier: config.query,
+      success: true,
+      content,
+      title: `Search: ${config.query}`,
+      metadata: {
+        searchResultCount: results.length,
+      },
+    };
+  } catch (error) {
+    return {
+      sourceId: source.id,
+      sourceType: "web_search",
+      identifier: config.query,
+      success: false,
+      error: error instanceof Error ? error.message : "Web search failed",
+    };
+  }
+}
+
+/**
  * Formats report content based on its format type.
  */
 function formatReportContent(content: Json, format: string): string {
@@ -194,6 +251,9 @@ export function getSourceIdentifiers(results: SourceContent[]): string[] {
     if (r.sourceType === "url") {
       return r.identifier;
     }
+    if (r.sourceType === "web_search") {
+      return `search:${r.identifier}`;
+    }
     return `agent:${r.metadata?.agentName || r.identifier}`;
   });
 }
@@ -204,10 +264,16 @@ export function getSourceIdentifiers(results: SourceContent[]): string[] {
 export function getSourceTypeBreakdown(results: SourceContent[]): {
   url_sources: number;
   agent_report_sources: number;
+  web_search_sources: number;
   url_succeeded: number;
   agent_report_succeeded: number;
+  web_search_succeeded: number;
 } {
-  const counts = { url: { total: 0, success: 0 }, agent_report: { total: 0, success: 0 } };
+  const counts = {
+    url: { total: 0, success: 0 },
+    agent_report: { total: 0, success: 0 },
+    web_search: { total: 0, success: 0 },
+  };
 
   for (const r of results) {
     const bucket = counts[r.sourceType];
@@ -218,7 +284,9 @@ export function getSourceTypeBreakdown(results: SourceContent[]): {
   return {
     url_sources: counts.url.total,
     agent_report_sources: counts.agent_report.total,
+    web_search_sources: counts.web_search.total,
     url_succeeded: counts.url.success,
     agent_report_succeeded: counts.agent_report.success,
+    web_search_succeeded: counts.web_search.success,
   };
 }

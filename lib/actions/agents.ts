@@ -9,11 +9,13 @@ import type {
   Agent,
   AgentInsert,
   AgentUpdate,
+  Json,
   LanguageCode,
   OutputFormat,
   Source,
   SourceInsert,
   SourceType,
+  WebSearchConfig,
 } from "@/types/database";
 
 export type AgentWithSources = Agent & { sources: Source[] };
@@ -32,6 +34,7 @@ export async function getAgents(): Promise<AgentWithSources[]> {
     return [];
   }
 
+  // Get agents owned by user
   const { data, error } = await supabase
     .from("agents")
     .select(
@@ -51,6 +54,52 @@ export async function getAgents(): Promise<AgentWithSources[]> {
   return (data || []) as AgentWithSources[];
 }
 
+/**
+ * Gets agents that are shared with the current user (not owned by them).
+ */
+export async function getSharedAgents(): Promise<AgentWithSources[]> {
+  const supabase = await createClient();
+  const user = await getUser();
+
+  if (!user) {
+    return [];
+  }
+
+  // Get agent IDs where user is a member
+  const { data: membershipsData } = await supabase
+    .from("agent_members")
+    .select("agent_id")
+    .eq("user_id", user.id);
+
+  const memberships = membershipsData as { agent_id: string }[] | null;
+
+  if (!memberships || memberships.length === 0) {
+    return [];
+  }
+
+  const agentIds = memberships.map((m) => m.agent_id);
+
+  // Get those agents (excluding ones the user owns)
+  const { data, error } = await supabase
+    .from("agents")
+    .select(
+      `
+      *,
+      sources!sources_agent_id_fkey (*)
+    `,
+    )
+    .in("id", agentIds)
+    .neq("owner_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching shared agents:", error);
+    return [];
+  }
+
+  return (data || []) as AgentWithSources[];
+}
+
 export async function getAgent(id: string): Promise<AgentWithSources | null> {
   const supabase = await createClient();
   const user = await getUser();
@@ -59,7 +108,8 @@ export async function getAgent(id: string): Promise<AgentWithSources | null> {
     return null;
   }
 
-  const { data, error } = await supabase
+  // First try to get as owner
+  const { data: ownedAgent } = await supabase
     .from("agents")
     .select(
       `
@@ -71,8 +121,36 @@ export async function getAgent(id: string): Promise<AgentWithSources | null> {
     .eq("owner_id", user.id)
     .single();
 
+  if (ownedAgent) {
+    return ownedAgent as AgentWithSources;
+  }
+
+  // Check if user is a member of this agent
+  const { data: membership } = await supabase
+    .from("agent_members")
+    .select("id")
+    .eq("agent_id", id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!membership) {
+    return null;
+  }
+
+  // User is a member, get the agent
+  const { data, error } = await supabase
+    .from("agents")
+    .select(
+      `
+      *,
+      sources!sources_agent_id_fkey (*)
+    `,
+    )
+    .eq("id", id)
+    .single();
+
   if (error) {
-    console.error("Error fetching agent:", error);
+    console.error("Error fetching shared agent:", error);
     return null;
   }
 
@@ -101,6 +179,7 @@ export async function createAgent(formData: FormData) {
     name?: string;
     type?: SourceType;
     sourceReferenceId?: string;
+    config?: WebSearchConfig;
   }[] = [];
   try {
     sources = JSON.parse(sourcesJson || "[]");
@@ -162,6 +241,10 @@ export async function createAgent(formData: FormData) {
       type: s.type || "url",
       source_reference_id:
         s.type === "agent_report" ? s.sourceReferenceId : null,
+      config:
+        s.type === "web_search" && s.config
+          ? (s.config as unknown as Json)
+          : {},
     }));
 
     const { error: sourcesError } = await supabase
@@ -297,6 +380,7 @@ interface AddSourceParams {
   url?: string;
   name?: string;
   sourceReferenceId?: string;
+  config?: WebSearchConfig;
 }
 
 export async function addSource(
@@ -363,13 +447,24 @@ export async function addSource(
     }
   }
 
-  const isUrlSource = sourceType === "url";
+  // For web_search type, validate that query is provided
+  if (sourceType === "web_search") {
+    if (!params.config?.query) {
+      return { error: "Web search source requires a search query" };
+    }
+  }
+
   const sourceInsert: SourceInsert = {
     agent_id: agentId,
     type: sourceType,
-    url: isUrlSource ? params.url : null,
+    url: sourceType === "url" ? params.url : null,
     name: params.name ?? null,
-    source_reference_id: isUrlSource ? null : params.sourceReferenceId,
+    source_reference_id:
+      sourceType === "agent_report" ? params.sourceReferenceId : null,
+    config:
+      sourceType === "web_search" && params.config
+        ? (params.config as unknown as Json)
+        : {},
   };
 
   const { data, error } = await supabase

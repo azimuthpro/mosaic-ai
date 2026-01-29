@@ -10,7 +10,14 @@ export type OutputFormat = "text" | "list" | "table" | "json";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 export type MemberRole = "owner" | "admin" | "member";
 export type LanguageCode = "en" | "pl" | "es" | "it" | "de";
-export type SourceType = "url" | "agent_report";
+export type SourceType = "url" | "agent_report" | "web_search";
+
+export interface WebSearchConfig {
+  query: string;
+  search_depth?: "basic" | "advanced";
+  max_results?: number;
+  include_raw_content?: boolean;
+}
 export type SkillCategory =
   | "news"
   | "market"
