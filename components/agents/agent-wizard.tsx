@@ -44,15 +44,21 @@ import type { LanguageCode, OutputFormat, SourceType } from "@/types/database";
 
 import { SkillsGallery } from "./skills-gallery";
 
-type Step = "basics" | "sources" | "instructions" | "schedule" | "review";
+type Step = "sources" | "instructions" | "schedule" | "review";
 
 const steps: { id: Step; title: string }[] = [
-  { id: "basics", title: "Basic Info" },
   { id: "sources", title: "Sources" },
   { id: "instructions", title: "Instructions" },
   { id: "schedule", title: "Schedule" },
   { id: "review", title: "Review" },
 ];
+
+function generateDefaultName(): string {
+  const date = new Date();
+  const month = date.toLocaleString("en-US", { month: "short" });
+  const day = date.getDate();
+  return `Agent ${month} ${day}`;
+}
 
 interface Source {
   type: SourceType;
@@ -70,44 +76,57 @@ function getStepIndicatorClass(
   index: number,
   currentStepIndex: number,
 ): string {
-  if (index <= currentStepIndex) {
-    return "bg-primary text-primary-foreground";
-  }
-  return "bg-muted text-muted-foreground";
+  const isCompleteOrActive = index <= currentStepIndex;
+  return isCompleteOrActive
+    ? "bg-primary text-primary-foreground"
+    : "bg-muted text-muted-foreground";
 }
 
 function getSourceDisplayName(source: Source): string {
-  if (source.name) return source.name;
-  if (source.type === "agent_report" && source.agentName)
-    return source.agentName;
-  if (source.type === "web_search" && source.searchQuery) {
-    return `Search: ${source.searchQuery}`;
+  if (source.name) {
+    return source.name;
   }
-  if (source.type === "url" && source.url) {
-    try {
-      return new URL(source.url).hostname;
-    } catch {
-      return source.url;
-    }
+
+  switch (source.type) {
+    case "agent_report":
+      return source.agentName ?? "Agent Report";
+    case "web_search":
+      if (source.searchQuery) {
+        return `Search: ${source.searchQuery}`;
+      }
+      return "Web Search";
+    case "url":
+      if (source.url) {
+        try {
+          return new URL(source.url).hostname;
+        } catch {
+          return source.url;
+        }
+      }
+      return "URL";
   }
-  if (source.type === "web_search") return "Web Search";
-  return source.type === "agent_report" ? "Agent Report" : "URL";
 }
 
-function getSourceIcon(type: SourceType) {
-  if (type === "agent_report") return Bot;
-  if (type === "web_search") return Search;
-  return Globe;
+const SOURCE_ICONS = {
+  agent_report: Bot,
+  web_search: Search,
+  url: Globe,
+} as const;
+
+type SourceIcon = (typeof SOURCE_ICONS)[SourceType];
+
+function getSourceIcon(type: SourceType): SourceIcon {
+  return SOURCE_ICONS[type];
 }
 
 export function AgentWizard(): React.ReactElement {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState<Step>("basics");
+  const [currentStep, setCurrentStep] = useState<Step>("sources");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Form state
-  const [name, setName] = useState("");
+  // Form state - name is auto-generated, editable in settings after creation
+  const [name] = useState(generateDefaultName);
   const [sources, setSources] = useState<Source[]>([
     { type: "url", url: "", name: "" },
   ]);
@@ -247,8 +266,6 @@ export function AgentWizard(): React.ReactElement {
 
   function canProceed(): boolean {
     switch (currentStep) {
-      case "basics":
-        return name.trim().length > 0;
       case "sources":
         return sources.some(isValidSource);
       case "instructions":
@@ -262,9 +279,9 @@ export function AgentWizard(): React.ReactElement {
   function handleBackClick(): void {
     if (isFirstStep) {
       router.back();
-    } else {
-      goBack();
+      return;
     }
+    goBack();
   }
 
   const validSources = sources.filter(isValidSource);
@@ -306,21 +323,6 @@ export function AgentWizard(): React.ReactElement {
         {error && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {error}
-          </div>
-        )}
-
-        {/* Step: Basics */}
-        {currentStep === "basics" && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Agent Name *</Label>
-              <Input
-                id="name"
-                placeholder="My News Monitor"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
           </div>
         )}
 
@@ -618,17 +620,11 @@ export function AgentWizard(): React.ReactElement {
               <div className="grid gap-2">
                 {scheduleOptions.map((option) => {
                   const isSelected = scheduleCron === option.value;
-                  const labelClass = isSelected
-                    ? "border-primary bg-primary/5"
-                    : "";
-                  const radioClass = isSelected
-                    ? "border-primary bg-primary"
-                    : "border-muted-foreground";
 
                   return (
                     <label
                       key={option.value}
-                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50 ${labelClass}`}
+                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50 ${isSelected ? "border-primary bg-primary/5" : ""}`}
                     >
                       <input
                         type="radio"
@@ -639,7 +635,7 @@ export function AgentWizard(): React.ReactElement {
                         className="sr-only"
                       />
                       <div
-                        className={`h-4 w-4 rounded-full border-2 ${radioClass}`}
+                        className={`h-4 w-4 rounded-full border-2 ${isSelected ? "border-primary bg-primary" : "border-muted-foreground"}`}
                       />
                       <span>{option.label}</span>
                     </label>
