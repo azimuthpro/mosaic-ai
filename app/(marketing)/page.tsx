@@ -3,10 +3,7 @@ import {
   Bot,
   CheckCircle2,
   ChevronRight,
-  Clock,
-  Code2,
   Database,
-  ExternalLink,
   Globe,
   LineChart,
   MessageSquare,
@@ -16,7 +13,6 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
-  Users2,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
@@ -41,91 +37,331 @@ export default function HomePage() {
             className="group inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-4 py-1.5 text-sm font-medium text-emerald-400 transition-all hover:bg-emerald-500/10 hover:border-emerald-500/40"
           >
             <Zap className="h-4 w-4 fill-current" />
-            <span>Mosaic v2 • The Intelligence Layer for the Web</span>
+            <span>Mosaic v2 • Extraction Engine available</span>
             <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>
 
-          <h1 className="text-5xl font-extrabold leading-[1.1] tracking-tight md:text-7xl lg:text-8xl text-white">
-            Own the web.
+          <h1 className="text-balance text-5xl font-extrabold leading-[1.1] tracking-tight md:text-7xl lg:text-8xl text-white">
+            Structure the web
             <br />
             <span className="bg-linear-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent italic">
-              Structured & Verified.
+              in 30 seconds.
             </span>
           </h1>
 
-          <p className="max-w-[850px] text-lg text-slate-400 sm:text-xl lg:text-2xl leading-relaxed">
-            Turn the web into your private, structured database. Deploy
-            autonomous agents that bypass anti-bots, reason through content, and
-            deliver verified intelligence.
+          <p className="text-pretty max-w-[750px] text-lg text-slate-400 sm:text-xl lg:text-2xl leading-relaxed">
+            Stop scraping. Deploy autonomous agents that bypass anti-bots,
+            verify claims, and deliver structured intelligence directly to your
+            stack via API.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-md mt-4">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-md mt-4">
           <Button
             asChild
-            className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold h-12 px-8 rounded-xl text-lg group"
+            className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black h-14 px-10 rounded-2xl text-lg group transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] active:scale-95"
           >
             <Link href="/signup">
-              Get API Access
+              Deploy your first Agent
               <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
             </Link>
-          </Button>
-          <Button
-            asChild
-            variant="ghost"
-            className="w-full sm:w-auto text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/5 h-12 px-8 text-lg font-medium transition-all"
-          >
-            <Link href="#">Explore Docs</Link>
           </Button>
         </div>
       </section>
 
-      {/* Mission Section */}
-      <section className="container max-w-6xl py-24 border-y border-slate-900 bg-slate-950/50">
-        <div className="mx-auto flex flex-col items-center gap-6 text-center">
-          <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-5xl">
-            Beyond Scraping.{" "}
-            <span className="text-emerald-400">Autonomous Reasoners.</span>
+      {/* Aha! Moment - Comparison Section */}
+      <section className="container max-w-6xl py-24">
+        <div className="grid gap-12 lg:grid-cols-2 lg:items-center bg-slate-900/40 p-8 md:p-12 rounded-[2.5rem] border border-slate-800 backdrop-blur-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-emerald-500/5 blur-[100px] pointer-events-none" />
+
+          <div className="space-y-8 relative z-10">
+            <h2 className="text-balance text-4xl font-black text-white leading-tight">
+              Stop fighting HTML.
+              <br />
+              <span className="text-emerald-400 italic">
+                Start receiving facts.
+              </span>
+            </h2>
+            <div className="space-y-6">
+              <div className="flex gap-4 items-start">
+                <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-400 shrink-0">
+                  <RefreshCw className="h-4 w-4" />
+                </div>
+                <p className="text-pretty text-slate-400 text-lg">
+                  Mosaic handles residential proxies, headless browsers, and
+                  rotating UAs automatically.
+                </p>
+              </div>
+              <div className="flex gap-4 items-start">
+                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400 shrink-0">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <p className="text-pretty text-slate-400 text-lg">
+                  Verified output against multiple sources. If the data is
+                  conflicting, we flag it.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative group perspective-1000">
+            <div className="grid grid-cols-1 gap-4 lg:gap-8 translate-z-10 transition-transform duration-700">
+              {/* Dirty HTML Part */}
+              <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/50 p-1 opacity-60 scale-95 blur-[2px] hover:blur-0 transition-all group-hover:opacity-40 select-none pointer-events-none">
+                <div className="flex items-center gap-1.5 p-3 border-b border-slate-800/50 px-4">
+                  <div className="h-2 w-2 rounded-full bg-red-500/50" />
+                  <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+                    Fragile HTML Scrape
+                  </span>
+                </div>
+                <pre className="p-4 font-mono text-[10px] text-slate-600 overflow-hidden leading-tight">
+                  {`<div>
+  <section class="p-4 flex-col md:hidden">
+    <h1 id="price-v2" class="text-4xl">
+      &nbsp;&nbsp;$199.99
+    </h1>
+    <!-- Layout changes break selectors -->
+    <span class="discount-label">
+      Save 20%
+    </span>
+  </section>
+</div>`}
+                </pre>
+              </div>
+
+              {/* Clean JSON Part */}
+              <div className="relative -mt-12 lg:-mt-20 overflow-hidden rounded-2xl border border-emerald-500/30 bg-slate-950 shadow-2xl shadow-emerald-500/10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                <div className="flex items-center justify-between p-3 border-b border-emerald-500/10 bg-emerald-500/5 px-4 font-mono text-[10px]">
+                  <div className="flex items-center gap-1.5 ">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,1)]" />
+                    <span className="text-emerald-400 uppercase tracking-widest font-bold font-mono">
+                      Verified Intelligence Output
+                    </span>
+                  </div>
+                  <span className="text-slate-500 uppercase tracking-widest text-[9px]">
+                    JSON Format • Confidence: 98%
+                  </span>
+                </div>
+                <pre className="p-6 font-mono text-xs md:text-sm leading-relaxed overflow-x-auto bg-slate-950/50 transition-colors">
+                  <div className="space-y-1">
+                    <div>{"{"}</div>
+                    <div className="pl-4">
+                      <span className="text-pink-400">&quot;product&quot;</span>
+                      :{" "}
+                      <span className="text-emerald-400">
+                        &quot;Advanced Intelligence Engine&quot;
+                      </span>
+                      ,
+                    </div>
+                    <div className="pl-4">
+                      <span className="text-pink-400">&quot;price&quot;</span>:{" "}
+                      <span className="text-cyan-400">159.99</span>,
+                    </div>
+                    <div className="pl-4">
+                      <span className="text-pink-400">
+                        &quot;currency&quot;
+                      </span>
+                      :{" "}
+                      <span className="text-emerald-400">&quot;USD&quot;</span>,
+                    </div>
+                    <div className="pl-4">
+                      <span className="text-pink-400">
+                        &quot;verified&quot;
+                      </span>
+                      : <span className="text-cyan-400">true</span>,
+                    </div>
+                    <div className="pl-4 group/item">
+                      <span className="text-pink-400">
+                        &quot;source_integrity&quot;
+                      </span>
+                      : <span className="text-cyan-400">0.98</span>,
+                      <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20 group-hover/item:bg-emerald-500/20 transition-colors">
+                        FACT CHECKED
+                      </span>
+                    </div>
+                    <div>{"}"}</div>
+                  </div>
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Bento Grid Features */}
+      <section id="ai-stack" className="container max-w-6xl py-24">
+        <div className="mx-auto flex flex-col items-center gap-4 text-center mb-16 px-4">
+          <h2 className="text-balance text-3xl font-black tracking-tighter sm:text-6xl text-white">
+            Automate{" "}
+            <span className="text-emerald-400 underline decoration-emerald-500/20 underline-offset-8">
+              Intelligence.
+            </span>
           </h2>
-          <p className="max-w-[800px] text-lg text-slate-400 sm:text-xl leading-relaxed">
-            Traditional scrapers extract HTML.{" "}
-            <span className="text-white font-bold">Mosaic extracts truth.</span>{" "}
-            Our agents don&apos;t just &quot;crawl&quot;—they understand
-            context, cross-verify claims, and self-heal when layouts change.
+          <p className="text-pretty text-slate-500 text-lg max-w-2xl">
+            Mosaic replaces fragile scraping logic with autonomous reasoning
+            agents.
           </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-6">
+          {/* Large Card: Stealth Browsing */}
+          <div className="md:col-span-3 lg:col-span-7 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 lg:p-12 transition-all hover:bg-slate-900/80 group overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-8 text-slate-700/50 group-hover:text-emerald-500/20 transition-colors">
+              <ShieldCheck className="h-32 w-32 rotate-12" />
+            </div>
+            <div className="relative z-10 h-full flex flex-col">
+              <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
+                <Zap className="h-6 w-6 fill-current" />
+              </div>
+              <h3 className="text-2xl font-black text-white mb-4">
+                Evade detection by default.
+              </h3>
+              <p className="text-pretty text-slate-400 leading-relaxed text-lg flex-1">
+                Mosaic rotates residential proxies and spoofs headless browsers
+                automatically. No more CAPTCHAs, no more IP bans.
+              </p>
+              <div className="mt-8 pt-8 border-t border-slate-800/50 flex gap-4 overflow-hidden">
+                <div className="px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-[10px] font-monospace text-slate-500">
+                  RESIDENTIAL_PROXY_V2
+                </div>
+                <div className="px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-[10px] font-monospace text-slate-500">
+                  STEALTH_JS_RUNTIME
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tall Card: Fact Reconciliation */}
+          <div className="md:col-span-3 lg:col-span-5 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 lg:p-12 transition-all hover:bg-slate-900/80 overflow-hidden group">
+            <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400 mb-8">
+              <Globe className="h-6 w-6" />
+            </div>
+            <h3 className="text-2xl font-black text-white mb-4">
+              Reconcile facts.
+            </h3>
+            <p className="text-pretty text-slate-400 leading-relaxed text-lg mb-8">
+              Agents cross-verify claims against multiple sources. We score data
+              integrity so you can trust every byte.
+            </p>
+            <div className="relative h-32 w-full bg-slate-950/50 rounded-2xl border border-slate-800 p-4">
+              <div className="space-y-3">
+                <div className="h-2 w-3/4 bg-emerald-500/20 rounded shadow-[0_0_10px_rgba(16,185,129,0.1)]" />
+                <div className="h-2 w-1/2 bg-cyan-500/20 rounded" />
+                <div className="h-2 w-2/3 bg-slate-800 rounded animate-pulse" />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <CheckCircle2 className="h-12 w-12 text-emerald-400/20" />
+              </div>
+            </div>
+          </div>
+
+          {/* Square Card: Agent Reasoners */}
+          <div className="md:col-span-3 lg:col-span-4 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group">
+            <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
+              <Bot className="h-6 w-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-3">
+              Reasoning over CSS.
+            </h3>
+            <p className="text-pretty text-slate-400 text-sm leading-relaxed">
+              Mosaic agents interpret the page like a human analyst. No more
+              fragile CSS selectors.
+            </p>
+          </div>
+
+          {/* Square Card: Context Understanding */}
+          <div className="md:col-span-3 lg:col-span-4 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group">
+            <div className="h-12 w-12 rounded-2xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20 text-pink-400 mb-8">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-3">
+              Contextual Search.
+            </h3>
+            <p className="text-pretty text-slate-400 text-sm leading-relaxed">
+              Our agents don&apos;t just crawl, they search for intent and
+              meaning in every paragraph.
+            </p>
+          </div>
+
+          {/* Square Card: Scale Orchestration */}
+          <div className="md:col-span-6 lg:col-span-4 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group">
+            <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500 mb-8">
+              <Settings className="h-6 w-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-3">
+              Auto-Orchestration.
+            </h3>
+            <p className="text-pretty text-slate-400 text-sm leading-relaxed">
+              Self-healing pipelines that adapt to UI changes without a single
+              line of code.
+            </p>
+          </div>
+
+          {/* Wide Card: Deep Web Discovery */}
+          <div className="md:col-span-6 lg:col-span-8 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group relative overflow-hidden">
+            <div className="flex flex-col md:flex-row gap-8 items-center">
+              <div className="flex-1">
+                <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-6">
+                  <Search className="h-6 w-6" />
+                </div>
+                <h3 className="text-2xl font-black text-white mb-4">
+                  Discovery Engine.
+                </h3>
+                <p className="text-pretty text-slate-400 leading-relaxed text-lg">
+                  Traverse the deep web. Mosaic agents find hidden APIs,
+                  portals, and data points that standard crawlers miss.
+                </p>
+              </div>
+              <div className="flex-1 w-full flex justify-end">
+                <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 w-full max-w-[300px]">
+                  <div className="space-y-2">
+                    <div className="h-2 w-full bg-emerald-500/40 rounded shadow-[0_0_10px_rgba(16,185,129,0.2)]" />
+                    <div className="h-2 w-2/3 bg-slate-800 rounded" />
+                    <div className="h-2 w-5/6 bg-slate-800 rounded" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Last Square Card: Vector DB Integration */}
+          <div className="md:col-span-6 lg:col-span-4 bg-emerald-500/5 rounded-[2.5rem] border border-emerald-500/20 p-8 transition-all hover:bg-emerald-500/10 group">
+            <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400 mb-8">
+              <Database className="h-6 w-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-3">RAG Ready.</h3>
+            <p className="text-pretty text-slate-400 text-sm leading-relaxed">
+              Output optimized for vector databases and LLM context windows. No
+              cleanup required.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* Code Section */}
-      <section className="container max-w-6xl py-24 md:py-32">
+      <section className="container max-w-6xl py-24 border-t border-slate-900">
         <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
           <div>
-            <h2 className="text-4xl font-extrabold tracking-tight text-white mb-6">
-              Build in minutes,
+            <h2 className="text-balance text-4xl font-extrabold tracking-tight text-white mb-6 leading-tight">
+              One API call.
               <br />
-              <span className="text-emerald-400">scale to millions.</span>
+              <span className="text-emerald-400 italic">Total Control.</span>
             </h2>
-            <p className="text-slate-400 text-lg leading-relaxed mb-8">
-              Deploy specialized agents that reason through market intelligence,
-              pricing, and business signals with a single API call.
+            <p className="text-pretty text-slate-400 text-lg leading-relaxed mb-8">
+              Send a URL and a schema. Mosaic delivers verified facts. No
+              complex pipelines, no middleware.
             </p>
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                 <span className="text-slate-300 font-medium">
-                  Production-ready TypeScript SDK
+                  Type-safe TypeScript SDK
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                 <span className="text-slate-300 font-medium">
-                  Seamless RAG & Vector DB integration
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                <span className="text-slate-300 font-medium">
-                  Autonomous anti-bot management
+                  Real-time Webhook Triggers
                 </span>
               </div>
             </div>
@@ -133,249 +369,51 @@ export default function HomePage() {
 
           <div className="group relative">
             <div className="absolute -inset-1 rounded-3xl bg-linear-to-r from-emerald-500/20 to-cyan-500/20 blur-2xl opacity-75"></div>
-            <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl">
+            <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl transition-transform group-hover:scale-[1.01] duration-500">
               <div className="flex items-center justify-between border-b border-slate-800/50 bg-slate-900/50 px-4 py-3 font-mono text-xs">
                 <div className="flex gap-1.5">
                   <div className="h-3 w-3 rounded-full bg-slate-800" />
                   <div className="h-3 w-3 rounded-full bg-slate-800" />
                   <div className="h-3 w-3 rounded-full bg-slate-800" />
                 </div>
-                <span className="text-slate-500 uppercase tracking-widest text-[10px]">
-                  Market Intelligence Deployment
+                <span className="text-slate-500 uppercase tracking-widest text-[10px] font-bold italic">
+                  Mosaic AI Intelligence Request
                 </span>
               </div>
               <div className="p-6 font-mono text-[11px] md:text-sm leading-relaxed text-slate-300 overflow-x-auto">
-                <div className="space-y-1">
+                <div className="space-y-1 text-slate-400">
                   <div>
-                    <span className="text-slate-500">
-                      {"// Deploying an agent to track market intelligence"}
+                    <span className="text-slate-500 italic">
+                      {"// Deployment request"}
                     </span>
                   </div>
                   <div>
-                    <span className="text-pink-400">const</span>{" "}
-                    <span className="text-cyan-400">mosaic</span> ={" "}
-                    <span className="text-pink-400">new</span>{" "}
-                    <span className="text-emerald-400">MosaicAI</span>(
-                    <span className="text-emerald-400">
-                      &apos;your_api_key&apos;
+                    <span className="text-pink-400 font-bold italic">
+                      await
+                    </span>{" "}
+                    <span className="text-cyan-400 font-bold group-hover:text-cyan-300 transition-colors">
+                      mosaic
                     </span>
-                    );
-                  </div>
-                  <br />
-                  <div>
-                    <span className="text-pink-400">const</span>{" "}
-                    <span className="text-cyan-400">result</span> ={" "}
-                    <span className="text-pink-400">await</span>{" "}
-                    <span className="text-cyan-400">mosaic</span>.
-                    <span className="text-cyan-400">deploy</span>({"{"}
+                    .<span className="text-emerald-400">extract</span>({"{"}
                   </div>
                   <div className="pl-4">
-                    source:{" "}
+                    url:{" "}
                     <span className="text-emerald-400">
                       &quot;https://competitor.com/pricing&quot;
                     </span>
                     ,
                   </div>
-                  <div className="pl-4">schema: {"{"}</div>
-                  <div className="pl-8">
-                    productName:{" "}
+                  <div className="pl-4">
+                    schema: {"{"} product:{" "}
                     <span className="text-emerald-400">&quot;string&quot;</span>
-                    ,
+                    , price:{" "}
+                    <span className="text-emerald-400">&quot;number&quot;</span>{" "}
+                    {"}"}
                   </div>
-                  <div className="pl-8">
-                    currentPrice:{" "}
-                    <span className="text-emerald-400">&quot;number&quot;</span>
-                    ,
-                  </div>
-                  <div className="pl-8">
-                    features:{" "}
-                    <span className="text-emerald-400">&quot;array&quot;</span>,
-                  </div>
-                  <div className="pl-8">
-                    confidenceScore:{" "}
-                    <span className="text-emerald-400">
-                      &quot;boolean&quot;
-                    </span>
-                  </div>
-                  <div className="pl-4">{"}"},</div>
-                  <div className="pl-4">options: {"{"}</div>
-                  <div className="pl-8">
-                    verifyAgainst: [
-                    <span className="text-emerald-400">
-                      &quot;.../industry-news.com&quot;
-                    </span>
-                    ],
-                  </div>
-                  <div className="pl-8">
-                    frequency:{" "}
-                    <span className="text-emerald-400">&quot;daily&quot;</span>
-                  </div>
-                  <div className="pl-4">{"}"}</div>
                   <div>{"}"});</div>
-                  <br />
-                  <div className="text-slate-500 font-italic">
-                    {
-                      "// Output: Verified, structured JSON ready for your DB or RAG."
-                    }
-                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Feature Table Section */}
-      <section
-        id="ai-stack"
-        className="container max-w-6xl py-24 bg-slate-900/10"
-      >
-        <div className="mx-auto flex flex-col items-center gap-4 text-center mb-16 px-4">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-5xl text-white">
-            Built for the <span className="text-emerald-400">AI Stack</span>
-          </h2>
-        </div>
-
-        <div className="grid gap-px bg-slate-800 border border-slate-800 rounded-2xl overflow-hidden md:grid-cols-2 lg:grid-cols-3">
-          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
-            <Sparkles className="h-8 w-8 text-emerald-400 mb-6" />
-            <h3 className="text-lg font-bold text-white mb-3">
-              Agentic Reasoning
-            </h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              No CSS selectors. No fragile rules. Agents interpret the page like
-              a human would.
-            </p>
-          </div>
-          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
-            <ShieldCheck className="h-8 w-8 text-cyan-400 mb-6" />
-            <h3 className="text-lg font-bold text-white mb-3">
-              Stealth by Default
-            </h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Built-in residential proxies and stealth browsers. We handle the
-              blocks.
-            </p>
-          </div>
-          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
-            <Globe className="h-8 w-8 text-pink-400 mb-6" />
-            <h3 className="text-lg font-bold text-white mb-3">
-              Truth-First Extraction
-            </h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Automatic conflict detection. If sources disagree, Mosaic flags it
-              and scores the confidence.
-            </p>
-          </div>
-          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
-            <Database className="h-8 w-8 text-amber-500 mb-6" />
-            <h3 className="text-lg font-bold text-white mb-3">
-              LLM-Ready Output
-            </h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Clean Markdown and structured JSON, optimized for RAG and vector
-              databases.
-            </p>
-          </div>
-          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
-            <Bot className="h-8 w-8 text-indigo-400 mb-6" />
-            <h3 className="text-lg font-bold text-white mb-3">
-              Multi-Agent Chaining
-            </h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Build recursive workflows where one agent&apos;s output becomes
-              another&apos;s source for deep research.
-            </p>
-          </div>
-          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
-            <Users2 className="h-8 w-8 text-emerald-500 mb-6" />
-            <h3 className="text-lg font-bold text-white mb-3">
-              Collaborative Workflows
-            </h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Invite your team, share verified intelligence feeds, and manage
-              permissions across the organization.
-            </p>
-          </div>
-          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
-            <RefreshCw className="h-8 w-8 text-orange-400 mb-6" />
-            <h3 className="text-lg font-bold text-white mb-3">
-              Self-Healing Pipelines
-            </h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Mosaic adapts to website redesigns automatically. No more broken
-              CSS selectors or brittle scripts.
-            </p>
-          </div>
-          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
-            <Clock className="h-8 w-8 text-blue-400 mb-6" />
-            <h3 className="text-lg font-bold text-white mb-3">
-              Autonomous Scheduling
-            </h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Run intelligence agents on a recurring schedule—daily, weekly, or
-              real-time—directly into your systems.
-            </p>
-          </div>
-          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
-            <ExternalLink className="h-8 w-8 text-purple-400 mb-6" />
-            <h3 className="text-lg font-bold text-white mb-3">
-              Traceable Audit Trail
-            </h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Every extracted data point is linked to its exact source location
-              for 100% verifiability and trust.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section id="how-it-works" className="container max-w-6xl py-24 md:py-32">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-5xl">
-            How it works
-          </h2>
-        </div>
-
-        <div className="grid gap-12 md:grid-cols-3">
-          <div className="flex flex-col items-center text-center group">
-            <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-6 group-hover:scale-110 transition-transform">
-              <Settings className="h-8 w-8" />
-            </div>
-            <h3 className="text-xl font-bold text-white mb-3">
-              1. Define your Schema
-            </h3>
-            <p className="text-slate-400 text-sm leading-relaxed">
-              Tell Mosaic what you need. From competitor pricing to executive
-              changes. Define your headers in a Google Sheet or via JSON schema.
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center text-center group">
-            <div className="h-16 w-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-6 group-hover:scale-110 transition-transform">
-              <Bot className="h-8 w-8" />
-            </div>
-            <h3 className="text-xl font-bold text-white mb-3">
-              2. Deploy and Chain
-            </h3>
-            <p className="text-slate-400 text-sm leading-relaxed">
-              Mosaic agents navigate complex sites independently or in chains,
-              solving captchas and hunting for signals across the deep web.
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center text-center group">
-            <div className="h-16 w-16 rounded-2xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 mb-6 group-hover:scale-110 transition-transform">
-              <Code2 className="h-8 w-8" />
-            </div>
-            <h3 className="text-xl font-bold text-white mb-3">
-              3. Own the Intelligence
-            </h3>
-            <p className="text-slate-400 text-sm leading-relaxed">
-              Data flows directly into your systems via Webhook, API, or Google
-              Sheets. Verified, deduplicated, and traceable to the source.
-            </p>
           </div>
         </div>
       </section>
@@ -386,177 +424,66 @@ export default function HomePage() {
         className="container max-w-6xl py-24 border-t border-slate-900"
       >
         <div className="mb-16">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl text-left">
-            Use Cases
+          <h2 className="text-balance text-3xl font-black tracking-tight text-white sm:text-5xl text-left italic">
+            Who builds with Mosaic?
           </h2>
         </div>
 
         <div className="grid gap-8 md:grid-cols-3">
-          <div className="relative p-8 rounded-2xl border border-slate-800 bg-slate-900/30">
-            <MessageSquare className="h-8 w-8 text-emerald-400 mb-6" />
-            <h3 className="text-xl font-bold text-white mb-3">AI Engineers</h3>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 italic">
-              Feed your RAG
+          <div className="relative p-10 rounded-[2.5rem] border border-slate-800 bg-slate-900/30 hover:bg-slate-900/50 transition-colors group">
+            <MessageSquare className="h-10 w-10 text-emerald-400 mb-8 transition-transform group-hover:scale-110" />
+            <h3 className="text-2xl font-black text-white mb-4">
+              AI Engineers
+            </h3>
+            <p className="text-pretty text-sm text-slate-400 leading-relaxed mb-8">
+              Feed your models with high-fidelity markdown. Stop post-processing
+              garbage data and start receiving model-ready context.
             </p>
-            <p className="text-sm text-slate-400 leading-relaxed mb-6">
-              Stop fighting &quot;garbage-in.&quot; Get high-fidelity,
-              structured markdown that enhances your model&apos;s performance.
-              No post-processing required.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 whitespace-nowrap">
-                Clean Markdown
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800/50">
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                RAG Optimized
               </span>
-              <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 whitespace-nowrap">
-                Structured JSON
-              </span>
-              <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 whitespace-nowrap">
-                Vector-ready
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                Clean MDR
               </span>
             </div>
           </div>
 
-          <div className="relative p-8 rounded-2xl border border-slate-800 bg-slate-900/30">
-            <LineChart className="h-8 w-8 text-cyan-400 mb-6" />
-            <h3 className="text-xl font-bold text-white mb-3">
+          <div className="relative p-10 rounded-[2.5rem] border border-slate-800 bg-slate-900/30 hover:bg-slate-900/50 transition-colors group">
+            <LineChart className="h-10 w-10 text-cyan-400 mb-8 transition-transform group-hover:scale-110" />
+            <h3 className="text-2xl font-black text-white mb-4">
               Market Analysts
             </h3>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 italic">
-              Strategic Monitoring
+            <p className="text-pretty text-sm text-slate-400 leading-relaxed mb-8">
+              Monitor competitors silently. Track price changes, new product
+              launches, and industry shifts in real-time.
             </p>
-            <p className="text-sm text-slate-400 leading-relaxed mb-6">
-              Track pricing, product launches, and industry shifts across
-              thousands of stores and portals.
-            </p>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 whitespace-nowrap">
-                Pricing Intelligence
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800/50">
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                Pricing Feed
               </span>
-              <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 whitespace-nowrap">
-                Competitor Mapping
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                Signal Alerts
               </span>
             </div>
           </div>
 
-          <div className="relative p-8 rounded-2xl border border-slate-800 bg-slate-900/30">
-            <Target className="h-8 w-8 text-pink-400 mb-6" />
-            <h3 className="text-xl font-bold text-white mb-3">Sales Teams</h3>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 italic">
-              Signal-Based Prospecting
+          <div className="relative p-10 rounded-[2.5rem] border border-slate-800 bg-slate-900/30 hover:bg-slate-900/50 transition-colors group">
+            <Target className="h-10 w-10 text-pink-400 mb-8 transition-transform group-hover:scale-110" />
+            <h3 className="text-2xl font-black text-white mb-4">
+              Sales Operations
+            </h3>
+            <p className="text-pretty text-sm text-slate-400 leading-relaxed mb-8">
+              Enrich leads automatically. Extract intent signals from news and
+              directories the moment they happen.
             </p>
-            <p className="text-sm text-slate-400 leading-relaxed mb-6">
-              Extract high-value leads from niche directories and funding alerts
-              the moment they trigger.
-            </p>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 whitespace-nowrap">
-                Lead Extraction
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800/50">
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                Intent Signals
               </span>
-              <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 whitespace-nowrap">
-                Intent Detection
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                CRM Sync
               </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Technical Reliability - Layout Agility */}
-      <section
-        id="reliability"
-        className="container max-w-6xl py-24 bg-slate-900/10 border-y border-slate-900"
-      >
-        <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-5xl mb-8">
-              Technical <span className="text-emerald-400">Reliability</span>
-            </h2>
-            <blockquote className="border-l-4 border-emerald-500 pl-6 py-2 mb-10">
-              <p className="text-2xl font-medium text-white italic leading-relaxed">
-                &quot;Mosaic doesn&apos;t just scrape. It understands. When a
-                website redesigns, our pipelines don&apos;t break.&quot;
-              </p>
-            </blockquote>
-
-            <div className="space-y-8">
-              <div className="flex gap-4">
-                <div className="h-10 w-10 shrink-0 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400">
-                  <Search className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-white font-bold mb-1">Layout Agnostic</h4>
-                  <p className="text-sm text-slate-500 leading-relaxed">
-                    Agents reason about meaning, not markup.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="h-10 w-10 shrink-0 rounded-lg bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400">
-                  <Zap className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-white font-bold mb-1">Scale-Ready</h4>
-                  <p className="text-sm text-slate-500 leading-relaxed">
-                    25,000+ verified rows per week with 85% autonomous accuracy.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="h-10 w-10 shrink-0 rounded-lg bg-pink-500/10 flex items-center justify-center border border-pink-500/20 text-pink-400">
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-white font-bold mb-1">
-                    Full Audit Trail
-                  </h4>
-                  <p className="text-sm text-slate-500 leading-relaxed">
-                    Every data point includes a direct link to the source.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative">
-            <div className="absolute -inset-4 rounded-3xl bg-linear-to-r from-emerald-500/10 to-transparent blur-xl opacity-20"></div>
-            <div className="bg-slate-950 p-10 rounded-3xl border border-slate-800 shadow-2xl relative">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-900">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span className="text-[10px] font-mono text-slate-500 uppercase tracking-[0.2em]">
-                      Operational Health
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-bold text-emerald-400 border border-emerald-400/20 px-2 py-0.5 rounded italic">
-                    Stable
-                  </span>
-                </div>
-                <div className="space-y-4">
-                  <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
-                    <div className="h-full w-[95%] bg-emerald-500 opacity-80" />
-                  </div>
-                  <div className="flex justify-between text-[10px] font-mono text-slate-600">
-                    <span>99.9% Extraction Success</span>
-                    <span>0.1% Block Rate</span>
-                  </div>
-                </div>
-                <div className="pt-4 grid grid-cols-2 gap-4">
-                  <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                    <p className="text-[10px] text-slate-500 uppercase mb-1">
-                      Total Intelligence
-                    </p>
-                    <p className="text-lg font-black text-white italic">
-                      1.2M+
-                    </p>
-                  </div>
-                  <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                    <p className="text-[10px] text-slate-500 uppercase mb-1">
-                      Active Agents
-                    </p>
-                    <p className="text-lg font-black text-white italic">452</p>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -564,22 +491,29 @@ export default function HomePage() {
 
       {/* CTA Section */}
       <section className="container max-w-6xl py-20 md:py-40">
-        <div className="mx-auto flex max-w-232 flex-col items-center justify-center gap-8 text-center bg-slate-900/30 border border-slate-800 px-6 py-16 md:p-16 rounded-3xl md:rounded-[4rem] relative overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/10 blur-[120px] pointer-events-none" />
+        <div className="w-full flex flex-col items-center justify-center gap-12 text-center bg-slate-950/40 border border-slate-800 px-8 py-24 md:p-24 rounded-[3rem] md:rounded-[5rem] relative overflow-hidden backdrop-blur-xl transition-all hover:bg-slate-900/40 group">
+          {/* Mercedes-style Horizon Glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-500/10 blur-[120px] pointer-events-none group-hover:bg-cyan-500/15 transition-colors" />
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-cyan-500/50 to-transparent opacity-30" />
 
-          <h2 className="text-5xl font-extrabold tracking-tight sm:text-6xl text-white">
-            Ready to build?
+          <h2 className="text-balance text-5xl font-black tracking-tighter sm:text-6xl lg:text-7xl text-white group-hover:scale-[1.01] transition-transform duration-700 leading-tight">
+            Ready to structure the web?
           </h2>
-          <p className="max-w-[700px] text-slate-400 text-xl leading-relaxed font-bold">
-            Join the automated intelligence network. Limited slots for the
-            private beta.
+          <p className="text-pretty max-w-[600px] text-slate-400 text-xl md:text-2xl leading-relaxed font-bold">
+            Join the automated intelligence network. No credit card required.
+            Private beta access.
           </p>
-          <div className="mt-4 w-full flex justify-center max-w-md">
+          <div className="w-full flex justify-center max-w-2xl">
             <InviteForm />
           </div>
-          <p className="text-xs text-slate-500 font-mono uppercase tracking-[0.3em] font-bold">
-            No credit card required • Built with Mosaic AI
-          </p>
+          <div className="pt-4 flex flex-col items-center gap-4">
+            <p className="text-[10px] text-emerald-500/60 font-black uppercase tracking-[0.4em]">
+              Secure • Verifiable • Autonomous
+            </p>
+            <p className="text-xs text-slate-500 font-monospace uppercase tracking-[0.2em] font-bold border-t border-slate-800 pt-6">
+              Built with Mosaic AI
+            </p>
+          </div>
         </div>
       </section>
     </div>

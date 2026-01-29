@@ -47,7 +47,7 @@ export function InviteForm() {
         </div>
         <Input
           type="email"
-          placeholder="Enter your email to request access..."
+          placeholder="Enter your email to join..."
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
