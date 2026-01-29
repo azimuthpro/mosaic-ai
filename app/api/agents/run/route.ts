@@ -3,6 +3,18 @@ import { NextResponse } from "next/server";
 
 import { analyzeContent } from "@/lib/ai/gemini";
 import {
+  createExecutionContext,
+  DEFAULT_MAX_DEPTH,
+  DEFAULT_TIMEOUT_MS,
+} from "@/lib/execution/context";
+import {
+  assertRateLimitAllowed,
+  checkAndIncrementRateLimit,
+  decrementConcurrentCount,
+  logExecutionEvent,
+  RateLimitError,
+} from "@/lib/rate-limit/limiter";
+import {
   fetchAllSourcesContent,
   getSourceIdentifiers,
   getSourceTypeBreakdown,
@@ -18,19 +30,29 @@ import type {
   Source,
 } from "@/types/database";
 
-type AgentWithSources = Agent & { sources: Source[] };
+type AgentWithSources = Agent & {
+  sources: Source[];
+  max_chain_depth?: number;
+  execution_timeout_ms?: number;
+};
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error";
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const adminClient = createAdminClient();
+  let userId: string | null = null;
+  let rateLimitIncremented = false;
+
   try {
     const user = await getUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    userId = user.id;
 
     const { agentId } = await request.json();
 
@@ -39,6 +61,22 @@ export async function POST(request: Request): Promise<Response> {
         { error: "Agent ID is required" },
         { status: 400 },
       );
+    }
+
+    // Check rate limits before proceeding
+    const rateLimitResult = await checkAndIncrementRateLimit(
+      adminClient,
+      user.id,
+    );
+
+    try {
+      assertRateLimitAllowed(rateLimitResult);
+      rateLimitIncremented = true;
+    } catch (rateLimitError) {
+      if (rateLimitError instanceof RateLimitError) {
+        return NextResponse.json(rateLimitError.toJSON(), { status: 429 });
+      }
+      throw rateLimitError;
     }
 
     const supabase = await createClient();
@@ -69,14 +107,35 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    // Use admin client for job/report creation to bypass RLS
-    const adminClient = createAdminClient();
+    // Create execution context for this run
+    const executionContext = createExecutionContext({
+      rootAgentId: agentId,
+      userId: user.id,
+      maxDepth: typedAgent.max_chain_depth ?? DEFAULT_MAX_DEPTH,
+      timeoutMs: typedAgent.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS,
+    });
 
-    // Create a job
+    // Log execution start
+    await logExecutionEvent(adminClient, {
+      executionId: executionContext.executionId,
+      agentId,
+      eventType: "started",
+      metadata: {
+        maxDepth: executionContext.maxDepth,
+        timeoutMs: executionContext.timeoutMs,
+        sourceCount: typedAgent.sources.length,
+      },
+    });
+
+    // Create a job with execution tracking
     const jobInsert: JobInsert = {
       agent_id: agentId,
       status: "processing",
       started_at: new Date().toISOString(),
+      metadata: {
+        execution_id: executionContext.executionId,
+        chain_depth: 0,
+      },
     };
 
     const { data: jobData, error: jobError } = await adminClient
@@ -94,11 +153,21 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
+    // Update job with execution_id column (if migration has been applied)
+    await adminClient
+      .from("jobs")
+      .update({
+        execution_id: executionContext.executionId,
+        chain_depth: 0,
+      } as never)
+      .eq("id", job.id);
+
     try {
       // Fetch content from all sources (URLs and agent reports)
       const sourceResults = await fetchAllSourcesContent(
         typedAgent.sources,
         adminClient,
+        executionContext,
       );
 
       // Update source last_scraped_at
@@ -175,6 +244,8 @@ export async function POST(request: Request): Promise<Response> {
         status: "completed",
         completed_at: new Date().toISOString(),
         metadata: {
+          execution_id: executionContext.executionId,
+          chain_depth: 0,
           sources_total: sourceResults.length,
           sources_succeeded: successfulFetches.length,
           sources_failed: sourceResults.length - successfulFetches.length,
@@ -187,10 +258,27 @@ export async function POST(request: Request): Promise<Response> {
         .update(completedUpdate as never)
         .eq("id", job.id);
 
+      // Log successful completion
+      await logExecutionEvent(adminClient, {
+        executionId: executionContext.executionId,
+        agentId,
+        jobId: job.id,
+        eventType: "completed",
+        metadata: {
+          sourcesTotal: sourceResults.length,
+          sourcesSucceeded: successfulFetches.length,
+          durationMs: Date.now() - executionContext.startTime,
+        },
+      });
+
       revalidatePath(`/agents/${agentId}`);
       revalidatePath("/dashboard");
 
-      return NextResponse.json({ success: true, jobId: job.id });
+      return NextResponse.json({
+        success: true,
+        jobId: job.id,
+        executionId: executionContext.executionId,
+      });
     } catch (processError) {
       // Update job as failed
       const errorMessage = getErrorMessage(processError);
@@ -206,6 +294,18 @@ export async function POST(request: Request): Promise<Response> {
         .update(failedUpdate as never)
         .eq("id", job.id);
 
+      // Log failure
+      await logExecutionEvent(adminClient, {
+        executionId: executionContext.executionId,
+        agentId,
+        jobId: job.id,
+        eventType: "failed",
+        metadata: {
+          error: errorMessage,
+          durationMs: Date.now() - executionContext.startTime,
+        },
+      });
+
       revalidatePath(`/agents/${agentId}`);
 
       return NextResponse.json({ error: errorMessage }, { status: 500 });
@@ -215,5 +315,10 @@ export async function POST(request: Request): Promise<Response> {
       { error: getErrorMessage(error) },
       { status: 500 },
     );
+  } finally {
+    // Always decrement the concurrent count when done
+    if (rateLimitIncremented && userId) {
+      await decrementConcurrentCount(adminClient, userId);
+    }
   }
 }

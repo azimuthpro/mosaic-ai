@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { ExecutionContext } from "@/lib/execution/context";
 import { scrapeUrl } from "@/lib/firecrawl/client";
 import { formatSearchResultsAsMarkdown, searchWeb } from "@/lib/search/tavily";
+import {
+  sanitizeSearchQuery,
+  validateUrlWithDnsCheck,
+} from "@/lib/validation/url-validator";
 import type {
   Database,
   Json,
@@ -18,6 +23,8 @@ export interface SourceContent {
   content?: string;
   title?: string;
   error?: string;
+  contentTruncated?: boolean;
+  originalSize?: number;
   metadata?: {
     reportId?: string;
     reportCreatedAt?: string;
@@ -27,7 +34,79 @@ export interface SourceContent {
   };
 }
 
+// Content size limits
+const MAX_CONTENT_SIZE_PER_SOURCE = 500 * 1024; // 500KB
+const MAX_TOTAL_CONTENT_SIZE = 2 * 1024 * 1024; // 2MB
+const TRUNCATION_INDICATOR =
+  "\n\n[Content truncated due to size limits. Original size: {size} bytes]";
+
 const CONCURRENCY_LIMIT = 3;
+
+/**
+ * Truncates content if it exceeds the maximum size limit.
+ */
+function truncateContent(
+  content: string,
+  maxSize: number = MAX_CONTENT_SIZE_PER_SOURCE,
+): { content: string; truncated: boolean; originalSize: number } {
+  const originalSize = Buffer.byteLength(content, "utf-8");
+
+  if (originalSize <= maxSize) {
+    return { content, truncated: false, originalSize };
+  }
+
+  // Truncate and add indicator
+  const indicatorSize = Buffer.byteLength(
+    TRUNCATION_INDICATOR.replace("{size}", originalSize.toString()),
+    "utf-8",
+  );
+  const truncatedContent = content.substring(0, maxSize - indicatorSize);
+  const finalContent =
+    truncatedContent +
+    TRUNCATION_INDICATOR.replace("{size}", originalSize.toString());
+
+  return { content: finalContent, truncated: true, originalSize };
+}
+
+/**
+ * Checks if execution has timed out.
+ */
+function checkTimeout(context?: ExecutionContext): void {
+  if (!context) return;
+
+  const elapsed = Date.now() - context.startTime;
+  if (elapsed >= context.timeoutMs) {
+    throw new Error(
+      `Execution timeout: exceeded ${context.timeoutMs}ms limit (elapsed: ${elapsed}ms)`,
+    );
+  }
+}
+
+/**
+ * Checks if we've exceeded the maximum chain depth.
+ */
+function checkDepth(context?: ExecutionContext): void {
+  if (!context) return;
+
+  if (context.currentDepth >= context.maxDepth) {
+    throw new Error(
+      `Maximum chain depth exceeded: current depth ${context.currentDepth} >= max ${context.maxDepth}`,
+    );
+  }
+}
+
+/**
+ * Checks if an agent has already been visited in this execution (cycle detection).
+ */
+function checkCycle(agentId: string, context?: ExecutionContext): void {
+  if (!context) return;
+
+  if (context.visitedAgents.has(agentId)) {
+    throw new Error(
+      `Circular dependency detected: agent ${agentId} has already been visited in this execution chain`,
+    );
+  }
+}
 
 /**
  * Fetches content for a single source based on its type.
@@ -35,22 +114,26 @@ const CONCURRENCY_LIMIT = 3;
 export async function fetchSourceContent(
   source: Source,
   adminClient: SupabaseClient<Database>,
+  context?: ExecutionContext,
 ): Promise<SourceContent> {
-  if (source.type === "url") {
-    return fetchUrlContent(source);
-  } else if (source.type === "agent_report") {
-    return fetchAgentReportContent(source, adminClient);
-  } else if (source.type === "web_search") {
-    return fetchWebSearchContent(source);
-  }
+  checkTimeout(context);
 
-  return {
-    sourceId: source.id,
-    sourceType: source.type,
-    identifier: "unknown",
-    success: false,
-    error: `Unknown source type: ${source.type}`,
-  };
+  switch (source.type) {
+    case "url":
+      return fetchUrlContent(source);
+    case "agent_report":
+      return fetchAgentReportContent(source, adminClient, context);
+    case "web_search":
+      return fetchWebSearchContent(source);
+    default:
+      return {
+        sourceId: source.id,
+        sourceType: source.type,
+        identifier: "unknown",
+        success: false,
+        error: `Unknown source type: ${source.type}`,
+      };
+  }
 }
 
 /**
@@ -67,7 +150,36 @@ async function fetchUrlContent(source: Source): Promise<SourceContent> {
     };
   }
 
+  // Validate URL for SSRF protection
+  const urlValidation = await validateUrlWithDnsCheck(source.url);
+  if (!urlValidation.isValid) {
+    return {
+      sourceId: source.id,
+      sourceType: "url",
+      identifier: source.url,
+      success: false,
+      error: `URL validation failed: ${urlValidation.error}`,
+    };
+  }
+
   const result = await scrapeUrl(source.url);
+
+  // Apply content size limits
+  if (result.success && result.content) {
+    const { content, truncated, originalSize } = truncateContent(
+      result.content,
+    );
+    return {
+      sourceId: source.id,
+      sourceType: "url",
+      identifier: source.url,
+      success: true,
+      content,
+      title: result.title,
+      contentTruncated: truncated,
+      originalSize: truncated ? originalSize : undefined,
+    };
+  }
 
   return {
     sourceId: source.id,
@@ -86,6 +198,7 @@ async function fetchUrlContent(source: Source): Promise<SourceContent> {
 async function fetchAgentReportContent(
   source: Source,
   adminClient: SupabaseClient<Database>,
+  context?: ExecutionContext,
 ): Promise<SourceContent> {
   if (!source.source_reference_id) {
     return {
@@ -96,6 +209,12 @@ async function fetchAgentReportContent(
       error: "Agent report source is missing reference ID",
     };
   }
+
+  // Runtime cycle detection
+  checkCycle(source.source_reference_id, context);
+
+  // Check depth before fetching from another agent
+  checkDepth(context);
 
   // Get the referenced agent's name
   const { data: agentData } = await adminClient
@@ -141,7 +260,15 @@ async function fetchAgentReportContent(
   const typedReport = report as Report & { jobs: { status: string } };
 
   // Convert report content to string for AI processing
-  const content = formatReportContent(typedReport.content, typedReport.format);
+  let content = formatReportContent(typedReport.content, typedReport.format);
+
+  // Apply content size limits
+  const {
+    content: truncatedContent,
+    truncated,
+    originalSize,
+  } = truncateContent(content);
+  content = truncatedContent;
 
   return {
     sourceId: source.id,
@@ -150,6 +277,8 @@ async function fetchAgentReportContent(
     success: true,
     content,
     title: `Report from ${agentName}`,
+    contentTruncated: truncated,
+    originalSize: truncated ? originalSize : undefined,
     metadata: {
       reportId: typedReport.id,
       reportCreatedAt: typedReport.created_at,
@@ -175,22 +304,46 @@ async function fetchWebSearchContent(source: Source): Promise<SourceContent> {
     };
   }
 
+  // Sanitize the search query
+  const sanitization = sanitizeSearchQuery(config.query);
+  if (!sanitization.isValid || !sanitization.sanitized) {
+    return {
+      sourceId: source.id,
+      sourceType: "web_search",
+      identifier: config.query,
+      success: false,
+      error: `Invalid search query: ${sanitization.error}`,
+    };
+  }
+
+  const sanitizedQuery = sanitization.sanitized;
+
   try {
-    const results = await searchWeb(config.query, {
+    const results = await searchWeb(sanitizedQuery, {
       searchDepth: config.search_depth,
       maxResults: config.max_results,
       includeRawContent: config.include_raw_content,
     });
 
-    const content = formatSearchResultsAsMarkdown(config.query, results);
+    let content = formatSearchResultsAsMarkdown(sanitizedQuery, results);
+
+    // Apply content size limits
+    const {
+      content: truncatedContent,
+      truncated,
+      originalSize,
+    } = truncateContent(content);
+    content = truncatedContent;
 
     return {
       sourceId: source.id,
       sourceType: "web_search",
-      identifier: config.query,
+      identifier: sanitizedQuery,
       success: true,
       content,
-      title: `Search: ${config.query}`,
+      title: `Search: ${sanitizedQuery}`,
+      contentTruncated: truncated,
+      originalSize: truncated ? originalSize : undefined,
       metadata: {
         searchResultCount: results.length,
       },
@@ -199,7 +352,7 @@ async function fetchWebSearchContent(source: Source): Promise<SourceContent> {
     return {
       sourceId: source.id,
       sourceType: "web_search",
-      identifier: config.query,
+      identifier: sanitizedQuery,
       success: false,
       error: error instanceof Error ? error.message : "Web search failed",
     };
@@ -210,9 +363,7 @@ async function fetchWebSearchContent(source: Source): Promise<SourceContent> {
  * Formats report content based on its format type.
  */
 function formatReportContent(content: Json, format: string): string {
-  if (typeof content === "string") {
-    return content;
-  }
+  if (typeof content === "string") return content;
 
   if (Array.isArray(content) && format === "list") {
     return content.map((item) => `- ${String(item)}`).join("\n");
@@ -223,20 +374,56 @@ function formatReportContent(content: Json, format: string): string {
 
 /**
  * Fetches content from all sources with concurrency limiting.
+ * Enforces total content size limit across all sources.
  */
 export async function fetchAllSourcesContent(
   sources: Source[],
   adminClient: SupabaseClient<Database>,
+  context?: ExecutionContext,
 ): Promise<SourceContent[]> {
   const activeSources = sources.filter((s) => s.is_active);
   const results: SourceContent[] = [];
+  let totalContentSize = 0;
 
   // Process in batches for concurrency control
   for (let i = 0; i < activeSources.length; i += CONCURRENCY_LIMIT) {
+    // Check timeout before each batch
+    checkTimeout(context);
+
     const batch = activeSources.slice(i, i + CONCURRENCY_LIMIT);
     const batchResults = await Promise.all(
-      batch.map((source) => fetchSourceContent(source, adminClient)),
+      batch.map((source) => fetchSourceContent(source, adminClient, context)),
     );
+
+    // Track total content size and enforce limit
+    for (const result of batchResults) {
+      if (result.success && result.content) {
+        const contentSize = Buffer.byteLength(result.content, "utf-8");
+        totalContentSize += contentSize;
+
+        // If we've exceeded the total limit, truncate remaining content
+        if (totalContentSize > MAX_TOTAL_CONTENT_SIZE) {
+          const overage = totalContentSize - MAX_TOTAL_CONTENT_SIZE;
+          const allowedSize = contentSize - overage;
+
+          if (allowedSize > 0) {
+            const { content: truncated } = truncateContent(
+              result.content,
+              allowedSize,
+            );
+            result.content = truncated;
+            result.contentTruncated = true;
+            result.originalSize = contentSize;
+          } else {
+            // No room left, mark as failed due to size
+            result.success = false;
+            result.content = undefined;
+            result.error = "Total content size limit exceeded";
+          }
+        }
+      }
+    }
+
     results.push(...batchResults);
   }
 
@@ -248,13 +435,14 @@ export async function fetchAllSourcesContent(
  */
 export function getSourceIdentifiers(results: SourceContent[]): string[] {
   return results.map((r) => {
-    if (r.sourceType === "url") {
-      return r.identifier;
+    switch (r.sourceType) {
+      case "url":
+        return r.identifier;
+      case "web_search":
+        return `search:${r.identifier}`;
+      case "agent_report":
+        return `agent:${r.metadata?.agentName || r.identifier}`;
     }
-    if (r.sourceType === "web_search") {
-      return `search:${r.identifier}`;
-    }
-    return `agent:${r.metadata?.agentName || r.identifier}`;
   });
 }
 

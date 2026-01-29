@@ -3,8 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { HARD_MAX_DEPTH } from "@/lib/execution/context";
 import { createClient, getUser } from "@/lib/supabase/server";
-import { wouldCreateCircularDependency } from "@/lib/utils/dependency-graph";
+import {
+  formatChainWithNames,
+  wouldCreateCircularDependency,
+  wouldExceedChainDepth,
+} from "@/lib/utils/dependency-graph";
 import type {
   Agent,
   AgentInsert,
@@ -214,10 +219,11 @@ export async function createAgent(formData: FormData) {
 
   // Create sources
   if (sources.length > 0) {
-    // Check for circular dependencies in agent_report sources
+    // Check for circular dependencies and chain depth in agent_report sources
     for (const source of sources) {
       if (source.type === "agent_report" && source.sourceReferenceId) {
-        const { wouldCreateCycle } = await wouldCreateCircularDependency(
+        // Check for circular dependency
+        const { wouldCreateCycle, cycle } = await wouldCreateCircularDependency(
           supabase,
           user.id,
           agent.id,
@@ -226,9 +232,30 @@ export async function createAgent(formData: FormData) {
         if (wouldCreateCycle) {
           // Delete the agent we just created since sources have circular dependency
           await supabase.from("agents").delete().eq("id", agent.id);
+          const cycleStr = cycle
+            ? await formatChainWithNames(supabase, cycle)
+            : "";
           return {
-            error:
-              "Cannot create agent: adding this agent as a source would create a circular dependency",
+            error: `Cannot create agent: adding this agent as a source would create a circular dependency${cycleStr ? ` (${cycleStr})` : ""}`,
+          };
+        }
+
+        // Check chain depth
+        const depthResult = await wouldExceedChainDepth(
+          supabase,
+          user.id,
+          agent.id,
+          source.sourceReferenceId,
+          HARD_MAX_DEPTH,
+        );
+        if (depthResult.wouldExceed) {
+          await supabase.from("agents").delete().eq("id", agent.id);
+          const chainStr = await formatChainWithNames(
+            supabase,
+            depthResult.chain,
+          );
+          return {
+            error: `Cannot create agent: chain depth (${depthResult.currentDepth}) would exceed maximum allowed (${depthResult.maxDepth}). Chain: ${chainStr}`,
           };
         }
       }
@@ -451,8 +478,24 @@ export async function addSource(
     );
 
     if (wouldCreateCycle) {
+      const cycleStr = cycle ? await formatChainWithNames(supabase, cycle) : "";
       return {
-        error: `Cannot add source: would create circular dependency${cycle ? ` (${cycle.join(" -> ")})` : ""}`,
+        error: `Cannot add source: would create circular dependency${cycleStr ? ` (${cycleStr})` : ""}`,
+      };
+    }
+
+    // Check chain depth
+    const depthResult = await wouldExceedChainDepth(
+      supabase,
+      user.id,
+      agentId,
+      params.sourceReferenceId,
+      HARD_MAX_DEPTH,
+    );
+    if (depthResult.wouldExceed) {
+      const chainStr = await formatChainWithNames(supabase, depthResult.chain);
+      return {
+        error: `Cannot add source: chain depth (${depthResult.currentDepth}) would exceed maximum allowed (${depthResult.maxDepth}). Chain: ${chainStr}`,
       };
     }
   }
