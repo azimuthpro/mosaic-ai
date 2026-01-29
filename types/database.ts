@@ -98,6 +98,8 @@ export interface Database {
           language: LanguageCode;
           schedule_cron: string | null;
           is_active: boolean;
+          max_chain_depth: number;
+          execution_timeout_ms: number;
           created_at: string;
           updated_at: string;
         };
@@ -111,6 +113,8 @@ export interface Database {
           language?: LanguageCode;
           schedule_cron?: string | null;
           is_active?: boolean;
+          max_chain_depth?: number;
+          execution_timeout_ms?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -124,6 +128,8 @@ export interface Database {
           language?: LanguageCode;
           schedule_cron?: string | null;
           is_active?: boolean;
+          max_chain_depth?: number;
+          execution_timeout_ms?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -201,6 +207,9 @@ export interface Database {
           completed_at: string | null;
           error_message: string | null;
           metadata: Json;
+          execution_id: string | null;
+          chain_depth: number;
+          parent_job_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -211,6 +220,9 @@ export interface Database {
           completed_at?: string | null;
           error_message?: string | null;
           metadata?: Json;
+          execution_id?: string | null;
+          chain_depth?: number;
+          parent_job_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -221,6 +233,9 @@ export interface Database {
           completed_at?: string | null;
           error_message?: string | null;
           metadata?: Json;
+          execution_id?: string | null;
+          chain_depth?: number;
+          parent_job_id?: string | null;
           created_at?: string;
         };
       };
@@ -288,12 +303,93 @@ export interface Database {
           updated_at?: string;
         };
       };
+      execution_logs: {
+        Row: {
+          id: string;
+          execution_id: string;
+          agent_id: string | null;
+          job_id: string | null;
+          event_type: string;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          execution_id: string;
+          agent_id?: string | null;
+          job_id?: string | null;
+          event_type: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          execution_id?: string;
+          agent_id?: string | null;
+          job_id?: string | null;
+          event_type?: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+      };
+      user_rate_limits: {
+        Row: {
+          user_id: string;
+          executions_this_hour: number;
+          hour_window_start: string;
+          concurrent_executions: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          executions_this_hour?: number;
+          hour_window_start?: string;
+          concurrent_executions?: number;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          executions_this_hour?: number;
+          hour_window_start?: string;
+          concurrent_executions?: number;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      check_and_increment_execution_count: {
+        Args: {
+          p_user_id: string;
+          p_max_per_hour?: number;
+          p_max_concurrent?: number;
+        };
+        Returns: Json;
+      };
+      decrement_concurrent_execution_count: {
+        Args: {
+          p_user_id: string;
+        };
+        Returns: undefined;
+      };
+      get_rate_limit_status: {
+        Args: {
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      log_execution_event: {
+        Args: {
+          p_execution_id: string;
+          p_agent_id: string;
+          p_job_id: string | null;
+          p_event_type: string;
+          p_metadata?: Json;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       [_ in never]: never;
@@ -324,6 +420,12 @@ export type AgentUpdate = Database["public"]["Tables"]["agents"]["Update"];
 export type SourceUpdate = Database["public"]["Tables"]["sources"]["Update"];
 export type JobUpdate = Database["public"]["Tables"]["jobs"]["Update"];
 export type SkillUpdate = Database["public"]["Tables"]["skills"]["Update"];
+export type ExecutionLog =
+  Database["public"]["Tables"]["execution_logs"]["Row"];
+export type ExecutionLogInsert =
+  Database["public"]["Tables"]["execution_logs"]["Insert"];
+export type UserRateLimit =
+  Database["public"]["Tables"]["user_rate_limits"]["Row"];
 
 // Extended types with relations
 export type AgentWithSources = Agent & {

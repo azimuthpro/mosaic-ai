@@ -101,6 +101,47 @@ Execution history of agent runs.
 - `completed_at`: Timestamp
 - `log`: Text (Error messages or execution summary)
 
+### 4.9. `workflows`
+
+Represents a container orchestrating multiple agents into a coherent processing pipeline.
+
+- `id`: UUID (Primary Key)
+- `user_id`: UUID (FK to users.id, creator/owner)
+- `name`: String (e.g., "Real Estate Pipeline")
+- `description`: Text
+- `is_active`: Boolean
+- `execution_mode`: Enum ('sequential', 'parallel', 'conditional')
+- `trigger_config`: JSONB (Schedule, event triggers, or manual-only settings)
+- `error_handling`: Enum ('stop', 'skip', 'retry')
+- `created_at`: Timestamp
+- `updated_at`: Timestamp
+
+### 4.10. `workflow_agents`
+
+Join table connecting workflows to agents with execution order and configuration.
+
+- `id`: UUID (Primary Key)
+- `workflow_id`: UUID (FK to workflows.id)
+- `agent_id`: UUID (FK to agents.id)
+- `execution_order`: Integer (Position in the pipeline)
+- `is_entry_point`: Boolean (For conditional flows: is this a starting agent?)
+- `condition`: JSONB (Optional, conditional logic to determine if agent runs)
+- `input_mapping`: JSONB (Map outputs from previous agents to this agent's inputs)
+- `created_at`: Timestamp
+
+### 4.11. `workflow_runs`
+
+Execution history of workflow runs.
+
+- `id`: UUID (Primary Key)
+- `workflow_id`: UUID (FK to workflows.id)
+- `status`: Enum ('pending', 'running', 'completed', 'failed', 'partial')
+- `trigger_type`: Enum ('scheduled', 'manual', 'api', 'agent_completed')
+- `started_at`: Timestamp
+- `completed_at`: Timestamp
+- `summary`: JSONB (Aggregated results from all agents)
+- `log`: Text (Execution trace and errors)
+
 ### 4.7. `reports`
 
 The actual data extracted/analyzed.
@@ -167,6 +208,30 @@ OAuth tokens and sensitive credentials.
   - Invite users by email to access an Agent.
   - Assign Role: Owner, Admin, Member.
 
+### 5.6. Workflow Management
+
+- **Create/Edit Workflow**:
+  - Input Name and Description.
+  - Select Execution Mode:
+    - **Sequential**: Agents run one by one, output of each feeds into the next.
+    - **Parallel**: All agents run simultaneously from the same input.
+    - **Conditional**: Branching logic based on agent outputs.
+  - Add/Remove Agents to the workflow.
+  - Configure Agent Order (drag-and-drop reordering).
+  - Define Input Mapping between agents (which output field connects to which input).
+  - Configure Error Handling (Stop on failure, Skip failed agents, Retry with backoff).
+  - Set Trigger (Schedule, Manual, API endpoint, or reactive to agent completion).
+
+- **Workflow Templates**:
+  - Pre-built templates for common use-cases (Lead Generation Pipeline, Market Research Chain, Competitive Intelligence Suite).
+
+- **Visual Builder (Future)**:
+  - Drag-and-drop interface to design agent pipelines visually.
+  - Real-time validation of data flow between agents.
+
+- **Sharing**:
+  - Assign Role: Owner, Admin, Member.
+
 - **Simple Agent Creator (Wizard)**:
   - Step-by-step guide for non-technical users to define source, prompt, and output style without dealing with complex configs.
 
@@ -196,16 +261,16 @@ OAuth tokens and sensitive credentials.
 
 The system supports diverse source types, allowing agents to ingest data from the web, other agents, or internal systems.
 
-| Type            | Description                                                 | Current Status |
-| :-------------- | :---------------------------------------------------------- | :------------- |
-| `url`           | Standard web scraping/crawling via Firecrawl.               | **MVP**        |
-| `agent_report`  | Uses the output (report) of another agent as input.         | **MVP**        |
-| `web_search`    | Performs autonomous web searches based on dynamic keywords. | **Next**       |
-| `file_upload`   | Ingests PDF, CSV, or Text files uploaded by the user.       | Future         |
-| `api_endpoint`  | Fetches JSON/XML from external REST/GraphQL APIs.           | Future         |
-| `db_query`      | Executes a query on a connected database.                   | Future         |
-| `rss_feed`      | Monitors RSS/Atom feeds for new entries.                    | Future         |
-| `google_drive`  | Monitors specific folders for new documents.                | Future         |
+| Type           | Description                                                 | Current Status |
+| :------------- | :---------------------------------------------------------- | :------------- |
+| `url`          | Standard web scraping/crawling via Firecrawl.               | **MVP**        |
+| `agent_report` | Uses the output (report) of another agent as input.         | **MVP**        |
+| `web_search`   | Performs autonomous web searches based on dynamic keywords. | **Next**       |
+| `file_upload`  | Ingests PDF, CSV, or Text files uploaded by the user.       | Future         |
+| `api_endpoint` | Fetches JSON/XML from external REST/GraphQL APIs.           | Future         |
+| `db_query`     | Executes a query on a connected database.                   | Future         |
+| `rss_feed`     | Monitors RSS/Atom feeds for new entries.                    | Future         |
+| `google_drive` | Monitors specific folders for new documents.                | Future         |
 
 - **Recursive Processing**: When using `agent_report`, the system leverages the dependency graph. An agent run may trigger dependent agents or wait for their latest reports.
 

@@ -99,7 +99,85 @@ This document describes the various types of agents available in the Mosaic AI p
 
 ---
 
-## 6. Skills (Extensibility)
+## 6. Workflows (Orchestration Layer)
+
+**Objective**: Combine multiple agents into a cohesive processing pipeline for complex intelligence-gathering missions.
+
+### What is a Workflow?
+
+A **Workflow** is a container that orchestrates multiple agents (of the same or different types) into a unified system. Instead of running agents independently, workflows enable:
+
+- **Data Flow**: Output from one agent automatically feeds into another.
+- **Coordinated Execution**: Agents run in a defined order or in parallel.
+- **Unified Triggering**: One trigger activates the entire pipeline.
+- **Aggregated Reporting**: Results from all agents are consolidated.
+
+### Execution Modes
+
+| Mode            | Description                                                                            |
+| :-------------- | :------------------------------------------------------------------------------------- |
+| **Sequential**  | Agents run one-by-one. Each agent receives output from the previous agent as input.    |
+| **Parallel**    | All agents run simultaneously from the same initial input. Results are aggregated.     |
+| **Conditional** | Branching logic routes data to different agents based on conditions or output content. |
+
+### Workflow Triggers
+
+Workflows support the same trigger types as individual agents:
+
+- **Scheduled (Cron)**: Run the entire pipeline on a schedule.
+- **Manual (Dashboard)**: User triggers the workflow from UI.
+- **Inbound API**: `POST /api/v1/workflows/{workflow_id}/trigger` with optional input data.
+- **Reactive**: Triggered when a specific external agent (outside the workflow) completes.
+
+### Configuration
+
+- `name`: Human-readable workflow identifier.
+- `description`: Purpose and scope of the workflow.
+- `execution_mode`: `sequential`, `parallel`, or `conditional`.
+- `error_handling`: How to handle agent failures:
+  - `stop`: Abort workflow on first failure.
+  - `skip`: Continue with remaining agents, mark workflow as `partial`.
+  - `retry`: Retry failed agent (3x with exponential backoff), then skip or stop.
+- `trigger_config`: Scheduling, API settings, or reactive triggers.
+- `agents`: Ordered list of agents with input/output mappings.
+
+### Input/Output Mapping
+
+When chaining agents, outputs from one agent become inputs for the next:
+
+```yaml
+# Example: Lead Pipeline Workflow
+agents:
+  - agent_id: "web-reader-agent"
+    inputs: { urls: "{{workflow.input.target_urls}}" }
+    outputs_as: "raw_data"
+
+  - agent_id: "researcher-agent"
+    inputs: { query: "{{raw_data.extracted_entities}}" }
+    outputs_as: "research"
+
+  - agent_id: "lead-enrichment-agent"
+    inputs: { target_entities: "{{research.people}}" }
+    outputs_as: "leads"
+```
+
+### Example Workflows
+
+| Workflow Name                | Agents Involved                                     | Mode                  |
+| :--------------------------- | :-------------------------------------------------- | :-------------------- |
+| **Lead Generation Pipeline** | Web Reader → Researcher → Lead Enrichment           | Sequential            |
+| **Competitive Intel Suite**  | 3x Web Reader (parallel) → Recursive (consolidator) | Parallel → Sequential |
+| **News Monitor & Alert**     | RSS Reader → Researcher (conditional on keywords)   | Conditional           |
+
+### Output
+
+- **Consolidated Report**: Single report aggregating results from all agents in the workflow.
+- **Per-Agent Reports**: Individual reports still stored in `reports` table for granular access.
+- **Status Tracking**: Workflow run status (`completed`, `partial`, `failed`) with detailed logs.
+
+---
+
+## 7. Skills (Extensibility)
 
 Agents can be enhanced with "Skills" which are predefined instruction sets for specific domains.
 
@@ -108,7 +186,7 @@ Agents can be enhanced with "Skills" which are predefined instruction sets for s
 
 ---
 
-## 7. Future Agent Types (Roadmap)
+## 8. Future Agent Types (Roadmap)
 
 | Type           | Input          | Description                                             |
 | :------------- | :------------- | :------------------------------------------------------ |
@@ -126,6 +204,7 @@ Agents can be enhanced with "Skills" which are predefined instruction sets for s
 | :------------------- | :-------------------------------------------------------------------- |
 | **Scheduled (Cron)** | Periodic execution based on user-defined frequency.                   |
 | **Reactive (Chain)** | Triggered by the completion of another agent's report.                |
+| **Workflow**         | Agent executed as part of a workflow pipeline.                        |
 | **Inbound (API)**    | Triggered via `PATCH` request with custom JSON data.                  |
 | **On-Demand**        | Manually executed via Dashboard.                                      |
 | **Webhook (Future)** | Triggered by external system events (e.g., new file in Google Drive). |

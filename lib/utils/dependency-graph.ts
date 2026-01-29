@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { HARD_MAX_DEPTH } from "@/lib/execution/context";
 import type { Database } from "@/types/database";
 
 type DependencyGraph = Map<string, Set<string>>;
@@ -7,6 +8,11 @@ type DependencyGraph = Map<string, Set<string>>;
 interface AgentReportSource {
   agent_id: string;
   source_reference_id: string;
+}
+
+export interface ChainDepthResult {
+  depth: number;
+  chain: string[];
 }
 
 /**
@@ -58,21 +64,20 @@ export function detectCircularDependency(
   startAgentId: string,
 ): { hasCycle: boolean; cycle?: string[] } {
   const visited = new Set<string>();
-  const path: string[] = [];
+  const pathSet = new Set<string>();
+  const pathList: string[] = [];
 
   function dfs(agentId: string): string[] | null {
-    if (path.includes(agentId)) {
-      // Found cycle - return the cycle path
-      const cycleStart = path.indexOf(agentId);
-      return [...path.slice(cycleStart), agentId];
+    if (pathSet.has(agentId)) {
+      const cycleStart = pathList.indexOf(agentId);
+      return [...pathList.slice(cycleStart), agentId];
     }
 
-    if (visited.has(agentId)) {
-      return null;
-    }
+    if (visited.has(agentId)) return null;
 
     visited.add(agentId);
-    path.push(agentId);
+    pathSet.add(agentId);
+    pathList.push(agentId);
 
     const dependencies = graph.get(agentId);
     if (dependencies) {
@@ -82,7 +87,8 @@ export function detectCircularDependency(
       }
     }
 
-    path.pop();
+    pathSet.delete(agentId);
+    pathList.pop();
     return null;
   }
 
@@ -117,4 +123,127 @@ export async function wouldCreateCircularDependency(
 
   const result = detectCircularDependency(graph, agentId);
   return { wouldCreateCycle: result.hasCycle, cycle: result.cycle };
+}
+
+/**
+ * Calculates the maximum chain depth starting from a given agent.
+ * This is the longest path in the dependency graph from this agent.
+ */
+export function calculateMaxChainDepth(
+  graph: DependencyGraph,
+  agentId: string,
+  visited: Set<string> = new Set(),
+): ChainDepthResult {
+  if (visited.has(agentId)) {
+    return { depth: 0, chain: [] };
+  }
+
+  visited.add(agentId);
+  const dependencies = graph.get(agentId);
+
+  if (!dependencies || dependencies.size === 0) {
+    return { depth: 0, chain: [agentId] };
+  }
+
+  let maxDepth = 0;
+  let longestChain: string[] = [agentId];
+
+  for (const depId of dependencies) {
+    const result = calculateMaxChainDepth(graph, depId, new Set(visited));
+    if (result.depth + 1 > maxDepth) {
+      maxDepth = result.depth + 1;
+      longestChain = [agentId, ...result.chain];
+    }
+  }
+
+  return { depth: maxDepth, chain: longestChain };
+}
+
+/**
+ * Calculates the depth of the longest chain that would include the new reference.
+ */
+export async function calculateChainDepthWithNewReference(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  agentId: string,
+  referencedAgentId: string,
+): Promise<ChainDepthResult> {
+  const graph = await buildDependencyGraph(supabase, userId);
+
+  // Add the new reference to the graph
+  const deps = graph.get(agentId) ?? new Set<string>();
+  deps.add(referencedAgentId);
+  graph.set(agentId, deps);
+
+  return calculateMaxChainDepth(graph, agentId);
+}
+
+/**
+ * Checks if adding a new agent_report source would exceed the chain depth limit.
+ *
+ * @param supabase - Supabase client
+ * @param userId - The user's ID (for ownership filtering)
+ * @param agentId - The agent that would have the new source
+ * @param referencedAgentId - The agent being referenced as a source
+ * @param maxDepth - Maximum allowed chain depth (defaults to hard limit)
+ */
+export async function wouldExceedChainDepth(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  agentId: string,
+  referencedAgentId: string,
+  maxDepth: number = HARD_MAX_DEPTH,
+): Promise<{
+  wouldExceed: boolean;
+  currentDepth: number;
+  maxDepth: number;
+  chain: string[];
+}> {
+  const result = await calculateChainDepthWithNewReference(
+    supabase,
+    userId,
+    agentId,
+    referencedAgentId,
+  );
+
+  return {
+    wouldExceed: result.depth >= maxDepth,
+    currentDepth: result.depth,
+    maxDepth,
+    chain: result.chain,
+  };
+}
+
+/**
+ * Gets agent names for a list of agent IDs (for better error messages).
+ */
+export async function getAgentNames(
+  supabase: SupabaseClient<Database>,
+  agentIds: string[],
+): Promise<Map<string, string>> {
+  if (agentIds.length === 0) return new Map();
+
+  const { data: agents } = await supabase
+    .from("agents")
+    .select("id, name")
+    .in("id", agentIds);
+
+  const nameMap = new Map<string, string>();
+  const typedAgents = agents as { id: string; name: string }[] | null;
+  for (const agent of typedAgents ?? []) {
+    nameMap.set(agent.id, agent.name);
+  }
+
+  return nameMap;
+}
+
+/**
+ * Formats a chain of agent IDs as a readable string with names.
+ */
+export async function formatChainWithNames(
+  supabase: SupabaseClient<Database>,
+  chain: string[],
+): Promise<string> {
+  const nameMap = await getAgentNames(supabase, chain);
+  return chain.map((id) => nameMap.get(id) || id.slice(0, 8)).join(" → ");
 }
