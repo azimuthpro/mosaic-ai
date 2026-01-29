@@ -494,7 +494,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="container max-w-6xl py-20 md:py-40">
+      <section className="container max-w-6xl pt-12 pb-24 md:pt-16 md:pb-40">
         <div className="w-full flex flex-col items-center justify-center gap-12 text-center bg-slate-950/40 border border-slate-800 px-8 py-24 md:p-24 rounded-[3rem] md:rounded-[5rem] relative overflow-hidden backdrop-blur-xl transition-all hover:bg-slate-900/40 group">
           {/* Mercedes-style Horizon Glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-500/10 blur-[120px] pointer-events-none group-hover:bg-cyan-500/15 transition-colors" />
