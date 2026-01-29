@@ -101,7 +101,7 @@ export default function SignupPage() {
               onChange={(e) => setFullName(e.target.value)}
               required
               autoFocus
-              className="h-12 bg-slate-950/50 border-slate-800 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl text-white placeholder:text-slate-600 transition-all font-medium"
+              className="h-12 bg-slate-950/50 border-slate-800 focus:border-cyan-500/50 focus:ring-cyan-500/20 rounded-xl text-white placeholder:text-slate-600 transition-all font-medium"
               disabled={isLoading}
             />
           </div>
@@ -119,7 +119,7 @@ export default function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="h-12 bg-slate-950/50 border-slate-800 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl text-white placeholder:text-slate-600 transition-all font-medium"
+              className="h-12 bg-slate-950/50 border-slate-800 focus:border-cyan-500/50 focus:ring-cyan-500/20 rounded-xl text-white placeholder:text-slate-600 transition-all font-medium"
               disabled={isLoading}
             />
           </div>
@@ -138,7 +138,7 @@ export default function SignupPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="h-12 bg-slate-950/50 border-slate-800 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-xl text-white placeholder:text-slate-600 transition-all font-medium"
+              className="h-12 bg-slate-950/50 border-slate-800 focus:border-cyan-500/50 focus:ring-cyan-500/20 rounded-xl text-white placeholder:text-slate-600 transition-all font-medium"
               disabled={isLoading}
             />
             <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider ml-1">
@@ -149,7 +149,7 @@ export default function SignupPage() {
         <CardFooter className="flex flex-col space-y-6 pt-6 pb-10">
           <Button
             type="submit"
-            className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-lg rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] active:scale-[0.98] group"
+            className="w-full h-12 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-lg rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.2)] active:scale-[0.98] group"
             disabled={isLoading}
           >
             {isLoading ? (
@@ -165,7 +165,7 @@ export default function SignupPage() {
             Already have an account?{" "}
             <Link
               href="/login"
-              className="text-emerald-400 hover:text-emerald-300 transition-colors underline underline-offset-4 decoration-emerald-500/30 hover:decoration-emerald-400"
+              className="text-cyan-400 hover:text-cyan-300 transition-colors underline underline-offset-4 decoration-cyan-500/30 hover:decoration-cyan-400"
             >
               Sign in
             </Link>

@@ -14,7 +14,7 @@ export default async function MarketingLayout({
   const user = await getUser();
 
   return (
-    <div className="flex min-h-screen flex-col dark bg-slate-950 text-slate-300 selection:bg-emerald-500/30">
+    <div className="flex min-h-screen flex-col dark bg-black text-slate-300 selection:bg-cyan-500/30">
       <Header user={user} />
       <main className="flex-1">{children}</main>
 
@@ -23,8 +23,8 @@ export default async function MarketingLayout({
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-12 mb-16">
             <div className="col-span-2">
               <Link href="/" className="flex items-center space-x-2 mb-6">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                  <Bot className="h-5 w-5 text-emerald-400" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                  <Bot className="h-5 w-5 text-cyan-400" />
                 </div>
                 <span className="font-black text-xl tracking-tight text-white">
                   Mosaic
@@ -37,19 +37,19 @@ export default async function MarketingLayout({
               <div className="flex items-center space-x-4 mt-6">
                 <Link
                   href="#"
-                  className="text-slate-600 hover:text-emerald-400 transition-colors"
+                  className="text-slate-600 hover:text-cyan-400 transition-colors"
                 >
                   <Twitter className="h-5 w-5" />
                 </Link>
                 <Link
                   href="#"
-                  className="text-slate-600 hover:text-emerald-400 transition-colors"
+                  className="text-slate-600 hover:text-cyan-400 transition-colors"
                 >
                   <Github className="h-5 w-5" />
                 </Link>
                 <Link
                   href="#"
-                  className="text-slate-600 hover:text-emerald-400 transition-colors"
+                  className="text-slate-600 hover:text-cyan-400 transition-colors"
                 >
                   <Linkedin className="h-5 w-5" />
                 </Link>
@@ -64,7 +64,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#use-cases"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     Market Analysts
                   </Link>
@@ -72,7 +72,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#use-cases"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     OSINT & Researchers
                   </Link>
@@ -80,7 +80,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#use-cases"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     Sales Teams
                   </Link>
@@ -88,7 +88,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#use-cases"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     AI Engineers
                   </Link>
@@ -104,7 +104,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#reliability"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     Anti-bot evasion
                   </Link>
@@ -112,7 +112,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#reliability"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     Semantic parsing
                   </Link>
@@ -120,7 +120,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#reliability"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     Fact reconciliation
                   </Link>
@@ -128,7 +128,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#how-it-works"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     Multi-step Pipelines
                   </Link>
@@ -144,7 +144,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     Documentation
                   </Link>
@@ -152,7 +152,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     Privacy Policy
                   </Link>
@@ -160,7 +160,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     Terms of Service
                   </Link>
@@ -168,7 +168,7 @@ export default async function MarketingLayout({
                 <li>
                   <Link
                     href="#"
-                    className="hover:text-emerald-400 transition-colors"
+                    className="hover:text-cyan-400 transition-colors"
                   >
                     Contact
                   </Link>

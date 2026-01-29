@@ -32,7 +32,7 @@ export function InviteForm() {
 
   if (isSubmitted) {
     return (
-      <div className="flex items-center justify-center gap-3 text-emerald-400 font-bold py-4 px-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 animate-in fade-in zoom-in duration-300">
+      <div className="flex items-center justify-center gap-3 text-cyan-400 font-bold py-4 px-6 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 animate-in fade-in zoom-in duration-300">
         <CheckCircle2 className="h-6 w-6" />
         <span className="text-lg">Request sent! Welcome to the network.</span>
       </div>
@@ -42,7 +42,7 @@ export function InviteForm() {
   return (
     <div className="flex flex-col w-full gap-3 group">
       <form onSubmit={handleSubmit} className="relative flex items-center">
-        <div className="absolute left-4 text-slate-500 group-focus-within:text-emerald-500 transition-colors pointer-events-none">
+        <div className="absolute left-4 text-slate-500 group-focus-within:text-cyan-500 transition-colors pointer-events-none">
           <Mail className="h-5 w-5" />
         </div>
         <Input
@@ -51,14 +51,14 @@ export function InviteForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="h-14 pl-12 pr-44 bg-slate-950 border-slate-800 focus:border-emerald-500/50 focus:ring-emerald-500/20 rounded-2xl text-white placeholder:text-slate-600 transition-all font-medium"
+          className="h-14 pl-12 pr-44 bg-slate-950 border-slate-800 focus:border-cyan-500/50 focus:ring-cyan-500/20 rounded-2xl text-white placeholder:text-slate-600 transition-all font-medium"
           disabled={isLoading}
         />
         <div className="absolute right-1.5">
           <Button
             type="submit"
             disabled={isLoading}
-            className="h-11 px-6 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition-all shadow-lg active:scale-95 disabled:opacity-50"
+            className="h-11 px-6 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black transition-all shadow-lg active:scale-95 disabled:opacity-50"
           >
             {isLoading ? (
               <div className="flex items-center gap-2">

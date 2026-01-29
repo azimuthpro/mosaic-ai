@@ -22,29 +22,33 @@ import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col selection:bg-emerald-500/30">
+    <div className="flex flex-col selection:bg-cyan-500/30">
       {/* Hero Section */}
       <section className="container max-w-6xl relative flex flex-col items-center gap-8 pb-16 pt-12 md:pt-20 lg:pt-32 overflow-hidden">
         {/* Deep Dark Background Elements */}
-        <div className="absolute top-0 -z-10 h-full w-full bg-slate-950">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[800px] w-[800px] rounded-full bg-emerald-500/10 blur-[120px] opacity-50"></div>
+        <div className="absolute top-0 -z-10 h-full w-full bg-black">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[800px] w-[800px] rounded-full bg-cyan-500/10 blur-[120px] opacity-50"></div>
           <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-cyan-500/5 blur-[100px] opacity-30"></div>
         </div>
 
         <div className="flex max-w-[980px] flex-col items-center gap-6 text-center">
           <Link
             href="#"
-            className="group inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-4 py-1.5 text-sm font-medium text-emerald-400 transition-all hover:bg-emerald-500/10 hover:border-emerald-500/40"
+            className="group inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/5 px-4 py-1.5 text-sm font-medium text-cyan-400 transition-all hover:bg-cyan-500/10 hover:border-cyan-500/40 relative overflow-hidden"
           >
-            <Zap className="h-4 w-4 fill-current" />
-            <span>Mosaic v2 • Extraction Engine available</span>
+            <div className="absolute inset-0 bg-linear-to-r from-cyan-500/0 via-white/5 to-cyan-500/0 -translate-x-full group-hover:animate-shimmer" />
+            <Zap className="h-4 w-4 fill-current text-[#CCFF00]" />
+            <span className="flex items-center gap-1.5">
+              Mosaic v2 <span className="text-white/20">•</span>{" "}
+              <span className="text-[#CCFF00]">Race-Ready</span>
+            </span>
             <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>
 
           <h1 className="text-balance text-5xl font-extrabold leading-[1.1] tracking-tight md:text-7xl lg:text-8xl text-white">
             Structure the web
             <br />
-            <span className="bg-linear-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent italic">
+            <span className="bg-linear-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent italic">
               in 30 seconds.
             </span>
           </h1>
@@ -59,7 +63,7 @@ export default function HomePage() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-md mt-4">
           <Button
             asChild
-            className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black h-14 px-10 rounded-2xl text-lg group transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] active:scale-95"
+            className="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black h-14 px-10 rounded-2xl text-lg group transition-all shadow-[0_0_30px_rgba(34,211,238,0.3)] active:scale-95"
           >
             <Link href="/signup">
               Deploy your first Agent
@@ -67,18 +71,19 @@ export default function HomePage() {
             </Link>
           </Button>
         </div>
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-cyan-500/50 to-transparent opacity-50" />
       </section>
 
       {/* Aha! Moment - Comparison Section */}
       <section className="container max-w-6xl py-24">
         <div className="grid gap-12 lg:grid-cols-2 lg:items-center bg-slate-900/40 p-8 md:p-12 rounded-[2.5rem] border border-slate-800 backdrop-blur-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-emerald-500/5 blur-[100px] pointer-events-none" />
+          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-cyan-500/5 blur-[100px] pointer-events-none" />
 
           <div className="space-y-8 relative z-10">
             <h2 className="text-balance text-4xl font-black text-white leading-tight">
               Stop fighting HTML.
               <br />
-              <span className="text-emerald-400 italic">
+              <span className="text-cyan-400 italic">
                 Start receiving facts.
               </span>
             </h2>
@@ -93,7 +98,7 @@ export default function HomePage() {
                 </p>
               </div>
               <div className="flex gap-4 items-start">
-                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400 shrink-0">
+                <div className="h-8 w-8 rounded-lg bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 shrink-0">
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
                 <p className="text-pretty text-slate-400 text-lg">
@@ -130,11 +135,11 @@ export default function HomePage() {
               </div>
 
               {/* Clean JSON Part */}
-              <div className="relative -mt-12 lg:-mt-20 overflow-hidden rounded-2xl border border-emerald-500/30 bg-slate-950 shadow-2xl shadow-emerald-500/10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-                <div className="flex items-center justify-between p-3 border-b border-emerald-500/10 bg-emerald-500/5 px-4 font-mono text-[10px]">
+              <div className="relative -mt-12 lg:-mt-20 overflow-hidden rounded-2xl border border-cyan-500/30 bg-slate-950 shadow-2xl shadow-cyan-500/10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                <div className="flex items-center justify-between p-3 border-b border-cyan-500/10 bg-cyan-500/5 px-4 font-mono text-[10px]">
                   <div className="flex items-center gap-1.5 ">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,1)]" />
-                    <span className="text-emerald-400 uppercase tracking-widest font-bold font-mono">
+                    <div className="h-2 w-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,1)]" />
+                    <span className="text-cyan-400 uppercase tracking-widest font-bold font-mono">
                       Verified Intelligence Output
                     </span>
                   </div>
@@ -148,7 +153,7 @@ export default function HomePage() {
                     <div className="pl-4">
                       <span className="text-pink-400">&quot;product&quot;</span>
                       :{" "}
-                      <span className="text-emerald-400">
+                      <span className="text-cyan-400">
                         &quot;Advanced Intelligence Engine&quot;
                       </span>
                       ,
@@ -161,8 +166,7 @@ export default function HomePage() {
                       <span className="text-pink-400">
                         &quot;currency&quot;
                       </span>
-                      :{" "}
-                      <span className="text-emerald-400">&quot;USD&quot;</span>,
+                      : <span className="text-cyan-400">&quot;USD&quot;</span>,
                     </div>
                     <div className="pl-4">
                       <span className="text-pink-400">
@@ -175,7 +179,7 @@ export default function HomePage() {
                         &quot;source_integrity&quot;
                       </span>
                       : <span className="text-cyan-400">0.98</span>,
-                      <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20 group-hover/item:bg-emerald-500/20 transition-colors">
+                      <span className="ml-2 px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[10px] font-bold border border-cyan-500/20 group-hover/item:bg-cyan-500/20 transition-colors">
                         FACT CHECKED
                       </span>
                     </div>
@@ -193,7 +197,7 @@ export default function HomePage() {
         <div className="mx-auto flex flex-col items-center gap-4 text-center mb-16 px-4">
           <h2 className="text-balance text-3xl font-black tracking-tighter sm:text-6xl text-white">
             Automate{" "}
-            <span className="text-emerald-400 underline decoration-emerald-500/20 underline-offset-8">
+            <span className="text-cyan-400 underline decoration-cyan-500/20 underline-offset-8">
               Intelligence.
             </span>
           </h2>
@@ -206,7 +210,7 @@ export default function HomePage() {
         <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-6">
           {/* Large Card: Stealth Browsing */}
           <div className="md:col-span-3 lg:col-span-7 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 lg:p-12 transition-all hover:bg-slate-900/80 group overflow-hidden relative">
-            <div className="absolute top-0 right-0 p-8 text-slate-700/50 group-hover:text-emerald-500/20 transition-colors">
+            <div className="absolute top-0 right-0 p-8 text-slate-700/50 group-hover:text-cyan-500/20 transition-colors">
               <ShieldCheck className="h-32 w-32 rotate-12" />
             </div>
             <div className="relative z-10 h-full flex flex-col">
@@ -233,7 +237,7 @@ export default function HomePage() {
 
           {/* Tall Card: Fact Reconciliation */}
           <div className="md:col-span-3 lg:col-span-5 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 lg:p-12 transition-all hover:bg-slate-900/80 overflow-hidden group">
-            <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400 mb-8">
+            <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
               <Globe className="h-6 w-6" />
             </div>
             <h3 className="text-2xl font-black text-white mb-4">
@@ -245,12 +249,12 @@ export default function HomePage() {
             </p>
             <div className="relative h-32 w-full bg-slate-950/50 rounded-2xl border border-slate-800 p-4">
               <div className="space-y-3">
-                <div className="h-2 w-3/4 bg-emerald-500/20 rounded shadow-[0_0_10px_rgba(16,185,129,0.1)]" />
+                <div className="h-2 w-3/4 bg-cyan-500/20 rounded shadow-[0_0_10px_rgba(34,211,238,0.1)]" />
                 <div className="h-2 w-1/2 bg-cyan-500/20 rounded" />
                 <div className="h-2 w-2/3 bg-slate-800 rounded animate-pulse" />
               </div>
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <CheckCircle2 className="h-12 w-12 text-emerald-400/20" />
+                <CheckCircle2 className="h-12 w-12 text-cyan-400/20" />
               </div>
             </div>
           </div>
@@ -315,7 +319,7 @@ export default function HomePage() {
               <div className="flex-1 w-full flex justify-end">
                 <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 w-full max-w-[300px]">
                   <div className="space-y-2">
-                    <div className="h-2 w-full bg-emerald-500/40 rounded shadow-[0_0_10px_rgba(16,185,129,0.2)]" />
+                    <div className="h-2 w-full bg-cyan-500/40 rounded shadow-[0_0_10px_rgba(34,211,238,0.2)]" />
                     <div className="h-2 w-2/3 bg-slate-800 rounded" />
                     <div className="h-2 w-5/6 bg-slate-800 rounded" />
                   </div>
@@ -325,8 +329,8 @@ export default function HomePage() {
           </div>
 
           {/* Last Square Card: Vector DB Integration */}
-          <div className="md:col-span-6 lg:col-span-4 bg-emerald-500/5 rounded-[2.5rem] border border-emerald-500/20 p-8 transition-all hover:bg-emerald-500/10 group">
-            <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400 mb-8">
+          <div className="md:col-span-6 lg:col-span-4 bg-cyan-500/5 rounded-[2.5rem] border border-cyan-500/20 p-8 transition-all hover:bg-cyan-500/10 group">
+            <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
               <Database className="h-6 w-6" />
             </div>
             <h3 className="text-xl font-bold text-white mb-3">RAG Ready.</h3>
@@ -345,7 +349,7 @@ export default function HomePage() {
             <h2 className="text-balance text-4xl font-extrabold tracking-tight text-white mb-6 leading-tight">
               One API call.
               <br />
-              <span className="text-emerald-400 italic">Total Control.</span>
+              <span className="text-cyan-400 italic">Total Control.</span>
             </h2>
             <p className="text-pretty text-slate-400 text-lg leading-relaxed mb-8">
               Send a URL and a schema. Mosaic delivers verified facts. No
@@ -353,13 +357,13 @@ export default function HomePage() {
             </p>
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                <CheckCircle2 className="h-5 w-5 text-cyan-400" />
                 <span className="text-slate-300 font-medium">
                   Type-safe TypeScript SDK
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                <CheckCircle2 className="h-5 w-5 text-cyan-400" />
                 <span className="text-slate-300 font-medium">
                   Real-time Webhook Triggers
                 </span>
@@ -368,7 +372,7 @@ export default function HomePage() {
           </div>
 
           <div className="group relative">
-            <div className="absolute -inset-1 rounded-3xl bg-linear-to-r from-emerald-500/20 to-cyan-500/20 blur-2xl opacity-75"></div>
+            <div className="absolute -inset-1 rounded-3xl bg-linear-to-r from-cyan-500/20 to-teal-500/20 blur-2xl opacity-75"></div>
             <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl transition-transform group-hover:scale-[1.01] duration-500">
               <div className="flex items-center justify-between border-b border-slate-800/50 bg-slate-900/50 px-4 py-3 font-mono text-xs">
                 <div className="flex gap-1.5">
@@ -394,20 +398,20 @@ export default function HomePage() {
                     <span className="text-cyan-400 font-bold group-hover:text-cyan-300 transition-colors">
                       mosaic
                     </span>
-                    .<span className="text-emerald-400">extract</span>({"{"}
+                    .<span className="text-cyan-400">extract</span>({"{"}
                   </div>
                   <div className="pl-4">
                     url:{" "}
-                    <span className="text-emerald-400">
+                    <span className="text-cyan-400">
                       &quot;https://competitor.com/pricing&quot;
                     </span>
                     ,
                   </div>
                   <div className="pl-4">
                     schema: {"{"} product:{" "}
-                    <span className="text-emerald-400">&quot;string&quot;</span>
-                    , price:{" "}
-                    <span className="text-emerald-400">&quot;number&quot;</span>{" "}
+                    <span className="text-cyan-400">&quot;string&quot;</span>,
+                    price:{" "}
+                    <span className="text-cyan-400">&quot;number&quot;</span>{" "}
                     {"}"}
                   </div>
                   <div>{"}"});</div>
@@ -431,7 +435,7 @@ export default function HomePage() {
 
         <div className="grid gap-8 md:grid-cols-3">
           <div className="relative p-10 rounded-[2.5rem] border border-slate-800 bg-slate-900/30 hover:bg-slate-900/50 transition-colors group">
-            <MessageSquare className="h-10 w-10 text-emerald-400 mb-8 transition-transform group-hover:scale-110" />
+            <MessageSquare className="h-10 w-10 text-cyan-400 mb-8 transition-transform group-hover:scale-110" />
             <h3 className="text-2xl font-black text-white mb-4">
               AI Engineers
             </h3>
@@ -507,12 +511,15 @@ export default function HomePage() {
             <InviteForm />
           </div>
           <div className="pt-4 flex flex-col items-center gap-4">
-            <p className="text-[10px] text-emerald-500/60 font-black uppercase tracking-[0.4em]">
+            <p className="text-[10px] text-cyan-500/60 font-black uppercase tracking-[0.4em]">
               Secure • Verifiable • Autonomous
             </p>
-            <p className="text-xs text-slate-500 font-monospace uppercase tracking-[0.2em] font-bold border-t border-slate-800 pt-6">
-              Built with Mosaic AI
-            </p>
+            <div className="flex items-center gap-4 mt-2">
+              <p className="text-xs text-slate-500 font-monospace uppercase tracking-[0.2em] font-bold">
+                Built with Mosaic AI
+              </p>
+              <div className="h-1 w-8 bg-[#CCFF00] rounded-full" />
+            </div>
           </div>
         </div>
       </section>

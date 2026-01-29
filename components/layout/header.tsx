@@ -40,8 +40,8 @@ export function Header({ user }: HeaderProps) {
             className="group mr-12 flex items-center space-x-2 transition-opacity hover:opacity-90"
             onClick={handleLinkClick}
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 group-hover:border-emerald-500/40 transition-colors">
-              <Bot className="h-5 w-5 text-emerald-400" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/20 group-hover:border-cyan-500/40 transition-colors">
+              <Bot className="h-5 w-5 text-cyan-400" />
             </div>
             <span className="font-black text-xl tracking-tight text-white">
               Mosaic
@@ -79,13 +79,13 @@ export function Header({ user }: HeaderProps) {
                 <Button
                   asChild
                   variant="ghost"
-                  className="text-sm font-medium text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/5 transition-all"
+                  className="text-sm font-medium text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/5 transition-all"
                 >
                   <Link href="/login">Sign In</Link>
                 </Button>
                 <Button
                   asChild
-                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-5"
+                  className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-5"
                 >
                   <Link href="/signup">
                     <Zap className="mr-2 h-4 w-4 fill-current" />
@@ -124,21 +124,21 @@ export function Header({ user }: HeaderProps) {
         <nav className="flex flex-col space-y-10">
           <Link
             href="/#use-cases"
-            className="text-3xl font-black text-white tracking-tighter hover:text-emerald-400 transition-colors"
+            className="text-3xl font-black text-white tracking-tighter hover:text-cyan-400 transition-colors"
             onClick={handleLinkClick}
           >
             Use Cases
           </Link>
           <Link
             href="/#how-it-works"
-            className="text-3xl font-black text-white tracking-tighter hover:text-emerald-400 transition-colors"
+            className="text-3xl font-black text-white tracking-tighter hover:text-cyan-400 transition-colors"
             onClick={handleLinkClick}
           >
             How it works
           </Link>
           <Link
             href="/#reliability"
-            className="text-3xl font-black text-white tracking-tighter hover:text-emerald-400 transition-colors"
+            className="text-3xl font-black text-white tracking-tighter hover:text-cyan-400 transition-colors"
             onClick={handleLinkClick}
           >
             Reliability
@@ -156,7 +156,7 @@ export function Header({ user }: HeaderProps) {
                 </Link>
                 <Button
                   asChild
-                  className="w-full max-w-xs h-14 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xl rounded-2xl"
+                  className="w-full max-w-xs h-14 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xl rounded-2xl"
                   onClick={handleLinkClick}
                 >
                   <Link href="/signup">
