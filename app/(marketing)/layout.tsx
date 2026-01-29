@@ -19,7 +19,7 @@ export default async function MarketingLayout({
       <main className="flex-1">{children}</main>
 
       <footer className="border-t border-slate-900 bg-slate-950/50 pt-16 pb-8">
-        <div className="container">
+        <div className="container max-w-6xl">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-12 mb-16">
             <div className="col-span-2">
               <Link href="/" className="flex items-center space-x-2 mb-6">
@@ -58,39 +58,39 @@ export default async function MarketingLayout({
 
             <div>
               <h4 className="text-white font-bold mb-6 text-sm uppercase tracking-widest">
-                Platform
+                Solutions
               </h4>
               <ul className="space-y-4 text-sm">
                 <li>
                   <Link
-                    href="#"
+                    href="#use-cases"
                     className="hover:text-emerald-400 transition-colors"
                   >
-                    Agents
+                    Market Analysts
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href="#"
+                    href="#use-cases"
                     className="hover:text-emerald-400 transition-colors"
                   >
-                    Marketplace
+                    OSINT & Researchers
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href="#"
+                    href="#use-cases"
                     className="hover:text-emerald-400 transition-colors"
                   >
-                    API Keys
+                    Sales Teams
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href="#"
+                    href="#use-cases"
                     className="hover:text-emerald-400 transition-colors"
                   >
-                    Pricing
+                    AI Engineers
                   </Link>
                 </li>
               </ul>
@@ -98,7 +98,47 @@ export default async function MarketingLayout({
 
             <div>
               <h4 className="text-white font-bold mb-6 text-sm uppercase tracking-widest">
-                Resources
+                Capabilities
+              </h4>
+              <ul className="space-y-4 text-sm">
+                <li>
+                  <Link
+                    href="#reliability"
+                    className="hover:text-emerald-400 transition-colors"
+                  >
+                    Anti-bot evasion
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#reliability"
+                    className="hover:text-emerald-400 transition-colors"
+                  >
+                    Semantic parsing
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#reliability"
+                    className="hover:text-emerald-400 transition-colors"
+                  >
+                    Fact reconciliation
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#how-it-works"
+                    className="hover:text-emerald-400 transition-colors"
+                  >
+                    Multi-step Pipelines
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-white font-bold mb-6 text-sm uppercase tracking-widest">
+                Legal & Support
               </h4>
               <ul className="space-y-4 text-sm">
                 <li>
@@ -107,46 +147,6 @@ export default async function MarketingLayout({
                     className="hover:text-emerald-400 transition-colors"
                   >
                     Documentation
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-emerald-400 transition-colors"
-                  >
-                    Intelligence Reports
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-emerald-400 transition-colors"
-                  >
-                    API Reference
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-emerald-400 transition-colors"
-                  >
-                    Guides
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-bold mb-6 text-sm uppercase tracking-widest">
-                Company
-              </h4>
-              <ul className="space-y-4 text-sm">
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-emerald-400 transition-colors"
-                  >
-                    About
                   </Link>
                 </li>
                 <li>
