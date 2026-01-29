@@ -114,52 +114,53 @@ export function Header({ user }: HeaderProps) {
       {/* Mobile Navigation Overlay */}
       <div
         className={cn(
-          "fixed inset-0 top-16 z-40 md:hidden bg-slate-950 transition-all duration-300 ease-in-out px-6 pt-8",
+          "fixed inset-x-0 top-16 h-[calc(100vh-64px)] z-[100] md:hidden bg-slate-950 transition-all duration-500 ease-in-out px-10 pt-16 text-center shadow-2xl",
           isMenuOpen
-            ? "translate-x-0 opacity-100"
-            : "translate-x-full opacity-0",
+            ? "translate-y-0 opacity-100 block"
+            : "-translate-y-10 opacity-0 pointer-events-none",
         )}
+        style={{ backgroundColor: "#020617" }}
       >
-        <nav className="flex flex-col space-y-8">
+        <nav className="flex flex-col space-y-10">
           <Link
             href="/#use-cases"
-            className="text-2xl font-bold text-white tracking-tight"
+            className="text-3xl font-black text-white tracking-tighter hover:text-emerald-400 transition-colors"
             onClick={handleLinkClick}
           >
             Use Cases
           </Link>
           <Link
             href="/#how-it-works"
-            className="text-2xl font-bold text-white tracking-tight"
+            className="text-3xl font-black text-white tracking-tighter hover:text-emerald-400 transition-colors"
             onClick={handleLinkClick}
           >
             How it works
           </Link>
           <Link
             href="/#reliability"
-            className="text-2xl font-bold text-white tracking-tight"
+            className="text-3xl font-black text-white tracking-tighter hover:text-emerald-400 transition-colors"
             onClick={handleLinkClick}
           >
             Reliability
           </Link>
 
-          <div className="pt-8 border-t border-slate-900 space-y-6">
+          <div className="pt-12 border-t border-slate-900 flex flex-col items-center space-y-8">
             {!user && (
               <>
                 <Link
                   href="/login"
-                  className="block text-lg font-medium text-slate-400"
+                  className="text-xl font-bold text-slate-400 hover:text-white transition-colors"
                   onClick={handleLinkClick}
                 >
                   Sign In
                 </Link>
                 <Button
                   asChild
-                  className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold"
+                  className="w-full max-w-xs h-14 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xl rounded-2xl"
                   onClick={handleLinkClick}
                 >
                   <Link href="/signup">
-                    <Zap className="mr-2 h-4 w-4 fill-current" />
+                    <Zap className="mr-3 h-5 w-5 fill-current" />
                     Get Started
                   </Link>
                 </Button>
@@ -168,7 +169,7 @@ export function Header({ user }: HeaderProps) {
             {user && (
               <Link
                 href="/dashboard"
-                className="block text-lg font-medium text-slate-400"
+                className="text-xl font-bold text-slate-400 hover:text-white transition-colors"
                 onClick={handleLinkClick}
               >
                 Go to Dashboard
