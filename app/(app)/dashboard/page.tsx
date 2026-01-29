@@ -1,4 +1,12 @@
-import { Bot, CheckCircle, Clock, Loader2, Plus, XCircle } from "lucide-react";
+import {
+  Bot,
+  CheckCircle,
+  Clock,
+  Loader2,
+  Plus,
+  Users,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -10,13 +18,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getAgents } from "@/lib/actions/agents";
+import { getAgents, getSharedAgents } from "@/lib/actions/agents";
 import { getRecentJobs } from "@/lib/actions/jobs";
 import { cronToSchedule, formatRelativeTime } from "@/lib/utils";
 
 export default async function DashboardPage() {
-  const agents = await getAgents();
-  const recentJobs = await getRecentJobs(5);
+  const [agents, sharedAgents, recentJobs] = await Promise.all([
+    getAgents(),
+    getSharedAgents(),
+    getRecentJobs(5),
+  ]);
 
   const activeAgents = agents.filter((a) => a.is_active).length;
   const totalSources = agents.reduce(
@@ -120,6 +131,59 @@ export default async function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Shared with me */}
+      {sharedAgents.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Shared with Me
+            </CardTitle>
+            <CardDescription>
+              Agents that others have shared with you.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {sharedAgents.map((agent) => (
+                <Link
+                  key={agent.id}
+                  href={`/agents/${agent.id}`}
+                  className="block"
+                >
+                  <div className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{agent.name}</h3>
+                        <Badge
+                          variant={agent.is_active ? "success" : "secondary"}
+                        >
+                          {agent.is_active ? "Active" : "Paused"}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="flex items-center gap-1"
+                        >
+                          <Users className="h-3 w-3" />
+                          Shared
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>{agent.sources?.length || 0} sources</span>
+                        <span>{cronToSchedule(agent.schedule_cron)}</span>
+                      </div>
+                    </div>
+                    <div className="text-right text-sm text-muted-foreground">
+                      {formatRelativeTime(agent.created_at)}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Jobs */}
       {recentJobs.length > 0 && (
