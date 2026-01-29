@@ -41,6 +41,13 @@ For a detailed technical overview, please refer to the [Project Specification](d
 
 ## Version History
 
+### 0.5.0 (2026-01-29)
+
+- Web search sources: New source type using Tavily API for AI-powered web search
+- Team sharing: Role-based access control for agents (owner/admin/member permissions)
+- Improved error handling: Source errors now included in agent run failure responses
+- Web search validation: Sources validated with automatic rollback on failure
+
 ### 0.4.0 (2026-01-28)
 
 - Source types system: agents can now use URL sources or other agents' reports as input
