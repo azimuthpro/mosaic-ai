@@ -3,16 +3,20 @@ import {
   Bot,
   CheckCircle2,
   ChevronRight,
+  Clock,
   Code2,
   Database,
+  ExternalLink,
   Globe,
   LineChart,
   MessageSquare,
+  RefreshCw,
   Search,
   Settings,
   ShieldCheck,
   Sparkles,
   Target,
+  Users2,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
@@ -232,7 +236,7 @@ export default function HomePage() {
           </h2>
         </div>
 
-        <div className="grid gap-px bg-slate-800 border border-slate-800 rounded-2xl overflow-hidden md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-px bg-slate-800 border border-slate-800 rounded-2xl overflow-hidden md:grid-cols-2 lg:grid-cols-3">
           <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
             <Sparkles className="h-8 w-8 text-emerald-400 mb-6" />
             <h3 className="text-lg font-bold text-white mb-3">
@@ -273,6 +277,56 @@ export default function HomePage() {
               databases.
             </p>
           </div>
+          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
+            <Bot className="h-8 w-8 text-indigo-400 mb-6" />
+            <h3 className="text-lg font-bold text-white mb-3">
+              Multi-Agent Chaining
+            </h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Build recursive workflows where one agent&apos;s output becomes
+              another&apos;s source for deep research.
+            </p>
+          </div>
+          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
+            <Users2 className="h-8 w-8 text-emerald-500 mb-6" />
+            <h3 className="text-lg font-bold text-white mb-3">
+              Collaborative Workflows
+            </h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Invite your team, share verified intelligence feeds, and manage
+              permissions across the organization.
+            </p>
+          </div>
+          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
+            <RefreshCw className="h-8 w-8 text-orange-400 mb-6" />
+            <h3 className="text-lg font-bold text-white mb-3">
+              Self-Healing Pipelines
+            </h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Mosaic adapts to website redesigns automatically. No more broken
+              CSS selectors or brittle scripts.
+            </p>
+          </div>
+          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
+            <Clock className="h-8 w-8 text-blue-400 mb-6" />
+            <h3 className="text-lg font-bold text-white mb-3">
+              Autonomous Scheduling
+            </h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Run intelligence agents on a recurring schedule—daily, weekly, or
+              real-time—directly into your systems.
+            </p>
+          </div>
+          <div className="bg-slate-950 p-8 hover:bg-slate-900 transition-colors">
+            <ExternalLink className="h-8 w-8 text-purple-400 mb-6" />
+            <h3 className="text-lg font-bold text-white mb-3">
+              Traceable Audit Trail
+            </h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Every extracted data point is linked to its exact source location
+              for 100% verifiability and trust.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -303,11 +357,11 @@ export default function HomePage() {
               <Bot className="h-8 w-8" />
             </div>
             <h3 className="text-xl font-bold text-white mb-3">
-              2. Deploy the Agents
+              2. Deploy and Chain
             </h3>
             <p className="text-slate-400 text-sm leading-relaxed">
-              Mosaic agents navigate complex, dynamic sites, solve captchas, and
-              hunt for signals across multiple layers of the web.
+              Mosaic agents navigate complex sites independently or in chains,
+              solving captchas and hunting for signals across the deep web.
             </p>
           </div>
 
