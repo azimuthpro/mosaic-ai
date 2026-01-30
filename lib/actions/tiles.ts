@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient, getUser } from "@/lib/supabase/server";
 import type {
+  AgentReportSourceConfig,
   Json,
   LanguageCode,
   OutputFormat,
@@ -16,6 +17,7 @@ import type {
   TileSourceInsert,
   TileType,
   TileUpdate,
+  UrlSourceConfig,
   WebSearchConfig,
 } from "@/types/database";
 
@@ -30,14 +32,6 @@ type TileQueryResult = Tile & {
   tile_sources: TileSource[] | null;
 };
 
-type TileFullQueryResult = Tile & {
-  tile_sources: TileSource[] | null;
-  incoming_connections: TileConnection[] | null;
-  outgoing_connections: TileConnection[] | null;
-};
-
-const HARD_MAX_DEPTH = 10;
-
 /**
  * Get all tiles in a mosaic
  */
@@ -51,10 +45,12 @@ export async function getTiles(mosaicId: string): Promise<TileWithSources[]> {
 
   const { data, error } = await supabase
     .from("tiles")
-    .select(`
+    .select(
+      `
       *,
-      tile_sources (*)
-    `)
+      tile_sources!tile_sources_tile_id_fkey (*)
+    `,
+    )
     .eq("mosaic_id", mosaicId)
     .order("created_at", { ascending: true });
 
@@ -63,7 +59,7 @@ export async function getTiles(mosaicId: string): Promise<TileWithSources[]> {
     return [];
   }
 
-  return (data as TileQueryResult[] || []).map((t) => ({
+  return ((data as TileQueryResult[]) || []).map((t) => ({
     ...t,
     sources: t.tile_sources || [],
   })) as TileWithSources[];
@@ -82,10 +78,12 @@ export async function getTile(id: string): Promise<TileWithConnections | null> {
 
   const { data, error } = await supabase
     .from("tiles")
-    .select(`
+    .select(
+      `
       *,
-      tile_sources (*)
-    `)
+      tile_sources!tile_sources_tile_id_fkey (*)
+    `,
+    )
     .eq("id", id)
     .single();
 
@@ -158,22 +156,9 @@ export async function createTile(params: CreateTileParams) {
     .single();
 
   const mosaic = mosaicData as { id: string; owner_id: string } | null;
+  const isOwner = mosaic?.owner_id === user.id;
 
-  if (!mosaic) {
-    // Check if user is an admin member
-    const { data: membershipData } = await supabase
-      .from("mosaic_members")
-      .select("role")
-      .eq("mosaic_id", params.mosaicId)
-      .eq("user_id", user.id)
-      .single();
-
-    const membership = membershipData as { role: string } | null;
-    if (!membership || !["owner", "admin"].includes(membership.role)) {
-      return { error: "Not authorized to create tiles in this mosaic" };
-    }
-  } else if (mosaic.owner_id !== user.id) {
-    // Check admin access
+  if (!isOwner) {
     const { data: membershipData } = await supabase
       .from("mosaic_members")
       .select("role")
@@ -225,8 +210,12 @@ export async function createTile(params: CreateTileParams) {
       url: s.type === "url" ? s.url : null,
       name: s.name || null,
       type: s.type || "url",
-      source_reference_id: s.type === "agent_report" ? s.sourceReferenceId : null,
-      config: s.type === "web_search" && s.config ? (s.config as unknown as Json) : {},
+      source_reference_id:
+        s.type === "agent_report" ? s.sourceReferenceId : null,
+      config:
+        s.type === "web_search" && s.config
+          ? (s.config as unknown as Json)
+          : {},
     }));
 
     const { error: sourcesError } = await supabase
@@ -248,7 +237,10 @@ export async function createTile(params: CreateTileParams) {
 /**
  * Update a tile
  */
-export async function updateTile(id: string, params: Partial<CreateTileParams>) {
+export async function updateTile(
+  id: string,
+  params: Partial<CreateTileParams>,
+) {
   const supabase = await createClient();
   const user = await getUser();
 
@@ -258,18 +250,23 @@ export async function updateTile(id: string, params: Partial<CreateTileParams>) 
 
   const updateData: TileUpdate = {};
   if (params.name !== undefined) updateData.name = params.name;
-  if (params.description !== undefined) updateData.description = params.description || null;
+  if (params.description !== undefined)
+    updateData.description = params.description || null;
   if (params.tileType !== undefined) updateData.tile_type = params.tileType;
   if (params.color !== undefined) updateData.color = params.color;
   if (params.pattern !== undefined) updateData.pattern = params.pattern;
   if (params.gridX !== undefined) updateData.grid_x = params.gridX;
   if (params.gridY !== undefined) updateData.grid_y = params.gridY;
   if (params.gridWidth !== undefined) updateData.grid_width = params.gridWidth;
-  if (params.gridHeight !== undefined) updateData.grid_height = params.gridHeight;
-  if (params.systemPrompt !== undefined) updateData.system_prompt = params.systemPrompt || null;
-  if (params.outputFormat !== undefined) updateData.output_format = params.outputFormat;
+  if (params.gridHeight !== undefined)
+    updateData.grid_height = params.gridHeight;
+  if (params.systemPrompt !== undefined)
+    updateData.system_prompt = params.systemPrompt || null;
+  if (params.outputFormat !== undefined)
+    updateData.output_format = params.outputFormat;
   if (params.language !== undefined) updateData.language = params.language;
-  if (params.scheduleCron !== undefined) updateData.schedule_cron = params.scheduleCron || null;
+  if (params.scheduleCron !== undefined)
+    updateData.schedule_cron = params.scheduleCron || null;
 
   const { data: tileData, error } = await supabase
     .from("tiles")
@@ -296,7 +293,7 @@ export async function updateTilePosition(
   gridX: number,
   gridY: number,
   gridWidth?: number,
-  gridHeight?: number
+  gridHeight?: number,
 ) {
   const supabase = await createClient();
   const user = await getUser();
@@ -413,6 +410,8 @@ interface AddTileSourceParams {
   name?: string;
   sourceReferenceId?: string;
   config?: WebSearchConfig;
+  urlConfig?: UrlSourceConfig;
+  agentReportConfig?: AgentReportSourceConfig;
 }
 
 /**
@@ -453,13 +452,31 @@ export async function addTileSource(params: AddTileSourceParams) {
     return { error: "Search query is required for web_search source type" };
   }
 
+  // Build config based on source type
+  function buildSourceConfig(): Json {
+    switch (sourceType) {
+      case "url":
+        return params.urlConfig ? (params.urlConfig as unknown as Json) : {};
+      case "agent_report":
+        return params.agentReportConfig
+          ? (params.agentReportConfig as unknown as Json)
+          : {};
+      case "web_search":
+        return params.config ? (params.config as unknown as Json) : {};
+      default:
+        return {};
+    }
+  }
+  const config = buildSourceConfig();
+
   const sourceInsert: TileSourceInsert = {
     tile_id: params.tileId,
     type: sourceType,
     url: sourceType === "url" ? params.url : null,
     name: params.name ?? null,
-    source_reference_id: sourceType === "agent_report" ? params.sourceReferenceId : null,
-    config: sourceType === "web_search" && params.config ? (params.config as unknown as Json) : {},
+    source_reference_id:
+      sourceType === "agent_report" ? params.sourceReferenceId : null,
+    config,
   };
 
   const { data, error } = await supabase
@@ -470,6 +487,13 @@ export async function addTileSource(params: AddTileSourceParams) {
 
   if (error) {
     console.error("Error adding tile source:", error);
+    return { error: "Failed to add source" };
+  }
+
+  if (!data) {
+    console.error(
+      "Error adding tile source: insert succeeded but no data returned",
+    );
     return { error: "Failed to add source" };
   }
 
@@ -491,20 +515,30 @@ export async function deleteTileSource(sourceId: string) {
   // Get source to find mosaic for revalidation
   const { data: sourceData } = await supabase
     .from("tile_sources")
-    .select(`
+    .select(
+      `
       id,
-      tiles!inner (mosaic_id)
-    `)
+      tile_id,
+      tiles!tile_sources_tile_id_fkey (mosaic_id)
+    `,
+    )
     .eq("id", sourceId)
     .single();
 
-  type SourceWithTile = { id: string; tiles: { mosaic_id: string } };
+  type SourceWithTile = {
+    id: string;
+    tile_id: string;
+    tiles: { mosaic_id: string };
+  };
   const source = sourceData as SourceWithTile | null;
   if (!source) {
     return { error: "Source not found" };
   }
 
-  const { error } = await supabase.from("tile_sources").delete().eq("id", sourceId);
+  const { error } = await supabase
+    .from("tile_sources")
+    .delete()
+    .eq("id", sourceId);
 
   if (error) {
     console.error("Error deleting tile source:", error);
@@ -522,7 +556,9 @@ export async function deleteTileSource(sourceId: string) {
 /**
  * Get all connections in a mosaic
  */
-export async function getTileConnections(mosaicId: string): Promise<TileConnection[]> {
+export async function getTileConnections(
+  mosaicId: string,
+): Promise<TileConnection[]> {
   const supabase = await createClient();
   const user = await getUser();
 
@@ -549,7 +585,7 @@ export async function getTileConnections(mosaicId: string): Promise<TileConnecti
 export async function createTileConnection(
   mosaicId: string,
   sourceTileId: string,
-  targetTileId: string
+  targetTileId: string,
 ) {
   const supabase = await createClient();
   const user = await getUser();
@@ -560,13 +596,18 @@ export async function createTileConnection(
 
   // Check for circular dependency
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: hasCycle } = await (supabase.rpc as any)("check_tile_circular_dependency", {
-    p_source_tile_id: sourceTileId,
-    p_target_tile_id: targetTileId,
-  });
+  const { data: hasCycle } = await (supabase.rpc as any)(
+    "check_tile_circular_dependency",
+    {
+      p_source_tile_id: sourceTileId,
+      p_target_tile_id: targetTileId,
+    },
+  );
 
   if (hasCycle) {
-    return { error: "Cannot create connection: would create a circular dependency" };
+    return {
+      error: "Cannot create connection: would create a circular dependency",
+    };
   }
 
   const { error } = await supabase.from("tile_connections").insert({
@@ -610,7 +651,10 @@ export async function deleteTileConnection(connectionId: string) {
     return { error: "Connection not found" };
   }
 
-  const { error } = await supabase.from("tile_connections").delete().eq("id", connectionId);
+  const { error } = await supabase
+    .from("tile_connections")
+    .delete()
+    .eq("id", connectionId);
 
   if (error) {
     console.error("Error deleting tile connection:", error);
@@ -626,7 +670,7 @@ export async function deleteTileConnection(connectionId: string) {
  */
 export async function getTilesForSourceSelection(
   mosaicId: string,
-  excludeTileId?: string
+  excludeTileId?: string,
 ): Promise<{ id: string; name: string; tile_type: TileType }[]> {
   const supabase = await createClient();
   const user = await getUser();

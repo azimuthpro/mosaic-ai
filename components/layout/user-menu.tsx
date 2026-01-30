@@ -26,24 +26,31 @@ export function UserMenu({ user }: UserMenuProps) {
   const router = useRouter();
   const supabase = createClient();
 
-  const initials =
-    user.user_metadata?.full_name
-      ?.split(" ")
-      .map((n: string) => n[0])
-      .join("")
-      .toUpperCase() ||
-    user.email?.[0].toUpperCase() ||
-    "?";
+  function getInitials(): string {
+    const fullName = user.user_metadata?.full_name;
+    if (fullName) {
+      return fullName
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase();
+    }
+    if (user.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "?";
+  }
 
-  async function handleSignOut() {
+  const initials = getInitials();
+
+  async function handleSignOut(): Promise<void> {
     await supabase.auth.signOut();
     router.push("/");
     router.refresh();
   }
 
-  async function handleDashboard() {
-    router.push("/dashboard");
-    router.refresh();
+  function handleDashboard(): void {
+    router.push("/mosaics");
   }
 
   return (

@@ -35,6 +35,22 @@
     }
   }
   --animate-shimmer: shimmer 2s infinite;
+  @keyframes glow-pulse {
+    0%,
+    100% {
+      box-shadow:
+        0 0 4px var(--glow-color, #3b82f6),
+        0 0 8px var(--glow-color, #3b82f6),
+        0 0 12px color-mix(in srgb, var(--glow-color, #3b82f6) 50%, transparent);
+    }
+    50% {
+      box-shadow:
+        0 0 8px var(--glow-color, #3b82f6),
+        0 0 16px var(--glow-color, #3b82f6),
+        0 0 24px color-mix(in srgb, var(--glow-color, #3b82f6) 70%, transparent);
+    }
+  }
+  --animate-glow-pulse: glow-pulse 1.5s ease-in-out infinite;
 }
 
 :root {
@@ -58,51 +74,75 @@
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 0.625rem;
+
+  /* MPC Dark base (slate tones from homepage) */
+  --mpc-black: #000000;
+  --mpc-dark: #0f172a;
+  --mpc-surface: #1e293b;
+
+  /* Mosaic neon accents (from homepage) */
+  --neon-cyan: #22d3ee;
+  --neon-teal: #14b8a6;
+  --neon-pink: #ec4899;
+  --neon-amber: #f59e0b;
+  --neon-lime: #ccff00;
+  --neon-red: #ef4444;
+
+  /* Glow variants (for shadows) */
+  --glow-cyan: rgb(34 211 238 / 0.5);
+  --glow-teal: rgb(20 184 166 / 0.5);
+  --glow-pink: rgb(236 72 153 / 0.5);
+  --glow-amber: rgb(245 158 11 / 0.5);
+  --glow-lime: rgb(204 255 0 / 0.5);
+
+  /* LED states */
+  --led-off: #334155;
+  --led-on: #22d3ee;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+  --background: var(--mpc-black);
+  --foreground: #f8fafc;
+  --card: var(--mpc-dark);
+  --card-foreground: #f8fafc;
+  --popover: var(--mpc-dark);
+  --popover-foreground: #f8fafc;
+  --primary: var(--neon-cyan);
+  --primary-foreground: var(--mpc-black);
+  --secondary: var(--mpc-surface);
+  --secondary-foreground: #f8fafc;
+  --muted: var(--mpc-surface);
+  --muted-foreground: #94a3b8;
+  --accent: var(--mpc-surface);
+  --accent-foreground: #f8fafc;
+  --destructive: var(--neon-red);
+  --destructive-foreground: #f8fafc;
+  --border: #334155;
+  --input: #1e293b;
+  --ring: var(--neon-cyan);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.145 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.145 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.985 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.396 0.141 25.723);
-    --destructive-foreground: oklch(0.637 0.237 25.331);
-    --border: oklch(0.269 0 0);
-    --input: oklch(0.269 0 0);
-    --ring: oklch(0.439 0 0);
+    --background: var(--mpc-black);
+    --foreground: #f8fafc;
+    --card: var(--mpc-dark);
+    --card-foreground: #f8fafc;
+    --popover: var(--mpc-dark);
+    --popover-foreground: #f8fafc;
+    --primary: var(--neon-cyan);
+    --primary-foreground: var(--mpc-black);
+    --secondary: var(--mpc-surface);
+    --secondary-foreground: #f8fafc;
+    --muted: var(--mpc-surface);
+    --muted-foreground: #94a3b8;
+    --accent: var(--mpc-surface);
+    --accent-foreground: #f8fafc;
+    --destructive: var(--neon-red);
+    --destructive-foreground: #f8fafc;
+    --border: #334155;
+    --input: #1e293b;
+    --ring: var(--neon-cyan);
   }
 }
 
@@ -125,5 +165,134 @@
     @media (width >= 40rem) {
       padding-inline: 2rem;
     }
+  }
+
+  /* MPC Pad Styling */
+  .mpc-pad {
+    background: linear-gradient(180deg, var(--mpc-surface) 0%, var(--mpc-dark) 100%);
+    border: 1px solid #475569;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.05),
+      inset 0 -2px 0 rgb(0 0 0 / 0.3),
+      0 4px 8px rgb(0 0 0 / 0.4);
+    transition: all 0.15s ease;
+  }
+
+  .mpc-pad:hover {
+    border-color: var(--neon-cyan);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.05),
+      inset 0 -2px 0 rgb(0 0 0 / 0.3),
+      0 4px 8px rgb(0 0 0 / 0.4),
+      0 0 20px var(--glow-cyan);
+  }
+
+  .mpc-pad:active {
+    transform: translateY(2px);
+    box-shadow:
+      inset 0 2px 4px rgb(0 0 0 / 0.3),
+      0 0 15px var(--glow-cyan);
+  }
+
+  /* LED Indicator */
+  .led-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--led-off);
+    transition: all 0.2s ease;
+  }
+
+  .led-indicator.active {
+    background: var(--led-on);
+    box-shadow: 0 0 8px var(--glow-cyan);
+  }
+
+  .led-indicator.running {
+    animation: led-blink 0.5s ease-in-out infinite;
+  }
+
+  /* Terminal Text */
+  .terminal-text {
+    font-family: var(--font-mono);
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px var(--glow-cyan);
+  }
+
+  /* MPC Grid Background */
+  .mpc-grid {
+    background-color: #1e293b;
+  }
+
+  /* Neon Border Glow */
+  .neon-border {
+    position: relative;
+  }
+
+  .neon-border::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--neon-cyan), var(--neon-teal));
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .neon-border:hover::before {
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  /* LED Blink Animation */
+  @keyframes led-blink {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 8px var(--glow-cyan);
+    }
+    50% {
+      opacity: 0.4;
+      box-shadow: 0 0 4px var(--glow-cyan);
+    }
+  }
+
+  /* Neon Pulse Animation */
+  @keyframes neon-pulse {
+    0%, 100% {
+      box-shadow:
+        0 0 5px var(--glow-color, var(--glow-cyan)),
+        0 0 10px var(--glow-color, var(--glow-cyan));
+    }
+    50% {
+      box-shadow:
+        0 0 10px var(--glow-color, var(--glow-cyan)),
+        0 0 20px var(--glow-color, var(--glow-cyan)),
+        0 0 40px var(--glow-color, var(--glow-cyan));
+    }
+  }
+
+  .animate-neon-pulse {
+    animation: neon-pulse 2s ease-in-out infinite;
+  }
+
+  /* Scanline effect for retro feel */
+  .scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgb(0 0 0 / 0.1) 0px,
+      rgb(0 0 0 / 0.1) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+    pointer-events: none;
   }
 }

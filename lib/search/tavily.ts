@@ -57,6 +57,185 @@ export async function searchWeb(
   return data.results;
 }
 
+// ============================================================================
+// Tavily Extract API
+// ============================================================================
+
+export interface TavilyExtractOptions {
+  extractDepth?: "basic" | "advanced";
+}
+
+export interface TavilyExtractResult {
+  url: string;
+  raw_content: string;
+}
+
+interface TavilyExtractApiResponse {
+  results: TavilyExtractResult[];
+  failed_urls?: string[];
+}
+
+/**
+ * Extracts content from a URL using Tavily Extract API.
+ * Returns markdown content.
+ */
+export async function extractUrl(
+  url: string,
+  options: TavilyExtractOptions = {},
+): Promise<{ success: boolean; content?: string; error?: string }> {
+  const apiKey = process.env.TAVILY_API_KEY;
+
+  if (!apiKey) {
+    return {
+      success: false,
+      error: "TAVILY_API_KEY environment variable is not set",
+    };
+  }
+
+  const { extractDepth = "basic" } = options;
+
+  try {
+    const response = await fetch("https://api.tavily.com/extract", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        api_key: apiKey,
+        urls: [url],
+        extract_depth: extractDepth,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        error: `Tavily Extract API error: ${response.status} - ${errorText}`,
+      };
+    }
+
+    const data: TavilyExtractApiResponse = await response.json();
+
+    if (data.failed_urls && data.failed_urls.includes(url)) {
+      return {
+        success: false,
+        error: `Failed to extract content from URL: ${url}`,
+      };
+    }
+
+    const result = data.results.find((r) => r.url === url);
+    if (!result || !result.raw_content) {
+      return { success: false, error: "No content extracted from URL" };
+    }
+
+    return { success: true, content: result.raw_content };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error during extraction",
+    };
+  }
+}
+
+/**
+ * Extracts content from multiple URLs using Tavily Extract API.
+ * Returns combined markdown content.
+ */
+export async function extractMultipleUrls(
+  urls: string[],
+  options: TavilyExtractOptions & { maxUrls?: number } = {},
+): Promise<{
+  success: boolean;
+  content?: string;
+  extractedCount: number;
+  failedUrls: string[];
+}> {
+  const apiKey = process.env.TAVILY_API_KEY;
+
+  if (!apiKey) {
+    return {
+      success: false,
+      extractedCount: 0,
+      failedUrls: urls,
+      content: undefined,
+    };
+  }
+
+  const { extractDepth = "basic", maxUrls = 10 } = options;
+  const urlsToExtract = urls.slice(0, maxUrls);
+
+  if (urlsToExtract.length === 0) {
+    return { success: true, content: "", extractedCount: 0, failedUrls: [] };
+  }
+
+  try {
+    const response = await fetch("https://api.tavily.com/extract", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        api_key: apiKey,
+        urls: urlsToExtract,
+        extract_depth: extractDepth,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        extractedCount: 0,
+        failedUrls: urlsToExtract,
+        content: `Tavily Extract API error: ${response.status} - ${errorText}`,
+      };
+    }
+
+    const data: TavilyExtractApiResponse = await response.json();
+    const failedUrls = data.failed_urls || [];
+    const successfulResults = data.results.filter((r) => r.raw_content);
+
+    if (successfulResults.length === 0) {
+      return {
+        success: false,
+        extractedCount: 0,
+        failedUrls: urlsToExtract,
+        content: "No content extracted from any URLs",
+      };
+    }
+
+    // Format as markdown with URL headers
+    const content = successfulResults
+      .map((result) => `## ${result.url}\n\n${result.raw_content}`)
+      .join("\n\n---\n\n");
+
+    return {
+      success: true,
+      content,
+      extractedCount: successfulResults.length,
+      failedUrls,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      extractedCount: 0,
+      failedUrls: urlsToExtract,
+      content:
+        error instanceof Error
+          ? error.message
+          : "Unknown error during extraction",
+    };
+  }
+}
+
+// ============================================================================
+// Search Result Formatting
+// ============================================================================
+
 export function formatSearchResultsAsMarkdown(
   query: string,
   results: TavilySearchResult[],

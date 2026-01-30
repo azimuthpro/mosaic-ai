@@ -189,29 +189,36 @@ export function assertRateLimitAllowed(result: RateLimitResult): void {
   if (result.allowed) return;
 
   const reason = result.reason || "hourly_limit_exceeded";
-  const isConcurrent = reason === "max_concurrent_exceeded";
 
-  const message = isConcurrent
-    ? `Maximum concurrent executions reached (${result.concurrentExecutions}/${result.maxConcurrent})`
-    : `Hourly execution limit reached (${result.currentCount}/${result.maxPerHour}). Resets at ${result.resetsAt.toISOString()}`;
+  if (reason === "max_concurrent_exceeded") {
+    throw new RateLimitError(
+      `Maximum concurrent executions reached (${result.concurrentExecutions}/${result.maxConcurrent})`,
+      reason,
+      result.resetsAt,
+      result.concurrentExecutions,
+      result.maxConcurrent,
+    );
+  }
 
   throw new RateLimitError(
-    message,
+    `Hourly execution limit reached (${result.currentCount}/${result.maxPerHour}). Resets at ${result.resetsAt.toISOString()}`,
     reason,
     result.resetsAt,
-    isConcurrent ? result.concurrentExecutions : result.currentCount,
-    isConcurrent ? result.maxConcurrent : result.maxPerHour,
+    result.currentCount,
+    result.maxPerHour,
   );
 }
 
 /**
  * Logs an execution event to the execution_logs table.
+ * Pass either agentId (for legacy agents) or tileId (for tiles).
  */
 export async function logExecutionEvent(
   adminClient: SupabaseClient<Database>,
   params: {
     executionId: string;
-    agentId: string;
+    agentId?: string;
+    tileId?: string;
     jobId?: string;
     eventType:
       | "started"
@@ -227,10 +234,11 @@ export async function logExecutionEvent(
   const rpcClient = adminClient as unknown as RpcClient;
   const { data, error } = await rpcClient.rpc<string>("log_execution_event", {
     p_execution_id: params.executionId,
-    p_agent_id: params.agentId,
+    p_agent_id: params.agentId || null,
     p_job_id: params.jobId || null,
     p_event_type: params.eventType,
     p_metadata: params.metadata || {},
+    p_tile_id: params.tileId || null,
   });
 
   if (error) {

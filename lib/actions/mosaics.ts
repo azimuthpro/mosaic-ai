@@ -5,26 +5,48 @@ import { redirect } from "next/navigation";
 
 import { createClient, getUser } from "@/lib/supabase/server";
 import type {
+  MemberRole,
   Mosaic,
   MosaicInsert,
-  MosaicUpdate,
   MosaicMember,
   MosaicMemberInsert,
-  MemberRole,
+  MosaicUpdate,
   Tile,
+  TileSource,
+  TileWithSources,
 } from "@/types/database";
 
-export type MosaicWithTiles = Mosaic & { tiles: Tile[] };
+export type MosaicWithTiles = Mosaic & { tiles: TileWithSources[] };
 export type MosaicWithStats = Mosaic & {
-  tiles: Tile[];
+  tiles: TileWithSources[];
   tile_count: number;
   member_count: number;
 };
 
+type TileQueryResult = Tile & {
+  tile_sources: TileSource[] | null;
+};
+
 type MosaicQueryResult = Mosaic & {
-  tiles: Tile[] | null;
+  tiles: TileQueryResult[] | null;
   mosaic_members: { id: string }[] | null;
 };
+
+type MemberWithMosaic = {
+  id: string;
+  mosaic_id: string;
+  mosaics: { owner_id: string };
+};
+
+/**
+ * Transform a tile query result to include sources array
+ */
+function transformTileWithSources(tile: TileQueryResult): TileWithSources {
+  return {
+    ...tile,
+    sources: tile.tile_sources || [],
+  };
+}
 
 /**
  * Get all mosaics owned by the current user
@@ -39,11 +61,13 @@ export async function getMosaics(): Promise<MosaicWithStats[]> {
 
   const { data, error } = await supabase
     .from("mosaics")
-    .select(`
+    .select(
+      `
       *,
-      tiles (*),
+      tiles (*, tile_sources!tile_sources_tile_id_fkey (*)),
       mosaic_members (id)
-    `)
+    `,
+    )
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -52,9 +76,9 @@ export async function getMosaics(): Promise<MosaicWithStats[]> {
     return [];
   }
 
-  return (data as MosaicQueryResult[] || []).map((m) => ({
+  return ((data as MosaicQueryResult[]) || []).map((m) => ({
     ...m,
-    tiles: m.tiles || [],
+    tiles: (m.tiles || []).map(transformTileWithSources),
     tile_count: m.tiles?.length || 0,
     member_count: m.mosaic_members?.length || 0,
   })) as MosaicWithStats[];
@@ -81,15 +105,19 @@ export async function getSharedMosaics(): Promise<MosaicWithStats[]> {
     return [];
   }
 
-  const mosaicIds = memberships.map((m) => (m as { mosaic_id: string }).mosaic_id);
+  const mosaicIds = memberships.map(
+    (m) => (m as { mosaic_id: string }).mosaic_id,
+  );
 
   const { data, error } = await supabase
     .from("mosaics")
-    .select(`
+    .select(
+      `
       *,
-      tiles (*),
+      tiles (*, tile_sources!tile_sources_tile_id_fkey (*)),
       mosaic_members (id)
-    `)
+    `,
+    )
     .in("id", mosaicIds)
     .neq("owner_id", user.id)
     .order("created_at", { ascending: false });
@@ -99,9 +127,9 @@ export async function getSharedMosaics(): Promise<MosaicWithStats[]> {
     return [];
   }
 
-  return (data as MosaicQueryResult[] || []).map((m) => ({
+  return ((data as MosaicQueryResult[]) || []).map((m) => ({
     ...m,
-    tiles: m.tiles || [],
+    tiles: (m.tiles || []).map(transformTileWithSources),
     tile_count: m.tiles?.length || 0,
     member_count: m.mosaic_members?.length || 0,
   })) as MosaicWithStats[];
@@ -121,16 +149,22 @@ export async function getMosaic(id: string): Promise<MosaicWithTiles | null> {
   // First try to get as owner
   const { data: ownedMosaic } = await supabase
     .from("mosaics")
-    .select(`
+    .select(
+      `
       *,
-      tiles (*)
-    `)
+      tiles (*, tile_sources!tile_sources_tile_id_fkey (*))
+    `,
+    )
     .eq("id", id)
     .eq("owner_id", user.id)
     .single();
 
   if (ownedMosaic) {
-    return ownedMosaic as MosaicWithTiles;
+    const mosaic = ownedMosaic as Mosaic & { tiles: TileQueryResult[] | null };
+    return {
+      ...mosaic,
+      tiles: (mosaic.tiles || []).map(transformTileWithSources),
+    } as MosaicWithTiles;
   }
 
   // Check if user is a member
@@ -148,10 +182,12 @@ export async function getMosaic(id: string): Promise<MosaicWithTiles | null> {
   // User is a member, get the mosaic
   const { data, error } = await supabase
     .from("mosaics")
-    .select(`
+    .select(
+      `
       *,
-      tiles (*)
-    `)
+      tiles (*, tile_sources!tile_sources_tile_id_fkey (*))
+    `,
+    )
     .eq("id", id)
     .single();
 
@@ -160,7 +196,11 @@ export async function getMosaic(id: string): Promise<MosaicWithTiles | null> {
     return null;
   }
 
-  return data as MosaicWithTiles;
+  const mosaic = data as Mosaic & { tiles: TileQueryResult[] | null };
+  return {
+    ...mosaic,
+    tiles: (mosaic.tiles || []).map(transformTileWithSources),
+  } as MosaicWithTiles;
 }
 
 /**
@@ -269,8 +309,10 @@ export async function deleteMosaic(id: string) {
  * Get members of a mosaic
  */
 export async function getMosaicMembers(
-  mosaicId: string
-): Promise<(MosaicMember & { user: { email: string; full_name: string | null } })[]> {
+  mosaicId: string,
+): Promise<
+  (MosaicMember & { user: { email: string; full_name: string | null } })[]
+> {
   const supabase = await createClient();
   const user = await getUser();
 
@@ -280,10 +322,12 @@ export async function getMosaicMembers(
 
   const { data, error } = await supabase
     .from("mosaic_members")
-    .select(`
+    .select(
+      `
       *,
       users:user_id (email, full_name)
-    `)
+    `,
+    )
     .eq("mosaic_id", mosaicId);
 
   if (error) {
@@ -295,10 +339,12 @@ export async function getMosaicMembers(
     users: { email: string; full_name: string | null } | null;
   };
 
-  return (data as MemberQueryResult[] || []).map((m) => ({
+  return ((data as MemberQueryResult[]) || []).map((m) => ({
     ...m,
     user: m.users!,
-  })) as (MosaicMember & { user: { email: string; full_name: string | null } })[];
+  })) as (MosaicMember & {
+    user: { email: string; full_name: string | null };
+  })[];
 }
 
 /**
@@ -307,7 +353,7 @@ export async function getMosaicMembers(
 export async function addMosaicMember(
   mosaicId: string,
   userId: string,
-  role: MemberRole = "member"
+  role: MemberRole = "member",
 ) {
   const supabase = await createClient();
   const user = await getUser();
@@ -355,7 +401,7 @@ export async function addMosaicMember(
  */
 export async function updateMosaicMemberRole(
   memberId: string,
-  role: MemberRole
+  role: MemberRole,
 ) {
   const supabase = await createClient();
   const user = await getUser();
@@ -367,19 +413,15 @@ export async function updateMosaicMemberRole(
   // Get the member and verify mosaic ownership
   const { data: memberData } = await supabase
     .from("mosaic_members")
-    .select(`
+    .select(
+      `
       id,
       mosaic_id,
       mosaics!inner (owner_id)
-    `)
+    `,
+    )
     .eq("id", memberId)
     .single();
-
-  type MemberWithMosaic = {
-    id: string;
-    mosaic_id: string;
-    mosaics: { owner_id: string };
-  };
 
   const member = memberData as MemberWithMosaic | null;
   if (!member || member.mosaics.owner_id !== user.id) {
@@ -414,19 +456,15 @@ export async function removeMosaicMember(memberId: string) {
   // Get the member and verify mosaic ownership
   const { data: memberData } = await supabase
     .from("mosaic_members")
-    .select(`
+    .select(
+      `
       id,
       mosaic_id,
       mosaics!inner (owner_id)
-    `)
+    `,
+    )
     .eq("id", memberId)
     .single();
-
-  type MemberWithMosaic = {
-    id: string;
-    mosaic_id: string;
-    mosaics: { owner_id: string };
-  };
 
   const member = memberData as MemberWithMosaic | null;
   if (!member || member.mosaics.owner_id !== user.id) {
@@ -451,7 +489,7 @@ export async function removeMosaicMember(memberId: string) {
  * Get user's role in a mosaic
  */
 export async function getUserMosaicRole(
-  mosaicId: string
+  mosaicId: string,
 ): Promise<MemberRole | "owner" | null> {
   const supabase = await createClient();
   const user = await getUser();

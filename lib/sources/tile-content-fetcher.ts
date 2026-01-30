@@ -1,17 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ExecutionContext } from "@/lib/execution/context";
-import { scrapeUrl } from "@/lib/firecrawl/client";
-import { formatSearchResultsAsMarkdown, searchWeb } from "@/lib/search/tavily";
+import {
+  extractMultipleUrls,
+  extractUrl,
+  formatSearchResultsAsMarkdown,
+  searchWeb,
+} from "@/lib/search/tavily";
 import {
   sanitizeSearchQuery,
   validateUrlWithDnsCheck,
 } from "@/lib/validation/url-validator";
 import type {
+  AgentReportSourceConfig,
   Database,
   Json,
   TileReport,
   TileSource,
+  UrlSourceConfig,
   WebSearchConfig,
 } from "@/types/database";
 
@@ -138,7 +144,7 @@ export async function fetchTileSourceContent(
 }
 
 /**
- * Fetches content from a URL source using Firecrawl.
+ * Fetches content from a URL source using Tavily Extract.
  */
 async function fetchUrlContent(source: TileSource): Promise<TileSourceContent> {
   if (!source.url) {
@@ -163,7 +169,12 @@ async function fetchUrlContent(source: TileSource): Promise<TileSourceContent> {
     };
   }
 
-  const result = await scrapeUrl(source.url);
+  // Get extract depth from config (default: "basic")
+  const config = source.config as UrlSourceConfig | null;
+  const extractDepth = config?.extract_depth || "basic";
+
+  // Use Tavily Extract instead of Firecrawl
+  const result = await extractUrl(source.url, { extractDepth });
 
   // Apply content size limits
   if (result.success && result.content) {
@@ -176,7 +187,7 @@ async function fetchUrlContent(source: TileSource): Promise<TileSourceContent> {
       identifier: source.url,
       success: true,
       content,
-      title: result.title,
+      title: source.name || source.url,
       contentTruncated: truncated,
       originalSize: truncated ? originalSize : undefined,
     };
@@ -186,15 +197,14 @@ async function fetchUrlContent(source: TileSource): Promise<TileSourceContent> {
     sourceId: source.id,
     sourceType: "url",
     identifier: source.url,
-    success: result.success,
-    content: result.content,
-    title: result.title,
+    success: false,
     error: result.error,
   };
 }
 
 /**
  * Fetches the latest successful report from a referenced tile.
+ * Optionally extracts URLs from the report and fetches their content.
  */
 async function fetchTileReportContent(
   source: TileSource,
@@ -259,17 +269,81 @@ async function fetchTileReportContent(
   }
 
   const typedReport = report as TileReport & { tile_jobs: { status: string } };
+  const config = source.config as AgentReportSourceConfig | null;
 
-  // Convert report content to string for AI processing
-  let content = formatReportContent(typedReport.content, typedReport.format);
+  // If URL extraction is enabled, extract and fetch URLs from the report
+  if (config?.extract_urls) {
+    const urls = extractUrlsFromContent(
+      typedReport.content,
+      typedReport.format,
+    );
 
-  // Apply content size limits
-  const {
-    content: truncatedContent,
-    truncated,
-    originalSize,
-  } = truncateContent(content);
-  content = truncatedContent;
+    if (urls.length > 0) {
+      const extractResult = await extractMultipleUrls(urls, {
+        extractDepth: config.extract_depth || "basic",
+        maxUrls: config.max_urls || 10,
+      });
+
+      if (extractResult.success && extractResult.content) {
+        const {
+          content: truncatedContent,
+          truncated,
+          originalSize,
+        } = truncateContent(extractResult.content);
+
+        return {
+          sourceId: source.id,
+          sourceType: "agent_report",
+          identifier: tileName,
+          success: true,
+          content: truncatedContent,
+          title: `URLs extracted from ${tileName}`,
+          contentTruncated: truncated,
+          originalSize: truncated ? originalSize : undefined,
+          metadata: {
+            reportId: typedReport.id,
+            reportCreatedAt: typedReport.created_at,
+            tileId: source.source_reference_id,
+            tileName,
+          },
+        };
+      }
+
+      // If extraction failed, return error with failed URLs info
+      return {
+        sourceId: source.id,
+        sourceType: "agent_report",
+        identifier: tileName,
+        success: false,
+        error: `URL extraction failed. Found ${urls.length} URLs, extracted ${extractResult.extractedCount}. Failed: ${extractResult.failedUrls.join(", ")}`,
+        metadata: {
+          tileId: source.source_reference_id,
+          tileName,
+        },
+      };
+    }
+
+    // No URLs found in the report
+    return {
+      sourceId: source.id,
+      sourceType: "agent_report",
+      identifier: tileName,
+      success: false,
+      error: `No URLs found in report from "${tileName}"`,
+      metadata: {
+        tileId: source.source_reference_id,
+        tileName,
+      },
+    };
+  }
+
+  // Default behavior: return report content as-is with size limits applied
+  const formattedContent = formatReportContent(
+    typedReport.content,
+    typedReport.format,
+  );
+  const { content, truncated, originalSize } =
+    truncateContent(formattedContent);
 
   return {
     sourceId: source.id,
@@ -292,7 +366,9 @@ async function fetchTileReportContent(
 /**
  * Fetches search results using Tavily web search.
  */
-async function fetchWebSearchContent(source: TileSource): Promise<TileSourceContent> {
+async function fetchWebSearchContent(
+  source: TileSource,
+): Promise<TileSourceContent> {
   const config = source.config as WebSearchConfig | null;
 
   if (!config?.query) {
@@ -326,15 +402,12 @@ async function fetchWebSearchContent(source: TileSource): Promise<TileSourceCont
       includeRawContent: config.include_raw_content,
     });
 
-    let content = formatSearchResultsAsMarkdown(sanitizedQuery, results);
-
-    // Apply content size limits
-    const {
-      content: truncatedContent,
-      truncated,
-      originalSize,
-    } = truncateContent(content);
-    content = truncatedContent;
+    const formattedResults = formatSearchResultsAsMarkdown(
+      sanitizedQuery,
+      results,
+    );
+    const { content, truncated, originalSize } =
+      truncateContent(formattedResults);
 
     return {
       sourceId: source.id,
@@ -358,6 +431,74 @@ async function fetchWebSearchContent(source: TileSource): Promise<TileSourceCont
       error: error instanceof Error ? error.message : "Web search failed",
     };
   }
+}
+
+// URL extraction regex - matches http/https URLs
+const URL_REGEX = /https?:\/\/[^\s\)\"\'\>\<\]\,]+/gi;
+
+/**
+ * Extracts URLs from a string.
+ */
+function extractUrlsFromString(text: string): string[] {
+  const matches = text.match(URL_REGEX);
+  if (!matches) return [];
+
+  // Deduplicate and clean URLs (remove trailing punctuation that might have been captured)
+  const urls = new Set<string>();
+  for (const match of matches) {
+    // Clean up trailing punctuation that's often captured
+    const cleanUrl = match.replace(/[.,;:!?)]+$/, "");
+    urls.add(cleanUrl);
+  }
+  return Array.from(urls);
+}
+
+/**
+ * Recursively extracts URLs from an object (for table/json formats).
+ */
+function extractUrlsFromObject(obj: unknown): string[] {
+  if (obj === null || obj === undefined) return [];
+
+  if (typeof obj === "string") {
+    return extractUrlsFromString(obj);
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.flatMap((item) => extractUrlsFromObject(item));
+  }
+
+  if (typeof obj === "object") {
+    return Object.values(obj).flatMap((value) => extractUrlsFromObject(value));
+  }
+
+  return [];
+}
+
+/**
+ * Extracts URLs from report content based on its format.
+ */
+function extractUrlsFromContent(content: Json, _format: string): string[] {
+  // Handle string content (text format)
+  if (typeof content === "string") {
+    return extractUrlsFromString(content);
+  }
+
+  // Handle list format - each item may contain URLs
+  if (Array.isArray(content)) {
+    return content.flatMap((item) => {
+      if (typeof item === "string") {
+        return extractUrlsFromString(item);
+      }
+      return extractUrlsFromObject(item);
+    });
+  }
+
+  // Handle table/json format - recursively find URLs in values
+  if (typeof content === "object" && content !== null) {
+    return extractUrlsFromObject(content);
+  }
+
+  return [];
 }
 
 /**
@@ -393,7 +534,9 @@ export async function fetchAllTileSourcesContent(
 
     const batch = activeSources.slice(i, i + CONCURRENCY_LIMIT);
     const batchResults = await Promise.all(
-      batch.map((source) => fetchTileSourceContent(source, adminClient, context)),
+      batch.map((source) =>
+        fetchTileSourceContent(source, adminClient, context),
+      ),
     );
 
     // Track total content size and enforce limit
@@ -434,7 +577,9 @@ export async function fetchAllTileSourcesContent(
 /**
  * Gets source identifiers for job metadata tracking.
  */
-export function getTileSourceIdentifiers(results: TileSourceContent[]): string[] {
+export function getTileSourceIdentifiers(
+  results: TileSourceContent[],
+): string[] {
   return results.map((r) => {
     switch (r.sourceType) {
       case "url":

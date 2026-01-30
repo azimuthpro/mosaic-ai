@@ -9,8 +9,7 @@ export default async function MosaicsPage() {
   ]);
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
+    <div className="space-y-8 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Mosaics</h1>
@@ -21,7 +20,6 @@ export default async function MosaicsPage() {
         <CreateMosaicDialog />
       </div>
 
-      {/* My Mosaics */}
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">My Mosaics</h2>
         {ownedMosaics.length === 0 ? (
@@ -29,7 +27,8 @@ export default async function MosaicsPage() {
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">No mosaics yet</h3>
               <p className="text-sm text-muted-foreground">
-                Create your first mosaic to start organizing your intelligence gathering.
+                Create your first mosaic to start organizing your intelligence
+                gathering.
               </p>
             </div>
             <div className="mt-4">
@@ -45,7 +44,6 @@ export default async function MosaicsPage() {
         )}
       </section>
 
-      {/* Shared Mosaics */}
       {sharedMosaics.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">Shared with Me</h2>

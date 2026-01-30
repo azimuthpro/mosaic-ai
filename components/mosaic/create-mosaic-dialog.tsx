@@ -18,7 +18,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createMosaic } from "@/lib/actions/mosaics";
 
-export function CreateMosaicDialog() {
+interface CreateMosaicDialogProps {
+  trigger?: React.ReactNode;
+}
+
+export function CreateMosaicDialog({ trigger }: CreateMosaicDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,16 +45,19 @@ export function CreateMosaicDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          New Mosaic
-        </Button>
+        {trigger || (
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            New Mosaic
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Mosaic</DialogTitle>
           <DialogDescription>
-            A mosaic is a workspace that contains your tiles. You can share mosaics with your team.
+            A mosaic is a workspace that contains your tiles. You can share
+            mosaics with your team.
           </DialogDescription>
         </DialogHeader>
 

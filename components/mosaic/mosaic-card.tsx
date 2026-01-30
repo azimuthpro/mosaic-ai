@@ -30,7 +30,11 @@ export function MosaicCard({ mosaic }: MosaicCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this mosaic? All tiles and data will be lost.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this mosaic? All tiles and data will be lost.",
+      )
+    ) {
       return;
     }
     setIsDeleting(true);
@@ -66,7 +70,10 @@ export function MosaicCard({ mosaic }: MosaicCardProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link href={`/mosaics/${mosaic.id}/settings`} className="cursor-pointer">
+              <Link
+                href={`/mosaics/${mosaic.id}/settings`}
+                className="cursor-pointer"
+              >
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </Link>

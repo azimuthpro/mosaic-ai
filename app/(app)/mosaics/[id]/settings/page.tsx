@@ -55,7 +55,11 @@ export default function MosaicSettingsPage() {
   }
 
   async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this mosaic? All tiles and data will be permanently lost.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this mosaic? All tiles and data will be permanently lost.",
+      )
+    ) {
       return;
     }
     setIsDeleting(true);
@@ -82,7 +86,9 @@ export default function MosaicSettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold">Mosaic Settings</h1>
-        <p className="text-muted-foreground">Manage your mosaic configuration</p>
+        <p className="text-muted-foreground">
+          Manage your mosaic configuration
+        </p>
       </div>
 
       <form onSubmit={handleSubmit}>

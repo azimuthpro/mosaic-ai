@@ -30,13 +30,11 @@ import type {
   TileSource,
 } from "@/types/database";
 
-type TileWithSources = Tile & {
-  tile_sources: TileSource[];
-  mosaics: { owner_id: string };
-};
-
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown error";
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Unknown error";
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -80,26 +78,34 @@ export async function POST(request: Request): Promise<Response> {
 
     const supabase = await createClient();
 
-    // Fetch tile with sources - verify access through mosaic ownership or membership
+    // Fetch tile with sources (RLS on tiles table handles access)
     const { data: tile, error: tileError } = await supabase
       .from("tiles")
-      .select(`
+      .select(
+        `
         *,
-        tile_sources (*),
-        mosaics!inner (owner_id)
-      `)
+        tile_sources!tile_sources_tile_id_fkey (*)
+      `,
+      )
       .eq("id", tileId)
       .single();
 
     if (tileError || !tile) {
+      console.error("Error fetching tile:", tileError);
       return NextResponse.json({ error: "Tile not found" }, { status: 404 });
     }
 
-    const typedTile = tile as unknown as TileWithSources;
+    const typedTile = tile as unknown as Tile & { tile_sources: TileSource[] };
 
-    // Verify user has access (owner or member of mosaic)
-    if (typedTile.mosaics.owner_id !== user.id) {
-      // Check if user is a member
+    // Verify user has access to the mosaic (owner or member)
+    const { data: mosaic } = await supabase
+      .from("mosaics")
+      .select("owner_id")
+      .eq("id", typedTile.mosaic_id)
+      .single();
+
+    if (!mosaic) {
+      // Check if user is a member (in case they don't own it)
       const { data: membership } = await supabase
         .from("mosaic_members")
         .select("role")
@@ -130,7 +136,7 @@ export async function POST(request: Request): Promise<Response> {
     // Log execution start
     await logExecutionEvent(adminClient, {
       executionId: executionContext.executionId,
-      agentId: tileId,
+      tileId: tileId,
       eventType: "started",
       metadata: {
         tileType: typedTile.tile_type,
@@ -267,7 +273,7 @@ export async function POST(request: Request): Promise<Response> {
       // Log successful completion
       await logExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
-        agentId: tileId,
+        tileId: tileId,
         jobId: job.id,
         eventType: "completed",
         metadata: {
@@ -302,7 +308,7 @@ export async function POST(request: Request): Promise<Response> {
       // Log failure
       await logExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
-        agentId: tileId,
+        tileId: tileId,
         jobId: job.id,
         eventType: "failed",
         metadata: {

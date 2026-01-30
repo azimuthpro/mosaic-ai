@@ -23,12 +23,34 @@ export interface WebSearchConfig {
   include_raw_content?: boolean;
 }
 
+// URL source config for Tavily Extract
+export interface UrlSourceConfig {
+  extract_depth?: "basic" | "advanced";
+}
+
+// Agent report source config with optional URL extraction
+export interface AgentReportSourceConfig {
+  extract_urls?: boolean; // Enable URL extraction from report
+  extract_depth?: "basic" | "advanced"; // Depth for URL extraction
+  max_urls?: number; // Max URLs to extract (default: 10)
+}
+
 export type SkillCategory =
   | "news"
   | "market"
   | "research"
   | "social"
   | "deep-search"
+  | "custom";
+
+// Tile skill category (includes 'analysis' for analyzer tiles)
+export type TileSkillCategory =
+  | "news"
+  | "market"
+  | "research"
+  | "social"
+  | "deep-search"
+  | "analysis"
   | "custom";
 
 export interface Database {
@@ -600,6 +622,47 @@ export interface Database {
           created_at?: string;
         };
       };
+      tile_skills: {
+        Row: {
+          id: string;
+          mosaic_id: string | null;
+          tile_type: TileType;
+          name: string;
+          description: string | null;
+          prompt: string;
+          category: TileSkillCategory;
+          created_by: string | null;
+          is_system: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          mosaic_id?: string | null;
+          tile_type: TileType;
+          name: string;
+          description?: string | null;
+          prompt: string;
+          category?: TileSkillCategory;
+          created_by?: string | null;
+          is_system?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          mosaic_id?: string | null;
+          tile_type?: TileType;
+          name?: string;
+          description?: string | null;
+          prompt?: string;
+          category?: TileSkillCategory;
+          created_by?: string | null;
+          is_system?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       user_rate_limits: {
         Row: {
           user_id: string;
@@ -621,6 +684,44 @@ export interface Database {
           hour_window_start?: string;
           concurrent_executions?: number;
           updated_at?: string;
+        };
+      };
+      mosaic_api_keys: {
+        Row: {
+          id: string;
+          mosaic_id: string;
+          name: string;
+          key_hash: string;
+          key_prefix: string;
+          created_by: string | null;
+          last_used_at: string | null;
+          expires_at: string | null;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          mosaic_id: string;
+          name: string;
+          key_hash: string;
+          key_prefix: string;
+          created_by?: string | null;
+          last_used_at?: string | null;
+          expires_at?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          mosaic_id?: string;
+          name?: string;
+          key_hash?: string;
+          key_prefix?: string;
+          created_by?: string | null;
+          last_used_at?: string | null;
+          expires_at?: string | null;
+          is_active?: boolean;
+          created_at?: string;
         };
       };
     };
@@ -701,35 +802,55 @@ export type Mosaic = Database["public"]["Tables"]["mosaics"]["Row"];
 export type MosaicInsert = Database["public"]["Tables"]["mosaics"]["Insert"];
 export type MosaicUpdate = Database["public"]["Tables"]["mosaics"]["Update"];
 
-export type MosaicMember = Database["public"]["Tables"]["mosaic_members"]["Row"];
-export type MosaicMemberInsert = Database["public"]["Tables"]["mosaic_members"]["Insert"];
-export type MosaicMemberUpdate = Database["public"]["Tables"]["mosaic_members"]["Update"];
+export type MosaicMember =
+  Database["public"]["Tables"]["mosaic_members"]["Row"];
+export type MosaicMemberInsert =
+  Database["public"]["Tables"]["mosaic_members"]["Insert"];
+export type MosaicMemberUpdate =
+  Database["public"]["Tables"]["mosaic_members"]["Update"];
 
 // New Tile types
 export type Tile = Database["public"]["Tables"]["tiles"]["Row"];
 export type TileInsert = Database["public"]["Tables"]["tiles"]["Insert"];
 export type TileUpdate = Database["public"]["Tables"]["tiles"]["Update"];
 
-export type TileConnection = Database["public"]["Tables"]["tile_connections"]["Row"];
-export type TileConnectionInsert = Database["public"]["Tables"]["tile_connections"]["Insert"];
-export type TileConnectionUpdate = Database["public"]["Tables"]["tile_connections"]["Update"];
+export type TileConnection =
+  Database["public"]["Tables"]["tile_connections"]["Row"];
+export type TileConnectionInsert =
+  Database["public"]["Tables"]["tile_connections"]["Insert"];
+export type TileConnectionUpdate =
+  Database["public"]["Tables"]["tile_connections"]["Update"];
 
 export type TileSource = Database["public"]["Tables"]["tile_sources"]["Row"];
-export type TileSourceInsert = Database["public"]["Tables"]["tile_sources"]["Insert"];
-export type TileSourceUpdate = Database["public"]["Tables"]["tile_sources"]["Update"];
+export type TileSourceInsert =
+  Database["public"]["Tables"]["tile_sources"]["Insert"];
+export type TileSourceUpdate =
+  Database["public"]["Tables"]["tile_sources"]["Update"];
 
 export type TileJob = Database["public"]["Tables"]["tile_jobs"]["Row"];
 export type TileJobInsert = Database["public"]["Tables"]["tile_jobs"]["Insert"];
 export type TileJobUpdate = Database["public"]["Tables"]["tile_jobs"]["Update"];
 
 export type TileReport = Database["public"]["Tables"]["tile_reports"]["Row"];
-export type TileReportInsert = Database["public"]["Tables"]["tile_reports"]["Insert"];
-export type TileReportUpdate = Database["public"]["Tables"]["tile_reports"]["Update"];
+export type TileReportInsert =
+  Database["public"]["Tables"]["tile_reports"]["Insert"];
+export type TileReportUpdate =
+  Database["public"]["Tables"]["tile_reports"]["Update"];
 
 // Execution logs
-export type ExecutionLog = Database["public"]["Tables"]["execution_logs"]["Row"];
-export type ExecutionLogInsert = Database["public"]["Tables"]["execution_logs"]["Insert"];
-export type UserRateLimit = Database["public"]["Tables"]["user_rate_limits"]["Row"];
+export type ExecutionLog =
+  Database["public"]["Tables"]["execution_logs"]["Row"];
+export type ExecutionLogInsert =
+  Database["public"]["Tables"]["execution_logs"]["Insert"];
+export type UserRateLimit =
+  Database["public"]["Tables"]["user_rate_limits"]["Row"];
+
+// Tile Skills
+export type TileSkill = Database["public"]["Tables"]["tile_skills"]["Row"];
+export type TileSkillInsert =
+  Database["public"]["Tables"]["tile_skills"]["Insert"];
+export type TileSkillUpdate =
+  Database["public"]["Tables"]["tile_skills"]["Update"];
 
 // Legacy extended types with relations
 export type AgentWithSources = Agent & {
@@ -757,11 +878,11 @@ export type SourceWithReferencedAgent = Source & {
 
 // New extended types with relations
 export type MosaicWithTiles = Mosaic & {
-  tiles: Tile[];
+  tiles: TileWithSources[];
 };
 
 export type MosaicWithStats = Mosaic & {
-  tiles: Tile[];
+  tiles: TileWithSources[];
   tile_count: number;
   member_count: number;
 };
@@ -795,6 +916,14 @@ export type TileSourceWithReferencedTile = TileSource & {
   referenced_tile?: Tile | null;
 };
 
+// Mosaic API Keys
+export type MosaicApiKey =
+  Database["public"]["Tables"]["mosaic_api_keys"]["Row"];
+export type MosaicApiKeyInsert =
+  Database["public"]["Tables"]["mosaic_api_keys"]["Insert"];
+export type MosaicApiKeyUpdate =
+  Database["public"]["Tables"]["mosaic_api_keys"]["Update"];
+
 // Tile type configuration for UI
 export interface TileTypeConfig {
   type: TileType;
@@ -809,7 +938,7 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
   url_reader: {
     type: "url_reader",
     label: "URL Reader",
-    color: "#3B82F6",
+    color: "#22d3ee", // Neon cyan (from homepage)
     pattern: "solid",
     icon: "Globe",
     description: "Scrape and analyze web pages",
@@ -817,7 +946,7 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
   web_search: {
     type: "web_search",
     label: "Web Search",
-    color: "#8B5CF6",
+    color: "#ec4899", // Neon pink (from homepage)
     pattern: "stripes",
     icon: "Search",
     description: "AI-powered web research",
@@ -825,7 +954,7 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
   recursive: {
     type: "recursive",
     label: "Pipeline",
-    color: "#10B981",
+    color: "#14b8a6", // Neon teal (from homepage)
     pattern: "dots",
     icon: "GitBranch",
     description: "Chain outputs from other tiles",
@@ -833,7 +962,7 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
   analyzer: {
     type: "analyzer",
     label: "Analyzer",
-    color: "#F59E0B",
+    color: "#f59e0b", // Neon amber (from homepage)
     pattern: "gradient",
     icon: "Brain",
     description: "Process and analyze connected data",

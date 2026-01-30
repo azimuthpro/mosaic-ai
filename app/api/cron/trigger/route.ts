@@ -13,29 +13,27 @@ import {
   logExecutionEvent,
 } from "@/lib/rate-limit/limiter";
 import {
-  fetchAllSourcesContent,
-  getSourceIdentifiers,
-  getSourceTypeBreakdown,
-} from "@/lib/sources/content-fetcher";
+  fetchAllTileSourcesContent,
+  getTileSourceIdentifiers,
+  getTileSourceTypeBreakdown,
+} from "@/lib/sources/tile-content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
-  Agent,
-  Job,
-  JobInsert,
-  JobUpdate,
-  ReportInsert,
-  Source,
+  Tile,
+  TileJob,
+  TileJobInsert,
+  TileJobUpdate,
+  TileReportInsert,
+  TileSource,
 } from "@/types/database";
 
-type AgentWithSources = Agent & {
-  sources: Source[];
-  owner_id: string;
-  max_chain_depth?: number;
-  execution_timeout_ms?: number;
+type TileWithSources = Tile & {
+  tile_sources: TileSource[];
+  mosaics: { owner_id: string };
 };
 
-type AgentResult = {
-  agentId: string;
+type TileResult = {
+  tileId: string;
   jobId?: string;
   executionId?: string;
   success?: boolean;
@@ -49,22 +47,22 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error";
 }
 
-async function processAgent(
+async function processTile(
   adminClient: ReturnType<typeof createAdminClient>,
-  agent: AgentWithSources,
-): Promise<AgentResult> {
-  if (!agent.sources || agent.sources.length === 0) {
-    return { agentId: agent.id, skipped: true, reason: "No sources" };
+  tile: TileWithSources,
+): Promise<TileResult> {
+  if (!tile.tile_sources || tile.tile_sources.length === 0) {
+    return { tileId: tile.id, skipped: true, reason: "No sources" };
   }
 
-  const userId = agent.owner_id;
+  const userId = tile.mosaics.owner_id;
   let rateLimitIncremented = false;
 
-  // Check rate limits for the agent's owner
+  // Check rate limits for the tile's mosaic owner
   const rateLimitResult = await checkAndIncrementRateLimit(adminClient, userId);
   if (!rateLimitResult.allowed) {
     return {
-      agentId: agent.id,
+      tileId: tile.id,
       skipped: true,
       reason: `Rate limit: ${rateLimitResult.reason}`,
       rateLimited: true,
@@ -74,29 +72,30 @@ async function processAgent(
 
   // Create execution context
   const executionContext = createExecutionContext({
-    rootAgentId: agent.id,
+    rootAgentId: tile.id,
     userId,
-    maxDepth: agent.max_chain_depth ?? DEFAULT_MAX_DEPTH,
-    timeoutMs: agent.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS,
+    maxDepth: tile.max_chain_depth ?? DEFAULT_MAX_DEPTH,
+    timeoutMs: tile.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS,
   });
 
   try {
     // Log execution start
     await logExecutionEvent(adminClient, {
       executionId: executionContext.executionId,
-      agentId: agent.id,
+      tileId: tile.id,
       eventType: "started",
       metadata: {
         trigger: "cron",
+        tileType: tile.tile_type,
         maxDepth: executionContext.maxDepth,
         timeoutMs: executionContext.timeoutMs,
-        sourceCount: agent.sources.length,
+        sourceCount: tile.tile_sources.length,
       },
     });
 
     // Create job with execution tracking
-    const jobInsert: JobInsert = {
-      agent_id: agent.id,
+    const jobInsert: TileJobInsert = {
+      tile_id: tile.id,
       status: "processing",
       started_at: new Date().toISOString(),
       metadata: {
@@ -104,33 +103,26 @@ async function processAgent(
         chain_depth: 0,
         trigger: "cron",
       },
+      execution_id: executionContext.executionId,
+      chain_depth: 0,
     };
 
     const { data: jobData, error: jobError } = await adminClient
-      .from("jobs")
+      .from("tile_jobs")
       .insert(jobInsert as never)
       .select()
       .single();
 
-    const job = jobData as Job | null;
+    const job = jobData as TileJob | null;
 
     if (jobError || !job) {
       throw new Error("Failed to create job");
     }
 
-    // Update job with execution_id column (if migration has been applied)
-    await adminClient
-      .from("jobs")
-      .update({
-        execution_id: executionContext.executionId,
-        chain_depth: 0,
-      } as never)
-      .eq("id", job.id);
-
     try {
-      // Fetch content from all sources (URLs and agent reports)
-      const sourceResults = await fetchAllSourcesContent(
-        agent.sources,
+      // Fetch content from all sources (URLs, tile reports, web search)
+      const sourceResults = await fetchAllTileSourcesContent(
+        tile.tile_sources,
         adminClient,
         executionContext,
       );
@@ -138,11 +130,11 @@ async function processAgent(
       // Update source timestamps
       const now = new Date().toISOString();
       await Promise.all(
-        agent.sources
+        tile.tile_sources
           .filter((s) => s.is_active)
           .map((source) =>
             adminClient
-              .from("sources")
+              .from("tile_sources")
               .update({ last_scraped_at: now } as never)
               .eq("id", source.id),
           ),
@@ -161,32 +153,32 @@ async function processAgent(
       // Analyze with AI
       const analysis = await analyzeContent(
         fetchedContent,
-        agent.system_prompt,
-        agent.output_format,
-        agent.language,
+        tile.system_prompt || "",
+        tile.output_format,
+        tile.language,
       );
 
       if (!analysis.success) {
         throw new Error(analysis.error || "Analysis failed");
       }
 
-      // Get source identifiers for report (handles both URL and agent sources)
-      const sourceIdentifiers = getSourceIdentifiers(sourceResults);
-      const sourceBreakdown = getSourceTypeBreakdown(sourceResults);
+      // Get source identifiers for report
+      const sourceIdentifiers = getTileSourceIdentifiers(sourceResults);
+      const sourceBreakdown = getTileSourceTypeBreakdown(sourceResults);
 
       // Create report
-      const reportInsert: ReportInsert = {
+      const reportInsert: TileReportInsert = {
         job_id: job.id,
-        agent_id: agent.id,
+        tile_id: tile.id,
         content: analysis.content,
-        format: agent.output_format,
+        format: tile.output_format,
         source_urls: sourceIdentifiers,
       };
 
-      await adminClient.from("reports").insert(reportInsert as never);
+      await adminClient.from("tile_reports").insert(reportInsert as never);
 
       // Mark job complete
-      const completedUpdate: JobUpdate = {
+      const completedUpdate: TileJobUpdate = {
         status: "completed",
         completed_at: new Date().toISOString(),
         metadata: {
@@ -201,14 +193,14 @@ async function processAgent(
       };
 
       await adminClient
-        .from("jobs")
+        .from("tile_jobs")
         .update(completedUpdate as never)
         .eq("id", job.id);
 
       // Log successful completion
       await logExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
-        agentId: agent.id,
+        tileId: tile.id,
         jobId: job.id,
         eventType: "completed",
         metadata: {
@@ -219,7 +211,7 @@ async function processAgent(
       });
 
       return {
-        agentId: agent.id,
+        tileId: tile.id,
         jobId: job.id,
         executionId: executionContext.executionId,
         success: true,
@@ -228,14 +220,14 @@ async function processAgent(
       const errorMessage = getErrorMessage(error);
       const isGuardError = error instanceof ExecutionGuardError;
 
-      const failedUpdate: JobUpdate = {
+      const failedUpdate: TileJobUpdate = {
         status: "failed",
         completed_at: new Date().toISOString(),
         error_message: errorMessage,
       };
 
       await adminClient
-        .from("jobs")
+        .from("tile_jobs")
         .update(failedUpdate as never)
         .eq("id", job.id);
 
@@ -249,7 +241,7 @@ async function processAgent(
 
       await logExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
-        agentId: agent.id,
+        tileId: tile.id,
         jobId: job.id,
         eventType,
         metadata: {
@@ -259,7 +251,7 @@ async function processAgent(
       });
 
       return {
-        agentId: agent.id,
+        tileId: tile.id,
         jobId: job.id,
         executionId: executionContext.executionId,
         error: errorMessage,
@@ -285,54 +277,58 @@ export async function GET(request: Request): Promise<Response> {
 
     const adminClient = createAdminClient();
 
-    // Get all active agents with schedules
-    const { data: agents, error: agentsError } = await adminClient
-      .from("agents")
+    // Get all active tiles with schedules
+    const { data: tiles, error: tilesError } = await adminClient
+      .from("tiles")
       .select(
         `
         *,
-        sources!sources_agent_id_fkey (*)
+        tile_sources!tile_sources_tile_id_fkey (*),
+        mosaics!inner (owner_id)
       `,
       )
       .eq("is_active", true)
       .not("schedule_cron", "is", null);
 
-    if (agentsError) {
-      console.error("Error fetching agents:", agentsError);
+    if (tilesError) {
+      console.error("Error fetching tiles:", tilesError);
       return NextResponse.json(
-        { error: "Failed to fetch agents" },
+        { error: "Failed to fetch tiles" },
         { status: 500 },
       );
     }
 
-    const typedAgents = (agents || []) as AgentWithSources[];
+    const typedTiles = (tiles || []) as TileWithSources[];
 
-    if (typedAgents.length === 0) {
+    if (typedTiles.length === 0) {
       return NextResponse.json({
         success: true,
-        message: "No agents to run",
+        message: "No tiles to run",
         processed: 0,
       });
     }
 
-    // Process all agents
+    // Process all tiles
     const results = await Promise.allSettled(
-      typedAgents.map((agent) => processAgent(adminClient, agent)),
+      typedTiles.map((tile) => processTile(adminClient, tile)),
     );
 
-    // Count results
-    const processedResults = results.map((r) =>
-      r.status === "fulfilled" ? r.value : { error: getErrorMessage(r.reason) },
-    );
+    // Extract results from Promise.allSettled
+    const processedResults: TileResult[] = results.map((result) => {
+      if (result.status === "fulfilled") {
+        return result.value;
+      }
+      return { tileId: "unknown", error: getErrorMessage(result.reason) };
+    });
 
     const successful = processedResults.filter(
-      (r) => "success" in r && r.success,
+      (r) => r.success === true,
     ).length;
-    const failed = processedResults.filter((r) => "error" in r).length;
+    const failed = processedResults.filter((r) => r.error !== undefined).length;
 
     return NextResponse.json({
       success: true,
-      processed: typedAgents.length,
+      processed: typedTiles.length,
       successful,
       failed,
       results: processedResults,
