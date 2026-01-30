@@ -1,7 +1,8 @@
 "use client";
 
-import { CheckCircle2, Loader2, Mail } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -19,9 +20,10 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
+  const router = useRouter();
   const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -29,11 +31,9 @@ export default function LoginPage() {
     setError(null);
     setIsLoading(true);
 
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
+      password,
     });
 
     if (error) {
@@ -42,92 +42,98 @@ export default function LoginPage() {
       return;
     }
 
-    setEmailSent(true);
-    setIsLoading(false);
-  }
-
-  if (emailSent) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
-            <CardDescription>
-              We sent a magic link to <strong>{email}</strong>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-center text-sm text-muted-foreground">
-              Click the link in your email to sign in. The link will expire in 60 minutes.
-            </p>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                setEmailSent(false);
-                setEmail("");
-              }}
-            >
-              <Mail className="mr-2 h-4 w-4" />
-              Use a different email
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
+    router.push("/dashboard");
+    router.refresh();
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
-          <CardDescription>
-            Enter your email to receive a magic link
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
+    <Card className="w-full bg-slate-900/40 border-slate-800 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden">
+      <CardHeader className="space-y-2 pb-8 pt-8">
+        <CardTitle className="text-3xl font-bold text-white tracking-tight">
+          Welcome back
+        </CardTitle>
+        <CardDescription className="text-slate-400 text-base">
+          Authorized access only. Enter your credentials.
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-5">
+          {error && (
+            <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 font-medium animate-in fade-in slide-in-from-top-1 duration-200">
+              {error}
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label
+              htmlFor="email"
+              className="text-slate-300 font-medium ml-1 text-xs uppercase tracking-widest"
+            >
+              Email Address
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="h-12 bg-slate-950/50 border-slate-800 focus:border-cyan-500/50 focus:ring-cyan-500/20 rounded-xl text-white placeholder:text-slate-600 transition-all font-medium"
+              disabled={isLoading}
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between ml-1">
+              <Label
+                htmlFor="password"
+                className="text-slate-300 font-medium text-xs uppercase tracking-widest"
+              >
+                Password
+              </Label>
+              <Link
+                href="#"
+                className="text-[10px] text-cyan-400/70 hover:text-cyan-400 uppercase tracking-wider font-bold transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="h-12 bg-slate-950/50 border-slate-800 focus:border-cyan-500/50 focus:ring-cyan-500/20 rounded-xl text-white placeholder:text-slate-600 transition-all font-medium"
+              disabled={isLoading}
+            />
+          </div>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-6 pt-6 pb-10">
+          <Button
+            type="submit"
+            className="w-full h-12 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-lg rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.2)] active:scale-[0.98] group"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <div className="flex items-center gap-2">
+                <span>Sign in</span>
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Send magic link
-            </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/signup"
-                className="text-primary underline-offset-4 hover:underline"
-              >
-                Sign up
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
+          </Button>
+          <p className="text-center text-sm text-slate-500 font-medium">
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/signup"
+              className="text-cyan-400 hover:text-cyan-300 transition-colors underline underline-offset-4 decoration-cyan-500/30 hover:decoration-cyan-400"
+            >
+              Sign up
+            </Link>
+          </p>
+        </CardFooter>
+      </form>
+    </Card>
   );
 }

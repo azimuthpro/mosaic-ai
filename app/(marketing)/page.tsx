@@ -1,494 +1,526 @@
 import {
-  BarChart3,
+  ArrowRight,
   Bot,
+  CheckCircle2,
   ChevronRight,
   Database,
   Globe,
-  Layers,
   LineChart,
-  Network,
-  Repeat,
+  MessageSquare,
+  RefreshCw,
   Search,
+  Settings,
   ShieldCheck,
   Sparkles,
   Target,
-  Users,
   Zap,
-  ZapOff,
 } from "lucide-react";
 import Link from "next/link";
 
 import { InviteForm } from "@/components/marketing/invite-form";
+import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col selection:bg-emerald-500/30">
+    <div className="flex flex-col selection:bg-cyan-500/30">
       {/* Hero Section */}
-      <section className="container relative flex flex-col items-center gap-8 pb-16 pt-20 md:py-28 lg:py-40 overflow-hidden">
+      <section className="container max-w-6xl relative flex flex-col items-center gap-8 pb-16 pt-12 md:pt-20 lg:pt-32 overflow-hidden">
         {/* Deep Dark Background Elements */}
-        <div className="absolute top-0 -z-10 h-full w-full bg-slate-950">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[800px] w-[800px] rounded-full bg-emerald-500/10 blur-[120px] opacity-50"></div>
+        <div className="absolute top-0 -z-10 h-full w-full bg-black">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 h-[800px] w-[800px] rounded-full bg-cyan-500/10 blur-[120px] opacity-50"></div>
           <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-cyan-500/5 blur-[100px] opacity-30"></div>
         </div>
 
         <div className="flex max-w-[980px] flex-col items-center gap-6 text-center">
           <Link
             href="#"
-            className="group inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-4 py-1.5 text-sm font-medium text-emerald-400 transition-all hover:bg-emerald-500/10 hover:border-emerald-500/40"
+            className="group inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/5 px-4 py-1.5 text-sm font-medium text-cyan-400 transition-all hover:bg-cyan-500/10 hover:border-cyan-500/40 relative overflow-hidden"
           >
-            <Zap className="h-4 w-4 fill-current" />
-            <span>Mosaic v2: High-Fidelity Extraction available</span>
+            <div className="absolute inset-0 bg-linear-to-r from-cyan-500/0 via-white/5 to-cyan-500/0 -translate-x-full group-hover:animate-shimmer" />
+            <Zap className="h-4 w-4 fill-current text-[#CCFF00]" />
+            <span className="flex items-center gap-1.5">
+              Mosaic v2 <span className="text-white/20">•</span>{" "}
+              <span className="text-[#CCFF00]">Race-Ready</span>
+            </span>
             <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>
 
-          <h1 className="text-5xl font-extrabold leading-[1.05] tracking-tight md:text-7xl lg:text-8xl text-white">
-            Turn the web into
+          <h1 className="text-balance text-5xl font-extrabold leading-[1.1] tracking-tight md:text-7xl lg:text-8xl text-white">
+            Structure the web
             <br />
-            <span className="bg-linear-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-              your private database
+            <span className="bg-linear-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent italic">
+              in 30 seconds.
             </span>
           </h1>
 
-          <p className="max-w-[800px] text-lg text-slate-400 sm:text-xl lg:text-2xl leading-relaxed">
-            Stop manual scraping. Deploy specialized AI agents that navigate
-            complex sites, cross-verify claims, and deliver structured JSON or
-            Google Sheet records in real-time.
+          <p className="text-pretty max-w-[750px] text-lg text-slate-400 sm:text-xl lg:text-2xl leading-relaxed">
+            Stop scraping. Deploy autonomous agents that bypass anti-bots,
+            verify claims, and deliver structured intelligence directly to your
+            stack via API.
           </p>
         </div>
 
-        <div className="flex flex-col items-center gap-4 w-full max-w-sm mt-4">
-          <InviteForm />
-          <p className="text-sm text-slate-500 font-medium">
-            The infrastructure for automated intelligence.
-          </p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-md mt-4">
+          <Button
+            asChild
+            className="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black h-14 px-10 rounded-2xl text-lg group transition-all shadow-[0_0_30px_rgba(34,211,238,0.3)] active:scale-95"
+          >
+            <Link href="/signup">
+              Deploy your first Agent
+              <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </Button>
         </div>
-
-        {/* Hero Code Snippet */}
-        <div className="w-full max-w-5xl mt-16 group relative">
-          <div className="absolute -inset-1 rounded-3xl bg-linear-to-r from-emerald-500/20 to-cyan-500/20 blur-2xl opacity-75 transition duration-1000 group-hover:opacity-100"></div>
-          <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800/50 bg-slate-900/50 px-4 py-3 font-mono text-xs">
-              <div className="flex gap-1.5">
-                <div className="h-3 w-3 rounded-full bg-slate-800" />
-                <div className="h-3 w-3 rounded-full bg-slate-800" />
-                <div className="h-3 w-3 rounded-full bg-slate-800" />
-              </div>
-              <span className="text-slate-500 uppercase tracking-widest">
-                Mosaic Inference Feed
-              </span>
-            </div>
-            <div className="p-6 font-mono text-xs md:text-sm leading-relaxed text-slate-300 overflow-x-auto min-h-[320px]">
-              <div className="space-y-1">
-                <div className="flex gap-4 opacity-40">
-                  <span className="w-4 select-none">1</span>
-                  <span>
-                    <span className="text-slate-500">
-                      {"// Agent: FactChecker-V4 starting crawl..."}
-                    </span>
-                  </span>
-                </div>
-                <div className="flex gap-4">
-                  <span className="w-4 select-none opacity-40">2</span>
-                  <span>{"{"}</span>
-                </div>
-                <div className="flex gap-4">
-                  <span className="w-4 select-none opacity-40">3</span>
-                  <span className="pl-4">
-                    <span className="text-pink-400">&quot;mission&quot;</span>:{" "}
-                    <span className="text-emerald-400">
-                      &quot;Verify competitor pricing across 4 sources&quot;
-                    </span>
-                    ,
-                  </span>
-                </div>
-                <div className="flex gap-4">
-                  <span className="w-4 select-none opacity-40">4</span>
-                  <span className="pl-4">
-                    <span className="text-pink-400">&quot;status&quot;</span>:{" "}
-                    <span className="text-emerald-400">
-                      &quot;Parsing raw HTML (Bypassing anti-bot)...&quot;
-                    </span>
-                    ,
-                  </span>
-                </div>
-                <div className="flex gap-4">
-                  <span className="w-4 select-none opacity-40">5</span>
-                  <span className="pl-4">
-                    <span className="text-pink-400">&quot;findings&quot;</span>:
-                    [
-                  </span>
-                </div>
-                <div className="flex gap-4">
-                  <span className="w-4 select-none opacity-40">6</span>
-                  <span className="pl-8">
-                    {"{"}{" "}
-                    <span className="text-pink-400">&quot;source&quot;</span>:{" "}
-                    <span className="text-emerald-400">
-                      &quot;Source A&quot;
-                    </span>
-                    , <span className="text-pink-400">&quot;price&quot;</span>:{" "}
-                    <span className="text-emerald-400">&quot;$99.99&quot;</span>{" "}
-                    {"}"},
-                  </span>
-                </div>
-                <div className="flex gap-4">
-                  <span className="w-4 select-none opacity-40">7</span>
-                  <span className="pl-8">
-                    {"{"}{" "}
-                    <span className="text-pink-400">&quot;source&quot;</span>:{" "}
-                    <span className="text-emerald-400">
-                      &quot;Source B&quot;
-                    </span>
-                    , <span className="text-pink-400">&quot;price&quot;</span>:{" "}
-                    <span className="text-emerald-400">&quot;$97.50&quot;</span>{" "}
-                    {"}"}
-                  </span>
-                </div>
-                <div className="flex gap-4">
-                  <span className="w-4 select-none opacity-40">8</span>
-                  <span className="pl-4">],</span>
-                </div>
-                <div className="flex gap-4">
-                  <span className="w-4 select-none opacity-40">9</span>
-                  <span className="pl-4">
-                    <span className="text-pink-400">
-                      &quot;conclusion&quot;
-                    </span>
-                    :{" "}
-                    <span className="text-emerald-400">
-                      &quot;Pricing divergence detected. Triangulating
-                      truth...&quot;
-                    </span>
-                    ,
-                  </span>
-                </div>
-                <div className="flex gap-4">
-                  <span className="w-4 select-none opacity-40">10</span>
-                  <span className="pl-4">
-                    <span className="text-pink-400">&quot;output&quot;</span>:{" "}
-                    <span className="text-emerald-400">
-                      &quot;Sent row to Sheet: &apos;Market Monitoring
-                      (Global)&apos;&quot;
-                    </span>
-                  </span>
-                </div>
-                <div className="flex gap-4">
-                  <span className="w-4 select-none opacity-40">11</span>
-                  <span>{"}"}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-cyan-500/50 to-transparent opacity-50" />
       </section>
 
-      {/* Solutions Section - Who and For What? */}
-      <section
-        id="solutions"
-        className="border-y border-slate-900 bg-slate-950/50 py-24 md:py-32"
-      >
-        <div className="container">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-5xl mb-4">
-              Solving the{" "}
-              <span className="text-emerald-400">Data Scarcity</span> Problem
-            </h2>
-            <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-              Mosaic AI is built for those who need high-fidelity data but
-              refuse to waste time on brittle custom scrapers.
-            </p>
-          </div>
+      {/* Aha! Moment - Comparison Section */}
+      <section className="container max-w-6xl py-24">
+        <div className="grid gap-12 lg:grid-cols-2 lg:items-center bg-slate-900/40 p-8 md:p-12 rounded-[2.5rem] border border-slate-800 backdrop-blur-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-cyan-500/5 blur-[100px] pointer-events-none" />
 
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-            {/* For Analysts */}
-            <div className="relative group p-8 rounded-3xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-all">
-              <Users className="h-8 w-8 text-emerald-400 mb-6" />
-              <h3 className="text-xl font-bold text-white mb-3">
-                Market Analysts
-              </h3>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Automate your daily monitoring. Track competitor pricing, new
-                product launches, and industry news without ever leaving your
-                spreadsheet.
-              </p>
-              <ul className="mt-6 space-y-2">
-                <li className="flex items-center gap-2 text-[10px] text-slate-500 font-mono uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                  Competitor Monitoring
-                </li>
-                <li className="flex items-center gap-2 text-[10px] text-slate-500 font-mono uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                  Pricing Intelligence
-                </li>
-              </ul>
-            </div>
-
-            {/* For Researchers */}
-            <div className="relative group p-8 rounded-3xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-all">
-              <Search className="h-8 w-8 text-cyan-400 mb-6" />
-              <h3 className="text-xl font-bold text-white mb-3">
-                Osint & Researchers
-              </h3>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Source fact-checking at scale. Use chaining agents to verify
-                claims across multiple sources and build structured reports for
-                investigation.
-              </p>
-              <ul className="mt-6 space-y-2">
-                <li className="flex items-center gap-2 text-[10px] text-slate-500 font-mono uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                  Fact Triangulation
-                </li>
-                <li className="flex items-center gap-2 text-[10px] text-slate-500 font-mono uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                  Recursive Discovery
-                </li>
-              </ul>
-            </div>
-
-            {/* For Lead Gen */}
-            <div className="relative group p-8 rounded-3xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-all">
-              <Target className="h-8 w-8 text-pink-400 mb-6" />
-              <h3 className="text-xl font-bold text-white mb-3">Sales Teams</h3>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Extract high-value leads from niche directories and news
-                portals. Identify executive changes or funding alerts as they
-                happen.
-              </p>
-              <ul className="mt-6 space-y-2">
-                <li className="flex items-center gap-2 text-[10px] text-slate-500 font-mono uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                  Lead Extraction
-                </li>
-                <li className="flex items-center gap-2 text-[10px] text-slate-500 font-mono uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                  Signal Detection
-                </li>
-              </ul>
-            </div>
-
-            {/* For Engineers */}
-            <div className="relative group p-8 rounded-3xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-all">
-              <Database className="h-8 w-8 text-amber-400 mb-6" />
-              <h3 className="text-xl font-bold text-white mb-3">
-                AI Engineers
-              </h3>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Feed your RAG applications with high-quality, structured web
-                data. Bypass the &quot;garbage-in&quot; problem with LLM-ready
-                markdown.
-              </p>
-              <ul className="mt-6 space-y-2">
-                <li className="flex items-center gap-2 text-[10px] text-slate-500 font-mono uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                  Structured Data Feed
-                </li>
-                <li className="flex items-center gap-2 text-[10px] text-slate-500 font-mono uppercase tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                  Clean Markdown API
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Use Cases - Deep Dive */}
-      <section id="research" className="container py-24 md:py-32">
-        <div className="grid gap-20 lg:grid-cols-2 lg:max-w-7xl mx-auto items-center">
-          <div className="relative">
-            <div className="absolute -inset-4 rounded-3xl bg-linear-to-r from-emerald-500/20 to-indigo-500/20 blur-xl opacity-30"></div>
-            <div className="relative rounded-3xl border border-slate-800 bg-slate-900/40 p-2 overflow-hidden shadow-2xl transition-transform hover:scale-[1.01]">
-              <div className="bg-slate-950 rounded-2xl p-8 space-y-6">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">
-                      Active Scenario
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-bold text-emerald-400 border border-emerald-400/20 px-2 py-0.5 rounded italic">
-                    Dynamic Monitoring
-                  </span>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex gap-4">
-                    <div className="h-10 w-10 shrink-0 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                      <LineChart className="h-5 w-5 text-emerald-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-white font-bold mb-1">
-                        E-commerce Price Tracking
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Continuously monitor 100+ Shopify stores for price
-                        changes on specific SKUs.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className="h-10 w-10 shrink-0 rounded-lg bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
-                      <Repeat className="h-5 w-5 text-cyan-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-white font-bold mb-1">
-                        News Aggregation
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Extract structured summary and source sentiment for all
-                        news related to &quot;Green Hydrogen&quot;.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className="h-10 w-10 shrink-0 rounded-lg bg-pink-500/10 flex items-center justify-center border border-pink-500/20">
-                      <BarChart3 className="h-5 w-5 text-pink-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-white font-bold mb-1">
-                        Real-Estate Scraping
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Build a private database of rental prices, including
-                        amenities and agent contact info.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-mono uppercase">
-                      Current Yield
-                    </p>
-                    <p className="text-lg font-black text-white italic">
-                      25k+{" "}
-                      <span className="text-xs font-normal text-slate-500 not-italic">
-                        rows / week
-                      </span>
-                    </p>
-                  </div>
-                  <div className="h-12 w-12 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 flex items-center justify-center text-[10px] font-bold text-white">
-                    85%
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-4xl font-extrabold tracking-tight text-white mb-6">
-              How you can use
+          <div className="space-y-8 relative z-10">
+            <h2 className="text-balance text-4xl font-black text-white leading-tight">
+              Stop fighting HTML.
               <br />
-              <span className="text-emerald-400">Mosaic AI today</span>
+              <span className="text-cyan-400 italic">
+                Start receiving facts.
+              </span>
             </h2>
             <div className="space-y-6">
-              <div>
-                <h4 className="text-white font-bold flex items-center gap-2">
-                  <ZapOff className="h-4 w-4 text-emerald-400" />
-                  No-Code Integration
-                </h4>
-                <p className="text-slate-400 text-sm leading-relaxed mt-1">
-                  Connect your Google Sheet. Define the column headers. Watch as
-                  Mosaic agents populate them with verified facts. No coding
-                  required to start receiving intelligence.
+              <div className="flex gap-4 items-start">
+                <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-400 shrink-0">
+                  <RefreshCw className="h-4 w-4" />
+                </div>
+                <p className="text-pretty text-slate-400 text-lg">
+                  Mosaic handles residential proxies, headless browsers, and
+                  rotating UAs automatically.
                 </p>
               </div>
-              <div>
-                <h4 className="text-white font-bold flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-cyan-400" />
-                  Scheduled Triggers
-                </h4>
-                <p className="text-slate-400 text-sm leading-relaxed mt-1">
-                  Running a weekly newsletter? Set an agent to crawl the web on
-                  Friday morning. By Friday afternoon, your database is full and
-                  ready for editing.
-                </p>
-              </div>
-              <div>
-                <h4 className="text-white font-bold flex items-center gap-2">
-                  <Network className="h-4 w-4 text-pink-400" />
-                  Programmable Pipelines
-                </h4>
-                <p className="text-slate-400 text-sm leading-relaxed mt-1">
-                  Build complex loops. If Agent A finds a mention of a new
-                  startup, Agent B is triggered to find their pricing page, and
-                  Agent C extracts their features.
+              <div className="flex gap-4 items-start">
+                <div className="h-8 w-8 rounded-lg bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 shrink-0">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <p className="text-pretty text-slate-400 text-lg">
+                  Verified output against multiple sources. If the data is
+                  conflicting, we flag it.
                 </p>
               </div>
             </div>
+          </div>
 
-            <div className="mt-10">
-              <InviteForm />
+          <div className="relative group perspective-1000">
+            <div className="grid grid-cols-1 gap-4 lg:gap-8 translate-z-10 transition-transform duration-700">
+              {/* Dirty HTML Part */}
+              <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/50 p-1 opacity-60 scale-95 blur-[2px] hover:blur-0 transition-all group-hover:opacity-40 select-none pointer-events-none">
+                <div className="flex items-center gap-1.5 p-3 border-b border-slate-800/50 px-4">
+                  <div className="h-2 w-2 rounded-full bg-red-500/50" />
+                  <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+                    Fragile HTML Scrape
+                  </span>
+                </div>
+                <pre className="p-4 font-mono text-[10px] text-slate-600 overflow-hidden leading-tight">
+                  {`<div>
+  <section class="p-4 flex-col md:hidden">
+    <h1 id="price-v2" class="text-4xl">
+      &nbsp;&nbsp;$199.99
+    </h1>
+    <!-- Layout changes break selectors -->
+    <span class="discount-label">
+      Save 20%
+    </span>
+  </section>
+</div>`}
+                </pre>
+              </div>
+
+              {/* Clean JSON Part */}
+              <div className="relative -mt-12 lg:-mt-20 overflow-hidden rounded-2xl border border-cyan-500/30 bg-slate-950 shadow-2xl shadow-cyan-500/10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+                <div className="flex items-center justify-between p-3 border-b border-cyan-500/10 bg-cyan-500/5 px-4 font-mono text-[10px]">
+                  <div className="flex items-center gap-1.5 ">
+                    <div className="h-2 w-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,1)]" />
+                    <span className="text-cyan-400 uppercase tracking-widest font-bold font-mono">
+                      Verified Intelligence Output
+                    </span>
+                  </div>
+                  <span className="text-slate-500 uppercase tracking-widest text-[9px]">
+                    JSON Format • Confidence: 98%
+                  </span>
+                </div>
+                <pre className="p-6 font-mono text-xs md:text-sm leading-relaxed overflow-x-auto bg-slate-950/50 transition-colors">
+                  <div className="space-y-1">
+                    <div>{"{"}</div>
+                    <div className="pl-4">
+                      <span className="text-pink-400">&quot;product&quot;</span>
+                      :{" "}
+                      <span className="text-cyan-400">
+                        &quot;Advanced Intelligence Engine&quot;
+                      </span>
+                      ,
+                    </div>
+                    <div className="pl-4">
+                      <span className="text-pink-400">&quot;price&quot;</span>:{" "}
+                      <span className="text-cyan-400">159.99</span>,
+                    </div>
+                    <div className="pl-4">
+                      <span className="text-pink-400">
+                        &quot;currency&quot;
+                      </span>
+                      : <span className="text-cyan-400">&quot;USD&quot;</span>,
+                    </div>
+                    <div className="pl-4">
+                      <span className="text-pink-400">
+                        &quot;verified&quot;
+                      </span>
+                      : <span className="text-cyan-400">true</span>,
+                    </div>
+                    <div className="pl-4 group/item">
+                      <span className="text-pink-400">
+                        &quot;source_integrity&quot;
+                      </span>
+                      : <span className="text-cyan-400">0.98</span>,
+                      <span className="ml-2 px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[10px] font-bold border border-cyan-500/20 group-hover/item:bg-cyan-500/20 transition-colors">
+                        FACT CHECKED
+                      </span>
+                    </div>
+                    <div>{"}"}</div>
+                  </div>
+                </pre>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Feature Grid - Technical Reliability */}
-      <section id="features" className="container py-24 bg-slate-900/10">
-        <div className="mx-auto flex max-w-[58em] flex-col items-center gap-4 text-center mb-20">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-white">
-            Under the Hood
+      {/* Bento Grid Features */}
+      <section id="ai-stack" className="container max-w-6xl py-24">
+        <div className="mx-auto flex flex-col items-center gap-4 text-center mb-16 px-4">
+          <h2 className="text-balance text-3xl font-black tracking-tighter sm:text-6xl text-white">
+            Automate{" "}
+            <span className="text-cyan-400 underline decoration-cyan-500/20 underline-offset-8">
+              Intelligence.
+            </span>
           </h2>
-          <p className="max-w-[700px] leading-relaxed text-slate-400 sm:text-xl font-medium">
-            Reliable intelligence requires robust orchestration.
+          <p className="text-pretty text-slate-500 text-lg max-w-2xl">
+            Mosaic replaces fragile scraping logic with autonomous reasoning
+            agents.
           </p>
         </div>
 
-        <div className="mx-auto grid justify-center gap-1 md:grid-cols-3 md:max-w-7xl">
-          <div className="group relative bg-slate-950 border border-slate-900 p-10 hover:bg-slate-900 transition-colors">
-            <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20">
-              <ShieldCheck className="h-6 w-6" />
+        <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-6">
+          {/* Large Card: Stealth Browsing */}
+          <div className="md:col-span-3 lg:col-span-7 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 lg:p-12 transition-all hover:bg-slate-900/80 group overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-8 text-slate-700/50 group-hover:text-cyan-500/20 transition-colors">
+              <ShieldCheck className="h-32 w-32 rotate-12" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-3">
-              Anti-Bot Evasion
-            </h3>
-            <p className="text-slate-400 leading-relaxed text-sm">
-              Residential proxies, user-agent rotation, and headless browser
-              spoofing come standard. We handle the wall, you get the data.
-            </p>
+            <div className="relative z-10 h-full flex flex-col">
+              <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
+                <Zap className="h-6 w-6 fill-current" />
+              </div>
+              <h3 className="text-2xl font-black text-white mb-4">
+                Evade detection by default.
+              </h3>
+              <p className="text-pretty text-slate-400 leading-relaxed text-lg flex-1">
+                Mosaic rotates residential proxies and spoofs headless browsers
+                automatically. No more CAPTCHAs, no more IP bans.
+              </p>
+              <div className="mt-8 pt-8 border-t border-slate-800/50 flex gap-4 overflow-hidden">
+                <div className="px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-[10px] font-monospace text-slate-500">
+                  RESIDENTIAL_PROXY_V2
+                </div>
+                <div className="px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-[10px] font-monospace text-slate-500">
+                  STEALTH_JS_RUNTIME
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="group relative bg-slate-950 border border-slate-900 p-10 hover:bg-slate-900 transition-colors">
-            <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/20">
+          {/* Tall Card: Fact Reconciliation */}
+          <div className="md:col-span-3 lg:col-span-5 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 lg:p-12 transition-all hover:bg-slate-900/80 overflow-hidden group">
+            <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
               <Globe className="h-6 w-6" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-3">
-              Semantic Parsing
+            <h3 className="text-2xl font-black text-white mb-4">
+              Reconcile facts.
             </h3>
-            <p className="text-slate-400 leading-relaxed text-sm">
-              Our agents don&apos;t just scrape—they understand. They use LLMs
-              to identify facts even if the website layout changes tomorrow.
+            <p className="text-pretty text-slate-400 leading-relaxed text-lg mb-8">
+              Agents cross-verify claims against multiple sources. We score data
+              integrity so you can trust every byte.
+            </p>
+            <div className="relative h-32 w-full bg-slate-950/50 rounded-2xl border border-slate-800 p-4">
+              <div className="space-y-3">
+                <div className="h-2 w-3/4 bg-cyan-500/20 rounded shadow-[0_0_10px_rgba(34,211,238,0.1)]" />
+                <div className="h-2 w-1/2 bg-cyan-500/20 rounded" />
+                <div className="h-2 w-2/3 bg-slate-800 rounded animate-pulse" />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <CheckCircle2 className="h-12 w-12 text-cyan-400/20" />
+              </div>
+            </div>
+          </div>
+
+          {/* Square Card: Agent Reasoners */}
+          <div className="md:col-span-3 lg:col-span-4 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group">
+            <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
+              <Bot className="h-6 w-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-3">
+              Reasoning over CSS.
+            </h3>
+            <p className="text-pretty text-slate-400 text-sm leading-relaxed">
+              Mosaic agents interpret the page like a human analyst. No more
+              fragile CSS selectors.
             </p>
           </div>
 
-          <div className="group relative bg-slate-950 border border-slate-900 p-10 hover:bg-slate-900 transition-colors">
-            <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-pink-500/10 text-pink-400 ring-1 ring-pink-500/20">
+          {/* Square Card: Context Understanding */}
+          <div className="md:col-span-3 lg:col-span-4 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group">
+            <div className="h-12 w-12 rounded-2xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20 text-pink-400 mb-8">
               <Sparkles className="h-6 w-6" />
             </div>
             <h3 className="text-xl font-bold text-white mb-3">
-              Fact Reconciliation
+              Contextual Search.
             </h3>
-            <p className="text-slate-400 leading-relaxed text-sm">
-              Conflict detection built-in. If two sources say different things,
-              Mosaic flags it for review or uses truth-scoring to decide.
+            <p className="text-pretty text-slate-400 text-sm leading-relaxed">
+              Our agents don&apos;t just crawl, they search for intent and
+              meaning in every paragraph.
             </p>
+          </div>
+
+          {/* Square Card: Scale Orchestration */}
+          <div className="md:col-span-6 lg:col-span-4 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group">
+            <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500 mb-8">
+              <Settings className="h-6 w-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-3">
+              Auto-Orchestration.
+            </h3>
+            <p className="text-pretty text-slate-400 text-sm leading-relaxed">
+              Self-healing pipelines that adapt to UI changes without a single
+              line of code.
+            </p>
+          </div>
+
+          {/* Wide Card: Deep Web Discovery */}
+          <div className="md:col-span-6 lg:col-span-8 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group relative overflow-hidden">
+            <div className="flex flex-col md:flex-row gap-8 items-center">
+              <div className="flex-1">
+                <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-6">
+                  <Search className="h-6 w-6" />
+                </div>
+                <h3 className="text-2xl font-black text-white mb-4">
+                  Discovery Engine.
+                </h3>
+                <p className="text-pretty text-slate-400 leading-relaxed text-lg">
+                  Traverse the deep web. Mosaic agents find hidden APIs,
+                  portals, and data points that standard crawlers miss.
+                </p>
+              </div>
+              <div className="flex-1 w-full flex justify-end">
+                <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 w-full max-w-[300px]">
+                  <div className="space-y-2">
+                    <div className="h-2 w-full bg-cyan-500/40 rounded shadow-[0_0_10px_rgba(34,211,238,0.2)]" />
+                    <div className="h-2 w-2/3 bg-slate-800 rounded" />
+                    <div className="h-2 w-5/6 bg-slate-800 rounded" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Last Square Card: Vector DB Integration */}
+          <div className="md:col-span-6 lg:col-span-4 bg-cyan-500/5 rounded-[2.5rem] border border-cyan-500/20 p-8 transition-all hover:bg-cyan-500/10 group">
+            <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
+              <Database className="h-6 w-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-3">RAG Ready.</h3>
+            <p className="text-pretty text-slate-400 text-sm leading-relaxed">
+              Output optimized for vector databases and LLM context windows. No
+              cleanup required.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Code Section */}
+      <section className="container max-w-6xl py-24 border-t border-slate-900">
+        <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
+          <div>
+            <h2 className="text-balance text-4xl font-extrabold tracking-tight text-white mb-6 leading-tight">
+              One API call.
+              <br />
+              <span className="text-cyan-400 italic">Total Control.</span>
+            </h2>
+            <p className="text-pretty text-slate-400 text-lg leading-relaxed mb-8">
+              Send a URL and a schema. Mosaic delivers verified facts. No
+              complex pipelines, no middleware.
+            </p>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-cyan-400" />
+                <span className="text-slate-300 font-medium">
+                  Type-safe TypeScript SDK
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-cyan-400" />
+                <span className="text-slate-300 font-medium">
+                  Real-time Webhook Triggers
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="group relative">
+            <div className="absolute -inset-1 rounded-3xl bg-linear-to-r from-cyan-500/20 to-teal-500/20 blur-2xl opacity-75"></div>
+            <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl transition-transform group-hover:scale-[1.01] duration-500">
+              <div className="flex items-center justify-between border-b border-slate-800/50 bg-slate-900/50 px-4 py-3 font-mono text-xs">
+                <div className="flex gap-1.5">
+                  <div className="h-3 w-3 rounded-full bg-slate-800" />
+                  <div className="h-3 w-3 rounded-full bg-slate-800" />
+                  <div className="h-3 w-3 rounded-full bg-slate-800" />
+                </div>
+                <span className="text-slate-500 uppercase tracking-widest text-[10px] font-bold italic">
+                  Mosaic AI Intelligence Request
+                </span>
+              </div>
+              <div className="p-6 font-mono text-[11px] md:text-sm leading-relaxed text-slate-300 overflow-x-auto">
+                <div className="space-y-1 text-slate-400">
+                  <div>
+                    <span className="text-slate-500 italic">
+                      {"// Deployment request"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-pink-400 font-bold italic">
+                      await
+                    </span>{" "}
+                    <span className="text-cyan-400 font-bold group-hover:text-cyan-300 transition-colors">
+                      mosaic
+                    </span>
+                    .<span className="text-cyan-400">extract</span>({"{"}
+                  </div>
+                  <div className="pl-4">
+                    url:{" "}
+                    <span className="text-cyan-400">
+                      &quot;https://competitor.com/pricing&quot;
+                    </span>
+                    ,
+                  </div>
+                  <div className="pl-4">
+                    schema: {"{"} product:{" "}
+                    <span className="text-cyan-400">&quot;string&quot;</span>,
+                    price:{" "}
+                    <span className="text-cyan-400">&quot;number&quot;</span>{" "}
+                    {"}"}
+                  </div>
+                  <div>{"}"});</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Use Cases */}
+      <section
+        id="use-cases"
+        className="container max-w-6xl py-24 border-t border-slate-900"
+      >
+        <div className="mb-16">
+          <h2 className="text-balance text-3xl font-black tracking-tight text-white sm:text-5xl text-left italic">
+            Who builds with Mosaic?
+          </h2>
+        </div>
+
+        <div className="grid gap-8 md:grid-cols-3">
+          <div className="relative p-10 rounded-[2.5rem] border border-slate-800 bg-slate-900/30 hover:bg-slate-900/50 transition-colors group">
+            <MessageSquare className="h-10 w-10 text-cyan-400 mb-8 transition-transform group-hover:scale-110" />
+            <h3 className="text-2xl font-black text-white mb-4">
+              AI Engineers
+            </h3>
+            <p className="text-pretty text-sm text-slate-400 leading-relaxed mb-8">
+              Feed your models with high-fidelity markdown. Stop post-processing
+              garbage data and start receiving model-ready context.
+            </p>
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800/50">
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                RAG Optimized
+              </span>
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                Clean MDR
+              </span>
+            </div>
+          </div>
+
+          <div className="relative p-10 rounded-[2.5rem] border border-slate-800 bg-slate-900/30 hover:bg-slate-900/50 transition-colors group">
+            <LineChart className="h-10 w-10 text-cyan-400 mb-8 transition-transform group-hover:scale-110" />
+            <h3 className="text-2xl font-black text-white mb-4">
+              Market Analysts
+            </h3>
+            <p className="text-pretty text-sm text-slate-400 leading-relaxed mb-8">
+              Monitor competitors silently. Track price changes, new product
+              launches, and industry shifts in real-time.
+            </p>
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800/50">
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                Pricing Feed
+              </span>
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                Signal Alerts
+              </span>
+            </div>
+          </div>
+
+          <div className="relative p-10 rounded-[2.5rem] border border-slate-800 bg-slate-900/30 hover:bg-slate-900/50 transition-colors group">
+            <Target className="h-10 w-10 text-pink-400 mb-8 transition-transform group-hover:scale-110" />
+            <h3 className="text-2xl font-black text-white mb-4">
+              Sales Operations
+            </h3>
+            <p className="text-pretty text-sm text-slate-400 leading-relaxed mb-8">
+              Enrich leads automatically. Extract intent signals from news and
+              directories the moment they happen.
+            </p>
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800/50">
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                Intent Signals
+              </span>
+              <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
+                CRM Sync
+              </span>
+            </div>
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="container py-24 md:py-40">
-        <div className="mx-auto flex max-w-[58rem] flex-col items-center justify-center gap-8 text-center bg-slate-900/30 border border-slate-800 p-16 rounded-[4rem] relative overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/10 blur-[120px] pointer-events-none" />
+      <section className="container max-w-6xl pt-12 pb-24 md:pt-16 md:pb-40">
+        <div className="w-full flex flex-col items-center justify-center gap-12 text-center bg-slate-950/40 border border-slate-800 px-8 py-24 md:p-24 rounded-[3rem] md:rounded-[5rem] relative overflow-hidden backdrop-blur-xl transition-all hover:bg-slate-900/40 group">
+          {/* Mercedes-style Horizon Glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-500/10 blur-[120px] pointer-events-none group-hover:bg-cyan-500/15 transition-colors" />
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-cyan-500/50 to-transparent opacity-30" />
 
-          <h2 className="text-5xl font-extrabold tracking-tight sm:text-6xl text-white">
-            Ready to deploy?
+          <h2 className="text-balance text-5xl font-black tracking-tighter sm:text-6xl lg:text-7xl text-white group-hover:scale-[1.01] transition-transform duration-700 leading-tight">
+            Ready to structure the web?
           </h2>
-          <p className="max-w-[700px] text-slate-400 text-xl leading-relaxed">
+          <p className="text-pretty max-w-[600px] text-slate-400 text-xl md:text-2xl leading-relaxed font-bold">
             Join the automated intelligence network. No credit card required.
-            Invite-only beta.
+            Private beta access.
           </p>
-          <div className="mt-4 w-full flex justify-center">
+          <div className="w-full flex justify-center max-w-2xl">
             <InviteForm />
           </div>
-          <p className="text-xs text-slate-500 font-mono uppercase tracking-[0.3em] font-bold">
-            Limited Slots • Build with Mosaic AI
-          </p>
+          <div className="pt-4 flex flex-col items-center gap-4">
+            <p className="text-[10px] text-cyan-500/60 font-black uppercase tracking-[0.4em]">
+              Secure • Verifiable • Autonomous
+            </p>
+            <div className="flex items-center gap-4 mt-2">
+              <p className="text-xs text-slate-500 font-monospace uppercase tracking-[0.2em] font-bold">
+                Built with Mosaic AI
+              </p>
+              <div className="h-1 w-8 bg-[#CCFF00] rounded-full" />
+            </div>
+          </div>
         </div>
       </section>
     </div>
