@@ -21,7 +21,7 @@ COMMENT ON TYPE tile_pattern IS 'Visual patterns for tile appearance';
 
 CREATE TABLE public.mosaics (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  owner_id uuid REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   name varchar(255) NOT NULL,
   description text,
   is_active boolean DEFAULT true NOT NULL,
@@ -67,7 +67,7 @@ CREATE TRIGGER update_mosaics_updated_at
 CREATE TABLE public.mosaic_members (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   mosaic_id uuid REFERENCES public.mosaics(id) ON DELETE CASCADE NOT NULL,
-  user_id uuid REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   role text NOT NULL CHECK (role IN ('owner', 'admin', 'member')) DEFAULT 'member',
   created_at timestamptz DEFAULT now() NOT NULL,
   UNIQUE(mosaic_id, user_id)
@@ -432,172 +432,185 @@ CREATE INDEX idx_tile_reports_job ON public.tile_reports(job_id);
 CREATE INDEX idx_tile_reports_created ON public.tile_reports(created_at);
 
 -- ============================================================================
--- DATA MIGRATION: Migrate existing agents to tiles
+-- DATA MIGRATION: Migrate existing agents to tiles (only if agents table exists)
 -- ============================================================================
 
--- Create a default mosaic for each user who has agents
-INSERT INTO public.mosaics (owner_id, name, description)
-SELECT DISTINCT
-  a.owner_id,
-  'My First Mosaic',
-  'Migrated from existing agents'
-FROM public.agents a
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.mosaics m WHERE m.owner_id = a.owner_id
-);
+DO $$
+BEGIN
+  -- Only run migration if agents table exists (not a fresh database)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agents') THEN
+    -- Create a default mosaic for each user who has agents
+    INSERT INTO public.mosaics (owner_id, name, description)
+    SELECT DISTINCT
+      a.owner_id,
+      'My First Mosaic',
+      'Migrated from existing agents'
+    FROM public.agents a
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.mosaics m WHERE m.owner_id = a.owner_id
+    );
 
--- Migrate agents to tiles
-INSERT INTO public.tiles (
-  id,
-  mosaic_id,
-  name,
-  description,
-  tile_type,
-  color,
-  pattern,
-  grid_x,
-  grid_y,
-  system_prompt,
-  output_format,
-  language,
-  schedule_cron,
-  is_active,
-  max_chain_depth,
-  execution_timeout_ms,
-  created_at,
-  updated_at
-)
-SELECT
-  a.id,
-  m.id,
-  a.name,
-  a.description,
-  'url_reader'::tile_type,  -- Default type, will update based on sources
-  '#3B82F6',  -- Default blue color
-  'solid'::tile_pattern,
-  ROW_NUMBER() OVER (PARTITION BY a.owner_id ORDER BY a.created_at) - 1,  -- Sequential grid_x
-  0,  -- All at row 0
-  a.system_prompt,
-  a.output_format,
-  COALESCE(a.language, 'en'),
-  a.schedule_cron,
-  a.is_active,
-  COALESCE(a.max_chain_depth, 5),
-  COALESCE(a.execution_timeout_ms, 300000),
-  a.created_at,
-  a.updated_at
-FROM public.agents a
-JOIN public.mosaics m ON m.owner_id = a.owner_id;
+    -- Migrate agents to tiles
+    INSERT INTO public.tiles (
+      id,
+      mosaic_id,
+      name,
+      description,
+      tile_type,
+      color,
+      pattern,
+      grid_x,
+      grid_y,
+      system_prompt,
+      output_format,
+      language,
+      schedule_cron,
+      is_active,
+      max_chain_depth,
+      execution_timeout_ms,
+      created_at,
+      updated_at
+    )
+    SELECT
+      a.id,
+      m.id,
+      a.name,
+      a.description,
+      'url_reader'::tile_type,  -- Default type, will update based on sources
+      '#3B82F6',  -- Default blue color
+      'solid'::tile_pattern,
+      ROW_NUMBER() OVER (PARTITION BY a.owner_id ORDER BY a.created_at) - 1,  -- Sequential grid_x
+      0,  -- All at row 0
+      a.system_prompt,
+      a.output_format,
+      COALESCE(a.language, 'en'),
+      a.schedule_cron,
+      a.is_active,
+      COALESCE(a.max_chain_depth, 5),
+      COALESCE(a.execution_timeout_ms, 300000),
+      a.created_at,
+      a.updated_at
+    FROM public.agents a
+    JOIN public.mosaics m ON m.owner_id = a.owner_id;
 
--- Update tile types based on source types
-UPDATE public.tiles t
-SET tile_type = 'recursive'::tile_type
-WHERE EXISTS (
-  SELECT 1 FROM public.sources s
-  WHERE s.agent_id = t.id
-  AND s.type = 'agent_report'
-);
+    -- Update tile types based on source types
+    UPDATE public.tiles t
+    SET tile_type = 'recursive'::tile_type
+    WHERE EXISTS (
+      SELECT 1 FROM public.sources s
+      WHERE s.agent_id = t.id
+      AND s.type = 'agent_report'
+    );
 
-UPDATE public.tiles t
-SET tile_type = 'web_search'::tile_type
-WHERE EXISTS (
-  SELECT 1 FROM public.sources s
-  WHERE s.agent_id = t.id
-  AND s.type = 'web_search'
-)
-AND NOT EXISTS (
-  SELECT 1 FROM public.sources s
-  WHERE s.agent_id = t.id
-  AND s.type = 'agent_report'
-);
+    UPDATE public.tiles t
+    SET tile_type = 'web_search'::tile_type
+    WHERE EXISTS (
+      SELECT 1 FROM public.sources s
+      WHERE s.agent_id = t.id
+      AND s.type = 'web_search'
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM public.sources s
+      WHERE s.agent_id = t.id
+      AND s.type = 'agent_report'
+    );
 
--- Migrate sources to tile_sources
-INSERT INTO public.tile_sources (
-  id,
-  tile_id,
-  url,
-  name,
-  is_active,
-  last_scraped_at,
-  type,
-  source_reference_id,
-  config,
-  created_at,
-  updated_at
-)
-SELECT
-  s.id,
-  s.agent_id,  -- agent_id becomes tile_id (same UUIDs)
-  s.url,
-  s.name,
-  s.is_active,
-  s.last_scraped_at,
-  s.type,
-  s.source_reference_id,  -- Will reference tiles now (same UUIDs as agents)
-  s.config,
-  s.created_at,
-  s.updated_at
-FROM public.sources s;
+    -- Migrate sources to tile_sources
+    INSERT INTO public.tile_sources (
+      id,
+      tile_id,
+      url,
+      name,
+      is_active,
+      last_scraped_at,
+      type,
+      source_reference_id,
+      config,
+      created_at,
+      updated_at
+    )
+    SELECT
+      s.id,
+      s.agent_id,  -- agent_id becomes tile_id (same UUIDs)
+      s.url,
+      s.name,
+      s.is_active,
+      s.last_scraped_at,
+      s.type,
+      s.source_reference_id,  -- Will reference tiles now (same UUIDs as agents)
+      s.config,
+      s.created_at,
+      s.updated_at
+    FROM public.sources s;
 
--- Migrate jobs to tile_jobs
-INSERT INTO public.tile_jobs (
-  id,
-  tile_id,
-  status,
-  started_at,
-  completed_at,
-  error_message,
-  metadata,
-  execution_id,
-  chain_depth,
-  parent_job_id,
-  created_at
-)
-SELECT
-  j.id,
-  j.agent_id,  -- agent_id becomes tile_id
-  j.status,
-  j.started_at,
-  j.completed_at,
-  j.error_message,
-  j.metadata,
-  j.execution_id,
-  j.chain_depth,
-  j.parent_job_id,
-  j.created_at
-FROM public.jobs j;
+    -- Migrate jobs to tile_jobs
+    INSERT INTO public.tile_jobs (
+      id,
+      tile_id,
+      status,
+      started_at,
+      completed_at,
+      error_message,
+      metadata,
+      execution_id,
+      chain_depth,
+      parent_job_id,
+      created_at
+    )
+    SELECT
+      j.id,
+      j.agent_id,  -- agent_id becomes tile_id
+      j.status,
+      j.started_at,
+      j.completed_at,
+      j.error_message,
+      j.metadata,
+      j.execution_id,
+      j.chain_depth,
+      j.parent_job_id,
+      j.created_at
+    FROM public.jobs j;
 
--- Migrate reports to tile_reports
-INSERT INTO public.tile_reports (
-  id,
-  job_id,
-  tile_id,
-  content,
-  format,
-  source_urls,
-  created_at
-)
-SELECT
-  r.id,
-  r.job_id,
-  r.agent_id,  -- agent_id becomes tile_id
-  r.content,
-  r.format,
-  r.source_urls,
-  r.created_at
-FROM public.reports r;
+    -- Migrate reports to tile_reports
+    INSERT INTO public.tile_reports (
+      id,
+      job_id,
+      tile_id,
+      content,
+      format,
+      source_urls,
+      created_at
+    )
+    SELECT
+      r.id,
+      r.job_id,
+      r.agent_id,  -- agent_id becomes tile_id
+      r.content,
+      r.format,
+      r.source_urls,
+      r.created_at
+    FROM public.reports r;
 
--- Create tile connections from agent_report sources
-INSERT INTO public.tile_connections (mosaic_id, source_tile_id, target_tile_id)
-SELECT DISTINCT
-  t.mosaic_id,
-  ts.source_reference_id,  -- Source tile (provides output)
-  ts.tile_id  -- Target tile (receives input)
-FROM public.tile_sources ts
-JOIN public.tiles t ON t.id = ts.tile_id
-WHERE ts.type = 'agent_report'
-AND ts.source_reference_id IS NOT NULL
-ON CONFLICT (source_tile_id, target_tile_id) DO NOTHING;
+    -- Create tile connections from agent_report sources
+    INSERT INTO public.tile_connections (mosaic_id, source_tile_id, target_tile_id)
+    SELECT DISTINCT
+      t.mosaic_id,
+      ts.source_reference_id,  -- Source tile (provides output)
+      ts.tile_id  -- Target tile (receives input)
+    FROM public.tile_sources ts
+    JOIN public.tiles t ON t.id = ts.tile_id
+    WHERE ts.type = 'agent_report'
+    AND ts.source_reference_id IS NOT NULL
+    ON CONFLICT (source_tile_id, target_tile_id) DO NOTHING;
+
+    -- Add comments to mark legacy tables as deprecated
+    COMMENT ON TABLE public.agents IS 'DEPRECATED: Use tiles table instead. Kept for backwards compatibility.';
+    COMMENT ON TABLE public.agent_members IS 'DEPRECATED: Use mosaic_members table instead. Kept for backwards compatibility.';
+    COMMENT ON TABLE public.sources IS 'DEPRECATED: Use tile_sources table instead. Kept for backwards compatibility.';
+    COMMENT ON TABLE public.jobs IS 'DEPRECATED: Use tile_jobs table instead. Kept for backwards compatibility.';
+    COMMENT ON TABLE public.reports IS 'DEPRECATED: Use tile_reports table instead. Kept for backwards compatibility.';
+  END IF;
+END $$;
 
 -- ============================================================================
 -- HELPER FUNCTIONS
@@ -646,10 +659,3 @@ COMMENT ON FUNCTION check_tile_circular_dependency IS 'Returns true if adding a 
 -- They can be dropped in a future migration after full verification
 -- Tables to eventually drop: agents, agent_members, sources, jobs, reports
 -- ============================================================================
-
--- Add comments to mark legacy tables
-COMMENT ON TABLE public.agents IS 'DEPRECATED: Use tiles table instead. Kept for backwards compatibility.';
-COMMENT ON TABLE public.agent_members IS 'DEPRECATED: Use mosaic_members table instead. Kept for backwards compatibility.';
-COMMENT ON TABLE public.sources IS 'DEPRECATED: Use tile_sources table instead. Kept for backwards compatibility.';
-COMMENT ON TABLE public.jobs IS 'DEPRECATED: Use tile_jobs table instead. Kept for backwards compatibility.';
-COMMENT ON TABLE public.reports IS 'DEPRECATED: Use tile_reports table instead. Kept for backwards compatibility.';
