@@ -1,0 +1,329 @@
+import { revalidatePath } from "next/cache";
+import { NextResponse } from "next/server";
+
+import { analyzeContent } from "@/lib/ai/gemini";
+import {
+  createExecutionContext,
+  DEFAULT_MAX_DEPTH,
+  DEFAULT_TIMEOUT_MS,
+} from "@/lib/execution/context";
+import {
+  assertRateLimitAllowed,
+  checkAndIncrementRateLimit,
+  decrementConcurrentCount,
+  logExecutionEvent,
+  RateLimitError,
+} from "@/lib/rate-limit/limiter";
+import {
+  fetchAllTileSourcesContent,
+  getTileSourceIdentifiers,
+  getTileSourceTypeBreakdown,
+} from "@/lib/sources/tile-content-fetcher";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient, getUser } from "@/lib/supabase/server";
+import type {
+  Tile,
+  TileJob,
+  TileJobInsert,
+  TileJobUpdate,
+  TileReportInsert,
+  TileSource,
+} from "@/types/database";
+
+type TileWithSources = Tile & {
+  tile_sources: TileSource[];
+  mosaics: { owner_id: string };
+};
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+export async function POST(request: Request): Promise<Response> {
+  const adminClient = createAdminClient();
+  let userId: string | null = null;
+  let rateLimitIncremented = false;
+
+  try {
+    const user = await getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    userId = user.id;
+
+    const { tileId } = await request.json();
+
+    if (!tileId) {
+      return NextResponse.json(
+        { error: "Tile ID is required" },
+        { status: 400 },
+      );
+    }
+
+    // Check rate limits before proceeding
+    const rateLimitResult = await checkAndIncrementRateLimit(
+      adminClient,
+      user.id,
+    );
+
+    try {
+      assertRateLimitAllowed(rateLimitResult);
+      rateLimitIncremented = true;
+    } catch (rateLimitError) {
+      if (rateLimitError instanceof RateLimitError) {
+        return NextResponse.json(rateLimitError.toJSON(), { status: 429 });
+      }
+      throw rateLimitError;
+    }
+
+    const supabase = await createClient();
+
+    // Fetch tile with sources - verify access through mosaic ownership or membership
+    const { data: tile, error: tileError } = await supabase
+      .from("tiles")
+      .select(`
+        *,
+        tile_sources (*),
+        mosaics!inner (owner_id)
+      `)
+      .eq("id", tileId)
+      .single();
+
+    if (tileError || !tile) {
+      return NextResponse.json({ error: "Tile not found" }, { status: 404 });
+    }
+
+    const typedTile = tile as unknown as TileWithSources;
+
+    // Verify user has access (owner or member of mosaic)
+    if (typedTile.mosaics.owner_id !== user.id) {
+      // Check if user is a member
+      const { data: membership } = await supabase
+        .from("mosaic_members")
+        .select("role")
+        .eq("mosaic_id", typedTile.mosaic_id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (!membership) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
+    }
+
+    if (!typedTile.tile_sources || typedTile.tile_sources.length === 0) {
+      return NextResponse.json(
+        { error: "Tile has no sources configured" },
+        { status: 400 },
+      );
+    }
+
+    // Create execution context for this run
+    const executionContext = createExecutionContext({
+      rootAgentId: tileId,
+      userId: user.id,
+      maxDepth: typedTile.max_chain_depth ?? DEFAULT_MAX_DEPTH,
+      timeoutMs: typedTile.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS,
+    });
+
+    // Log execution start
+    await logExecutionEvent(adminClient, {
+      executionId: executionContext.executionId,
+      agentId: tileId,
+      eventType: "started",
+      metadata: {
+        tileType: typedTile.tile_type,
+        maxDepth: executionContext.maxDepth,
+        timeoutMs: executionContext.timeoutMs,
+        sourceCount: typedTile.tile_sources.length,
+      },
+    });
+
+    // Create a job with execution tracking
+    const jobInsert: TileJobInsert = {
+      tile_id: tileId,
+      status: "processing",
+      started_at: new Date().toISOString(),
+      metadata: {
+        execution_id: executionContext.executionId,
+        chain_depth: 0,
+      },
+      execution_id: executionContext.executionId,
+      chain_depth: 0,
+    };
+
+    const { data: jobData, error: jobError } = await adminClient
+      .from("tile_jobs")
+      .insert(jobInsert as never)
+      .select()
+      .single();
+
+    const job = jobData as TileJob | null;
+
+    if (jobError || !job) {
+      return NextResponse.json(
+        { error: "Failed to create job" },
+        { status: 500 },
+      );
+    }
+
+    try {
+      // Fetch content from all sources (URLs, tile reports, web search)
+      const sourceResults = await fetchAllTileSourcesContent(
+        typedTile.tile_sources,
+        adminClient,
+        executionContext,
+      );
+
+      // Update source last_scraped_at
+      const now = new Date().toISOString();
+      await Promise.all(
+        typedTile.tile_sources
+          .filter((s) => s.is_active)
+          .map((source) =>
+            adminClient
+              .from("tile_sources")
+              .update({ last_scraped_at: now } as never)
+              .eq("id", source.id),
+          ),
+      );
+
+      // Collect successful fetches
+      const successfulFetches = sourceResults.filter(
+        (r) => r.success && r.content,
+      );
+      const fetchedContent = successfulFetches.map((r) => r.content!);
+
+      if (fetchedContent.length === 0) {
+        // Collect errors from failed sources for debugging
+        const sourceErrors = sourceResults
+          .filter((r) => !r.success)
+          .map((r) => ({
+            identifier: r.identifier,
+            type: r.sourceType,
+            error: r.error,
+          }));
+
+        console.error("All sources failed:", sourceErrors);
+
+        throw new Error(
+          `No content could be fetched from sources. Errors: ${sourceErrors.map((e) => e.error).join("; ")}`,
+        );
+      }
+
+      // Analyze with AI
+      const analysis = await analyzeContent(
+        fetchedContent,
+        typedTile.system_prompt || "",
+        typedTile.output_format,
+        typedTile.language,
+      );
+
+      if (!analysis.success) {
+        throw new Error(analysis.error || "AI analysis failed");
+      }
+
+      // Get source identifiers for report
+      const sourceIdentifiers = getTileSourceIdentifiers(sourceResults);
+      const sourceBreakdown = getTileSourceTypeBreakdown(sourceResults);
+
+      // Create report
+      const reportInsert: TileReportInsert = {
+        job_id: job.id,
+        tile_id: tileId,
+        content: analysis.content,
+        format: typedTile.output_format,
+        source_urls: sourceIdentifiers,
+      };
+
+      const { error: reportError } = await adminClient
+        .from("tile_reports")
+        .insert(reportInsert as never);
+
+      if (reportError) {
+        throw new Error("Failed to save report");
+      }
+
+      // Update job as completed
+      const completedUpdate: TileJobUpdate = {
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        metadata: {
+          execution_id: executionContext.executionId,
+          chain_depth: 0,
+          sources_total: sourceResults.length,
+          sources_succeeded: successfulFetches.length,
+          sources_failed: sourceResults.length - successfulFetches.length,
+          ...sourceBreakdown,
+        },
+      };
+
+      await adminClient
+        .from("tile_jobs")
+        .update(completedUpdate as never)
+        .eq("id", job.id);
+
+      // Log successful completion
+      await logExecutionEvent(adminClient, {
+        executionId: executionContext.executionId,
+        agentId: tileId,
+        jobId: job.id,
+        eventType: "completed",
+        metadata: {
+          sourcesTotal: sourceResults.length,
+          sourcesSucceeded: successfulFetches.length,
+          durationMs: Date.now() - executionContext.startTime,
+        },
+      });
+
+      revalidatePath(`/mosaics/${typedTile.mosaic_id}`);
+
+      return NextResponse.json({
+        success: true,
+        jobId: job.id,
+        executionId: executionContext.executionId,
+      });
+    } catch (processError) {
+      // Update job as failed
+      const errorMessage = getErrorMessage(processError);
+
+      const failedUpdate: TileJobUpdate = {
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        error_message: errorMessage,
+      };
+
+      await adminClient
+        .from("tile_jobs")
+        .update(failedUpdate as never)
+        .eq("id", job.id);
+
+      // Log failure
+      await logExecutionEvent(adminClient, {
+        executionId: executionContext.executionId,
+        agentId: tileId,
+        jobId: job.id,
+        eventType: "failed",
+        metadata: {
+          error: errorMessage,
+          durationMs: Date.now() - executionContext.startTime,
+        },
+      });
+
+      revalidatePath(`/mosaics/${typedTile.mosaic_id}`);
+
+      return NextResponse.json({ error: errorMessage }, { status: 500 });
+    }
+  } catch (error) {
+    return NextResponse.json(
+      { error: getErrorMessage(error) },
+      { status: 500 },
+    );
+  } finally {
+    // Always decrement the concurrent count when done
+    if (rateLimitIncremented && userId) {
+      await decrementConcurrentCount(adminClient, userId);
+    }
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, FileText, Plus } from "lucide-react";
+import { Bot, FileText, Grid3X3, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const navigation = [
+  { name: "Mosaics", href: "/mosaics", icon: Grid3X3 },
   { name: "Agents", href: "/agents", icon: Bot },
   { name: "Reports", href: "/reports", icon: FileText },
 ];
@@ -19,10 +20,10 @@ export function Sidebar() {
     <div className="flex h-full w-64 flex-col border-r bg-muted/10">
       <div className="flex h-14 items-center border-b px-4">
         <Link
-          href="/dashboard"
+          href="/mosaics"
           className="flex items-center gap-2 font-semibold"
         >
-          <Bot className="h-6 w-6" />
+          <Grid3X3 className="h-6 w-6" />
           <span>Mosaic AI</span>
         </Link>
       </div>
@@ -33,9 +34,9 @@ export function Sidebar() {
           className="w-full justify-start gap-2"
           size="sm"
         >
-          <Link href="/agents/new">
+          <Link href="/mosaics">
             <Plus className="h-4 w-4" />
-            New Agent
+            New Mosaic
           </Link>
         </Button>
         <nav className="mt-4 space-y-1">

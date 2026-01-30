@@ -2,7 +2,15 @@
 
 ## 1. Executive Summary
 
-Mosaic AI is an automated intelligence gathering and analysis platform. It allows users to define "Agents" that periodically scrape specific web pages using Firecrawl, process that data using AI prompts, and store the results in a database. Additionally, it generates reports based on this data and integrates with Google Drive/Sheets for easy access.
+Mosaic AI is an automated intelligence gathering and analysis platform. It allows users to create **Mosaics** (workspaces) containing visual **Tiles** that periodically scrape specific web pages using Firecrawl, perform web searches via Tavily, process data using AI prompts (Google Gemini), and store structured reports in a database. The platform uses **Magic Link authentication** for passwordless sign-in and supports team collaboration through mosaic-level sharing.
+
+### Key Concepts
+
+- **Mosaic**: A workspace container for organizing related intelligence gathering tasks. Users can have multiple mosaics and share them with team members.
+- **Tile**: A visual intelligence gathering unit displayed on a grid-based canvas. Each tile has a type (URL Reader, Web Search, Pipeline, Analyzer), color, and pattern for easy identification.
+- **Connections**: Data flow links between tiles within a mosaic, enabling chained analysis pipelines.
+
+> **Note**: The legacy "Agents" terminology is maintained for backwards compatibility but new implementations should use Mosaics and Tiles.
 
 ## 2. Technology Stack
 
@@ -186,27 +194,53 @@ OAuth tokens and sensitive credentials.
 ### 5.3. User Authentication
 
 - Sign Up / Login / Logout via Supabase.
-- Email/Password or OAuth (Google/GitHub).
+- **Magic Link Authentication**: Passwordless email-based sign-in using Supabase OTP.
 - **Validation**: Sign-up is RESTRICTED. Email must exist in `allowlist` table.
+- **Flow**:
+  1. User enters email address
+  2. System validates email against allowlist (for signup)
+  3. Supabase sends magic link email
+  4. User clicks link to authenticate
+  5. Redirect to dashboard after successful verification
 
-### 5.4. Dashboard
+### 5.4. Mosaic Dashboard
 
-- List of Agents.
-- Button to "Create New Agent".
-- Status overview of recent Jobs (Success/Fail).
+- List of user's Mosaics with tile counts and member counts.
+- "Shared with Me" section for collaborative mosaics.
+- Button to "Create New Mosaic".
+- Status overview of recent tile executions.
 
-### 5.5. Agent Management
+### 5.5. Mosaic & Tile Management
 
-- **Create/Edit Agent**:
-  - Input Name.
-  - Input Instruction/Prompt (e.g., "Extract product price and availability").
-  - Select Output Format (Text, List, Table, JSON).
-  - Input List of URLs.
-  - Select Frequency (Daily, Weekly, etc.).
-  - Connect Google Drive (OAuth flow to select/create Sheet).
-- **Sharing**:
-  - Invite users by email to access an Agent.
-  - Assign Role: Owner, Admin, Member.
+- **Mosaic Canvas**:
+  - Visual grid-based layout of tiles
+  - Tile cards with color/pattern indicators
+  - Connection visualization between tiles
+  - Click to select/configure individual tiles
+  - Run button on each tile for manual execution
+
+- **Create/Edit Tile**:
+  - Select Tile Type (URL Reader, Web Search, Pipeline, Analyzer)
+  - Input Name and Description
+  - Configure visual properties (color, pattern, grid position)
+  - Input Instruction/Prompt
+  - Select Output Format (Text, List, Table, JSON)
+  - Add Sources (URLs, search queries, or connected tiles)
+  - Select Schedule (Daily, Weekly, etc.)
+
+- **Tile Connections**:
+  - Connect tiles to create data pipelines
+  - Visual indication of connected tiles
+  - Circular dependency prevention
+
+- **Mosaic Sharing**:
+  - Invite users by email to access a Mosaic
+  - Assign Role: Owner, Admin, Member
+  - All tiles in a mosaic inherit sharing permissions
+
+### 5.5a. Legacy Agent Management (Deprecated)
+
+For backwards compatibility, the legacy agent management interface remains available at `/agents`. New implementations should use Mosaics.
 
 ### 5.6. Workflow Management
 

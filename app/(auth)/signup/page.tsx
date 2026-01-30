@@ -1,8 +1,7 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, Mail } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,11 +19,10 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const [emailSent, setEmailSent] = useState(false);
   const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -49,10 +47,10 @@ export default function SignupPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      password,
       options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           full_name: fullName,
         },
@@ -65,8 +63,45 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/dashboard");
-    router.refresh();
+    setEmailSent(true);
+    setIsLoading(false);
+  }
+
+  if (emailSent) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle2 className="h-6 w-6 text-green-600" />
+            </div>
+            <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
+            <CardDescription>
+              We sent a magic link to <strong>{email}</strong>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-center text-sm text-muted-foreground">
+              Click the link in your email to complete your signup. The link will expire in 60 minutes.
+            </p>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setEmailSent(false);
+                setEmail("");
+                setFullName("");
+              }}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              Use a different email
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -77,7 +112,7 @@ export default function SignupPage() {
             Create an account
           </CardTitle>
           <CardDescription>
-            Enter your details to create your account. Invite only.
+            Enter your details to get started. Invite only.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -111,26 +146,11 @@ export default function SignupPage() {
                 disabled={isLoading}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                disabled={isLoading}
-              />
-              <p className="text-xs text-muted-foreground">
-                Password must be at least 6 characters
-              </p>
-            </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create account
+              Send magic link
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}

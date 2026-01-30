@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Mosaic AI is an automated intelligence gathering and analysis platform. Users define "Agents" that periodically scrape web pages using Firecrawl, process data with AI (Google Gemini), and store results in a database with Google Sheets integration.
+Mosaic AI is an automated intelligence gathering and analysis platform. Users create **Mosaics** (workspaces) containing visual **Tiles** that periodically scrape web pages using Firecrawl, perform web searches via Tavily, and process data with AI (Google Gemini). Results are stored in a database with optional Google Sheets integration.
 
 ## Development Commands
 
@@ -20,9 +20,10 @@ npm run lint     # Run ESLint
 - **Framework**: Next.js 16 with App Router
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS v4
-- **Auth & Database**: Supabase (PostgreSQL with RLS)
+- **Auth & Database**: Supabase (PostgreSQL with RLS, Magic Link auth)
 - **AI**: Vercel AI SDK with Google Gemini 3 Flash
 - **Web Scraping**: Firecrawl
+- **Web Search**: Tavily API
 - **Scheduling**: Vercel Cron Jobs
 - **Deployment**: Vercel
 
@@ -30,51 +31,79 @@ npm run lint     # Run ESLint
 
 ### Core Concepts
 
-- **Agents**: User-configured intelligence gathering tasks with sources, prompts, and schedules
-- **Sources**: Data inputs for agents. Three types:
-  - `url`: Web pages scraped via Firecrawl
-  - `agent_report`: Output from another agent (enables chaining)
+- **Mosaics**: Workspace containers for organizing tiles. Users can have multiple mosaics and share them with team members.
+- **Tiles**: Visual intelligence gathering units with types:
+  - `url_reader`: Web pages scraped via Firecrawl
   - `web_search`: AI-powered web search via Tavily API
-- **Agent Sharing**: Role-based access control for collaborative agent management (owner/admin/member)
-- **Jobs**: Execution records for agent runs
-- **Reports**: Analyzed data extracted from source content
+  - `recursive`: Pipeline tiles that chain outputs from connected tiles
+  - `analyzer`: Specialized analysis of connected tile data
+- **Tile Connections**: Data flow links between tiles within a mosaic
+- **Tile Sources**: Data inputs for tiles (URLs, search queries, or referenced tiles)
+- **Mosaic Sharing**: Role-based access control (owner/admin/member) at mosaic level
+
+### Legacy Concepts (Deprecated)
+
+- **Agents**: Previous term for intelligence gathering tasks (use Tiles instead)
+- **Agent Members**: Previous sharing model (use Mosaic Members instead)
 
 ### Data Flow
 
-1. User configures Agent via dashboard (sources, prompt, schedule)
-2. Vercel Cron triggers serverless function at scheduled interval
-3. Content fetcher processes sources by type:
+1. User creates a Mosaic and adds Tiles via the canvas UI
+2. User configures each Tile with sources, instructions, and schedule
+3. Tiles can be connected to create data pipelines
+4. Vercel Cron triggers serverless function at scheduled interval
+5. Content fetcher processes sources by type:
    - URL sources: Firecrawl scrapes web pages
-   - Agent report sources: Fetches latest report from referenced agent
-4. Combined content sent to LLM with user's system prompt
-5. Structured result stored in Supabase
-6. Data appended to user's Google Sheet
+   - Tile report sources: Fetches latest report from connected tile
+   - Web search sources: Tavily API performs search
+6. Combined content sent to LLM with tile's system prompt
+7. Structured result stored in Supabase
+8. Data optionally appended to user's Google Sheet
 
 ### Database Schema (Supabase)
 
+**New Tables (Mosaic/Tile Architecture):**
+- `mosaics` - Workspace containers (name, owner_id, settings)
+- `mosaic_members` - Sharing permissions at mosaic level
+- `tiles` - Tile configurations (mosaic_id, tile_type, color, pattern, grid position, prompt)
+- `tile_connections` - Data flow between tiles (source_tile_id, target_tile_id)
+- `tile_sources` - Data inputs for tiles (url, type, source_reference_id)
+- `tile_jobs` - Execution history for tiles
+- `tile_reports` - Analysis results from tile runs
+
+**Legacy Tables (Backwards Compatible):**
 - `users` - Managed by Supabase Auth
 - `allowlist` - Email-based access control (invite-only)
-- `agents` - Agent configurations (name, prompt, schedule, output format)
-- `sources` - Data inputs linked to agents (type, url, source_reference_id)
-- `jobs` - Execution history with status tracking
-- `reports` - Extracted analysis results (JSONB)
+- `agents` - Deprecated, migrated to tiles
+- `agent_members` - Deprecated, use mosaic_members
+- `sources` - Deprecated, migrated to tile_sources
+- `jobs` - Deprecated, migrated to tile_jobs
+- `reports` - Deprecated, migrated to tile_reports
 
 ### Key Utilities
 
-- `lib/sources/content-fetcher.ts` - Unified content fetching for all source types
-- `lib/utils/dependency-graph.ts` - Circular dependency detection for agent references
+- `lib/sources/tile-content-fetcher.ts` - Content fetching for tile sources
+- `lib/sources/content-fetcher.ts` - Legacy content fetcher for agents
+- `lib/actions/mosaics.ts` - Server actions for mosaic CRUD
+- `lib/actions/tiles.ts` - Server actions for tile CRUD and connections
+- `lib/email/sendgrid.ts` - Email sending with Mosaic AI branding
 
 ### Key API Routes
 
 - `/api/cron/trigger` - Protected endpoint for scheduled job execution
-- `/api/agents/run` - Manual agent execution endpoint
+- `/api/tiles/run` - Manual tile execution endpoint
+- `/api/agents/run` - Legacy agent execution endpoint
 - `/api/auth/check-allowlist` - Email allowlist verification for signup
 
 ### Route Groups
 
-- `(auth)` - Authentication pages (login, signup, callback)
-- `(dashboard)` - Protected app pages (dashboard, agents, reports)
-- `(marketing)` - Public landing page
+- `(auth)` - Authentication pages (login, signup with magic link, callback)
+- `(app)` - Protected app pages:
+  - `/mosaics` - Mosaic list and management
+  - `/mosaics/[id]` - Mosaic canvas with tiles
+  - `/mosaics/[id]/settings` - Mosaic settings
+  - `/agents` - Legacy agent pages
+  - `/reports` - Report viewing
 
 ## Path Alias
 
@@ -86,9 +115,20 @@ The UI abstracts technical details from users:
 - "Firecrawl" → "Web Reader" or "Source"
 - "Prompt" → "Instructions"
 - "Cron" → "Schedule" (Daily, Weekly)
+- Tiles have visual colors and patterns for easy identification
+- Connected tiles "glow" when selected
+
+## Authentication
+
+Uses Supabase Magic Link authentication:
+- No passwords required
+- Email-based OTP flow
+- Signup restricted to allowlist emails
 
 ## Security Notes
 
 - Row Level Security (RLS) enabled on all Supabase tables
-- API keys (Firecrawl, Google AI) stored in Vercel environment variables (server-side only)
+- API keys (Firecrawl, Google AI, Tavily) stored in Vercel environment variables (server-side only)
 - OAuth tokens stored securely in Supabase
+- Tile connections checked for circular dependencies
+- Rate limiting on execution (per-user hourly and concurrent limits)

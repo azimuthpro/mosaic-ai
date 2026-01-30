@@ -12,12 +12,17 @@ export type MemberRole = "owner" | "admin" | "member";
 export type LanguageCode = "en" | "pl" | "es" | "it" | "de";
 export type SourceType = "url" | "agent_report" | "web_search";
 
+// New Tile types
+export type TileType = "url_reader" | "web_search" | "recursive" | "analyzer";
+export type TilePattern = "solid" | "stripes" | "dots" | "gradient";
+
 export interface WebSearchConfig {
   query: string;
   search_depth?: "basic" | "advanced";
   max_results?: number;
   include_raw_content?: boolean;
 }
+
 export type SkillCategory =
   | "news"
   | "market"
@@ -87,6 +92,7 @@ export interface Database {
           updated_at?: string;
         };
       };
+      // Legacy table - use tiles instead
       agents: {
         Row: {
           id: string;
@@ -134,6 +140,7 @@ export interface Database {
           updated_at?: string;
         };
       };
+      // Legacy table - use mosaic_members instead
       agent_members: {
         Row: {
           id: string;
@@ -157,6 +164,7 @@ export interface Database {
           created_at?: string;
         };
       };
+      // Legacy table - use tile_sources instead
       sources: {
         Row: {
           id: string;
@@ -198,6 +206,7 @@ export interface Database {
           config?: Json;
         };
       };
+      // Legacy table - use tile_jobs instead
       jobs: {
         Row: {
           id: string;
@@ -239,6 +248,7 @@ export interface Database {
           created_at?: string;
         };
       };
+      // Legacy table - use tile_reports instead
       reports: {
         Row: {
           id: string;
@@ -262,6 +272,264 @@ export interface Database {
           id?: string;
           job_id?: string;
           agent_id?: string;
+          content?: Json;
+          format?: OutputFormat;
+          source_urls?: string[];
+          created_at?: string;
+        };
+      };
+      // New Mosaic tables
+      mosaics: {
+        Row: {
+          id: string;
+          owner_id: string;
+          name: string;
+          description: string | null;
+          is_active: boolean;
+          settings: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          name: string;
+          description?: string | null;
+          is_active?: boolean;
+          settings?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          name?: string;
+          description?: string | null;
+          is_active?: boolean;
+          settings?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      mosaic_members: {
+        Row: {
+          id: string;
+          mosaic_id: string;
+          user_id: string;
+          role: MemberRole;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          mosaic_id: string;
+          user_id: string;
+          role?: MemberRole;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          mosaic_id?: string;
+          user_id?: string;
+          role?: MemberRole;
+          created_at?: string;
+        };
+      };
+      tiles: {
+        Row: {
+          id: string;
+          mosaic_id: string;
+          name: string;
+          description: string | null;
+          tile_type: TileType;
+          color: string;
+          pattern: TilePattern;
+          grid_x: number;
+          grid_y: number;
+          grid_width: number;
+          grid_height: number;
+          system_prompt: string | null;
+          output_format: OutputFormat;
+          language: LanguageCode;
+          schedule_cron: string | null;
+          is_active: boolean;
+          max_chain_depth: number;
+          execution_timeout_ms: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          mosaic_id: string;
+          name: string;
+          description?: string | null;
+          tile_type: TileType;
+          color?: string;
+          pattern?: TilePattern;
+          grid_x?: number;
+          grid_y?: number;
+          grid_width?: number;
+          grid_height?: number;
+          system_prompt?: string | null;
+          output_format?: OutputFormat;
+          language?: LanguageCode;
+          schedule_cron?: string | null;
+          is_active?: boolean;
+          max_chain_depth?: number;
+          execution_timeout_ms?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          mosaic_id?: string;
+          name?: string;
+          description?: string | null;
+          tile_type?: TileType;
+          color?: string;
+          pattern?: TilePattern;
+          grid_x?: number;
+          grid_y?: number;
+          grid_width?: number;
+          grid_height?: number;
+          system_prompt?: string | null;
+          output_format?: OutputFormat;
+          language?: LanguageCode;
+          schedule_cron?: string | null;
+          is_active?: boolean;
+          max_chain_depth?: number;
+          execution_timeout_ms?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      tile_connections: {
+        Row: {
+          id: string;
+          mosaic_id: string;
+          source_tile_id: string;
+          target_tile_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          mosaic_id: string;
+          source_tile_id: string;
+          target_tile_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          mosaic_id?: string;
+          source_tile_id?: string;
+          target_tile_id?: string;
+          created_at?: string;
+        };
+      };
+      tile_sources: {
+        Row: {
+          id: string;
+          tile_id: string;
+          url: string | null;
+          name: string | null;
+          is_active: boolean;
+          last_scraped_at: string | null;
+          type: SourceType;
+          source_reference_id: string | null;
+          config: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tile_id: string;
+          url?: string | null;
+          name?: string | null;
+          is_active?: boolean;
+          last_scraped_at?: string | null;
+          type?: SourceType;
+          source_reference_id?: string | null;
+          config?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tile_id?: string;
+          url?: string | null;
+          name?: string | null;
+          is_active?: boolean;
+          last_scraped_at?: string | null;
+          type?: SourceType;
+          source_reference_id?: string | null;
+          config?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      tile_jobs: {
+        Row: {
+          id: string;
+          tile_id: string;
+          status: JobStatus;
+          started_at: string | null;
+          completed_at: string | null;
+          error_message: string | null;
+          metadata: Json;
+          execution_id: string | null;
+          chain_depth: number;
+          parent_job_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tile_id: string;
+          status?: JobStatus;
+          started_at?: string | null;
+          completed_at?: string | null;
+          error_message?: string | null;
+          metadata?: Json;
+          execution_id?: string | null;
+          chain_depth?: number;
+          parent_job_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tile_id?: string;
+          status?: JobStatus;
+          started_at?: string | null;
+          completed_at?: string | null;
+          error_message?: string | null;
+          metadata?: Json;
+          execution_id?: string | null;
+          chain_depth?: number;
+          parent_job_id?: string | null;
+          created_at?: string;
+        };
+      };
+      tile_reports: {
+        Row: {
+          id: string;
+          job_id: string;
+          tile_id: string;
+          content: Json;
+          format: OutputFormat;
+          source_urls: string[];
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          tile_id: string;
+          content: Json;
+          format?: OutputFormat;
+          source_urls?: string[];
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          tile_id?: string;
           content?: Json;
           format?: OutputFormat;
           source_urls?: string[];
@@ -390,6 +658,13 @@ export interface Database {
         };
         Returns: string;
       };
+      check_tile_circular_dependency: {
+        Args: {
+          p_source_tile_id: string;
+          p_target_tile_id: string;
+        };
+        Returns: boolean;
+      };
     };
     Enums: {
       [_ in never]: never;
@@ -397,7 +672,7 @@ export interface Database {
   };
 }
 
-// Convenience types
+// Legacy convenience types (kept for backwards compatibility)
 export type User = Database["public"]["Tables"]["users"]["Row"];
 export type Agent = Database["public"]["Tables"]["agents"]["Row"];
 export type AgentMember = Database["public"]["Tables"]["agent_members"]["Row"];
@@ -407,7 +682,7 @@ export type Report = Database["public"]["Tables"]["reports"]["Row"];
 export type Allowlist = Database["public"]["Tables"]["allowlist"]["Row"];
 export type Skill = Database["public"]["Tables"]["skills"]["Row"];
 
-// Insert types
+// Legacy insert types
 export type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
 export type AgentInsert = Database["public"]["Tables"]["agents"]["Insert"];
 export type SourceInsert = Database["public"]["Tables"]["sources"]["Insert"];
@@ -415,19 +690,48 @@ export type JobInsert = Database["public"]["Tables"]["jobs"]["Insert"];
 export type ReportInsert = Database["public"]["Tables"]["reports"]["Insert"];
 export type SkillInsert = Database["public"]["Tables"]["skills"]["Insert"];
 
-// Update types
+// Legacy update types
 export type AgentUpdate = Database["public"]["Tables"]["agents"]["Update"];
 export type SourceUpdate = Database["public"]["Tables"]["sources"]["Update"];
 export type JobUpdate = Database["public"]["Tables"]["jobs"]["Update"];
 export type SkillUpdate = Database["public"]["Tables"]["skills"]["Update"];
-export type ExecutionLog =
-  Database["public"]["Tables"]["execution_logs"]["Row"];
-export type ExecutionLogInsert =
-  Database["public"]["Tables"]["execution_logs"]["Insert"];
-export type UserRateLimit =
-  Database["public"]["Tables"]["user_rate_limits"]["Row"];
 
-// Extended types with relations
+// New Mosaic types
+export type Mosaic = Database["public"]["Tables"]["mosaics"]["Row"];
+export type MosaicInsert = Database["public"]["Tables"]["mosaics"]["Insert"];
+export type MosaicUpdate = Database["public"]["Tables"]["mosaics"]["Update"];
+
+export type MosaicMember = Database["public"]["Tables"]["mosaic_members"]["Row"];
+export type MosaicMemberInsert = Database["public"]["Tables"]["mosaic_members"]["Insert"];
+export type MosaicMemberUpdate = Database["public"]["Tables"]["mosaic_members"]["Update"];
+
+// New Tile types
+export type Tile = Database["public"]["Tables"]["tiles"]["Row"];
+export type TileInsert = Database["public"]["Tables"]["tiles"]["Insert"];
+export type TileUpdate = Database["public"]["Tables"]["tiles"]["Update"];
+
+export type TileConnection = Database["public"]["Tables"]["tile_connections"]["Row"];
+export type TileConnectionInsert = Database["public"]["Tables"]["tile_connections"]["Insert"];
+export type TileConnectionUpdate = Database["public"]["Tables"]["tile_connections"]["Update"];
+
+export type TileSource = Database["public"]["Tables"]["tile_sources"]["Row"];
+export type TileSourceInsert = Database["public"]["Tables"]["tile_sources"]["Insert"];
+export type TileSourceUpdate = Database["public"]["Tables"]["tile_sources"]["Update"];
+
+export type TileJob = Database["public"]["Tables"]["tile_jobs"]["Row"];
+export type TileJobInsert = Database["public"]["Tables"]["tile_jobs"]["Insert"];
+export type TileJobUpdate = Database["public"]["Tables"]["tile_jobs"]["Update"];
+
+export type TileReport = Database["public"]["Tables"]["tile_reports"]["Row"];
+export type TileReportInsert = Database["public"]["Tables"]["tile_reports"]["Insert"];
+export type TileReportUpdate = Database["public"]["Tables"]["tile_reports"]["Update"];
+
+// Execution logs
+export type ExecutionLog = Database["public"]["Tables"]["execution_logs"]["Row"];
+export type ExecutionLogInsert = Database["public"]["Tables"]["execution_logs"]["Insert"];
+export type UserRateLimit = Database["public"]["Tables"]["user_rate_limits"]["Row"];
+
+// Legacy extended types with relations
 export type AgentWithSources = Agent & {
   sources: Source[];
 };
@@ -449,4 +753,89 @@ export type ReportWithAgent = Report & {
 
 export type SourceWithReferencedAgent = Source & {
   referenced_agent?: Agent | null;
+};
+
+// New extended types with relations
+export type MosaicWithTiles = Mosaic & {
+  tiles: Tile[];
+};
+
+export type MosaicWithStats = Mosaic & {
+  tiles: Tile[];
+  tile_count: number;
+  member_count: number;
+};
+
+export type TileWithSources = Tile & {
+  sources: TileSource[];
+};
+
+export type TileWithConnections = Tile & {
+  sources: TileSource[];
+  incoming_connections: TileConnection[];
+  outgoing_connections: TileConnection[];
+};
+
+export type TileWithStats = Tile & {
+  sources: TileSource[];
+  total_jobs: number;
+  last_job: TileJob | null;
+};
+
+export type TileJobWithReport = TileJob & {
+  report: TileReport | null;
+};
+
+export type TileReportWithTile = TileReport & {
+  tile: Tile;
+  job: TileJob;
+};
+
+export type TileSourceWithReferencedTile = TileSource & {
+  referenced_tile?: Tile | null;
+};
+
+// Tile type configuration for UI
+export interface TileTypeConfig {
+  type: TileType;
+  label: string;
+  color: string;
+  pattern: TilePattern;
+  icon: string;
+  description: string;
+}
+
+export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
+  url_reader: {
+    type: "url_reader",
+    label: "URL Reader",
+    color: "#3B82F6",
+    pattern: "solid",
+    icon: "Globe",
+    description: "Scrape and analyze web pages",
+  },
+  web_search: {
+    type: "web_search",
+    label: "Web Search",
+    color: "#8B5CF6",
+    pattern: "stripes",
+    icon: "Search",
+    description: "AI-powered web research",
+  },
+  recursive: {
+    type: "recursive",
+    label: "Pipeline",
+    color: "#10B981",
+    pattern: "dots",
+    icon: "GitBranch",
+    description: "Chain outputs from other tiles",
+  },
+  analyzer: {
+    type: "analyzer",
+    label: "Analyzer",
+    color: "#F59E0B",
+    pattern: "gradient",
+    icon: "Brain",
+    description: "Process and analyze connected data",
+  },
 };
