@@ -41,16 +41,7 @@ CREATE POLICY "Owners can manage own mosaics"
   ON public.mosaics FOR ALL
   USING (owner_id = auth.uid());
 
--- Members can view mosaics they belong to
-CREATE POLICY "Members can view shared mosaics"
-  ON public.mosaics FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM mosaic_members
-      WHERE mosaic_members.mosaic_id = mosaics.id
-      AND mosaic_members.user_id = auth.uid()
-    )
-  );
+-- NOTE: "Members can view shared mosaics" policy is created after mosaic_members table
 
 -- Index for faster lookups
 CREATE INDEX idx_mosaics_owner ON public.mosaics(owner_id);
@@ -105,6 +96,17 @@ CREATE POLICY "Owners can manage mosaic members"
 -- Indexes
 CREATE INDEX idx_mosaic_members_mosaic ON public.mosaic_members(mosaic_id);
 CREATE INDEX idx_mosaic_members_user ON public.mosaic_members(user_id);
+
+-- Now add the mosaics policy that references mosaic_members
+CREATE POLICY "Members can view shared mosaics"
+  ON public.mosaics FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM mosaic_members
+      WHERE mosaic_members.mosaic_id = mosaics.id
+      AND mosaic_members.user_id = auth.uid()
+    )
+  );
 
 -- ============================================================================
 -- TILES TABLE: Visual grid-based intelligence gathering units
