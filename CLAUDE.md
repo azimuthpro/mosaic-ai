@@ -79,16 +79,19 @@ npm run lint     # Run ESLint
 ### Key Utilities
 
 - `lib/sources/tile-content-fetcher.ts` - Content fetching for tile sources
-- `lib/sources/content-fetcher.ts` - Legacy content fetcher for agents
 - `lib/actions/mosaics.ts` - Server actions for mosaic CRUD
 - `lib/actions/tiles.ts` - Server actions for tile CRUD and connections
+- `lib/actions/tile-execution.ts` - Tile job status and result fetching
+- `lib/rate-limit/limiter.ts` - Rate limiting and execution logging
 - `lib/email/sendgrid.ts` - Email sending with Mosaic AI branding
 
 ### Key API Routes
 
-- `/api/cron/trigger` - Protected endpoint for scheduled job execution
+- `/api/cron/trigger` - Protected endpoint for scheduled job execution (hourly, respects mosaic timezone)
 - `/api/tiles/run` - Manual tile execution endpoint
-- `/api/agents/run` - Legacy agent execution endpoint
+- `/api/v1/tiles/[tileId]/run` - V1 API tile execution with SSE streaming
+- `/api/v1/tiles/[tileId]/status` - V1 API tile status endpoint
+- `/api/v1/tiles/[tileId]/data` - V1 API tile data endpoint
 - `/api/auth/check-allowlist` - Email allowlist verification for signup
 
 ### Route Groups
@@ -97,9 +100,7 @@ npm run lint     # Run ESLint
 - `(app)` - Protected app pages:
   - `/mosaics` - Mosaic list and management
   - `/mosaics/[id]` - Mosaic canvas with tiles
-  - `/mosaics/[id]/settings` - Mosaic settings
-  - `/agents` - Legacy agent pages
-  - `/reports` - Report viewing
+  - `/mosaics/[id]/settings` - Mosaic settings (timezone configuration)
 
 ## Path Alias
 

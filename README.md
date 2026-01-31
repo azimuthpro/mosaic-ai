@@ -41,12 +41,13 @@ For a detailed technical overview, please refer to the [Project Specification](d
 
 ## Version History
 
-### 0.5.0 (2026-01-29)
+### 0.5.0 (2026-01-31)
 
-- Web search sources: New source type using Tavily API for AI-powered web search
-- Team sharing: Role-based access control for agents (owner/admin/member permissions)
-- Improved error handling: Source errors now included in agent run failure responses
-- Web search validation: Sources validated with automatic rollback on failure
+- Advanced scheduler: Custom cron schedules with hourly resolution and day-of-week selection
+- Timezone support: Per-mosaic timezone settings, cron respects configured timezone
+- Tile drawer improvements: API curl examples, request/response schemas, scrollable tabs
+- Database cleanup: Renamed tile_reports to tile_job_results, removed legacy agent tables
+- UI improvements: Client-side navigation for mosaic creation, auto-close dialogs
 
 ### 0.4.0 (2026-01-28)
 
