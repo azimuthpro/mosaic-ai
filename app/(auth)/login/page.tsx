@@ -2,8 +2,8 @@
 
 import { ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,15 +16,19 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { acceptMosaicInvitation } from "@/lib/actions/mosaics";
 import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  const invitationToken = searchParams.get("invitation");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +46,16 @@ export default function LoginPage() {
       return;
     }
 
+    // Handle invitation acceptance if token is present
+    if (invitationToken) {
+      const result = await acceptMosaicInvitation(invitationToken);
+      if (result.mosaicId) {
+        router.push(`/mosaics/${result.mosaicId}`);
+        router.refresh();
+        return;
+      }
+    }
+
     router.push("/dashboard");
     router.refresh();
   }
@@ -53,7 +67,9 @@ export default function LoginPage() {
           Welcome back
         </CardTitle>
         <CardDescription className="text-slate-400 text-base">
-          Authorized access only. Enter your credentials.
+          {invitationToken
+            ? "Sign in to accept the mosaic invitation."
+            : "Authorized access only. Enter your credentials."}
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -118,7 +134,7 @@ export default function LoginPage() {
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <div className="flex items-center gap-2">
-                <span>Sign in</span>
+                <span>{invitationToken ? "Sign in & join" : "Sign in"}</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
             )}
@@ -126,7 +142,11 @@ export default function LoginPage() {
           <p className="text-center text-sm text-slate-500 font-medium">
             Don&apos;t have an account?{" "}
             <Link
-              href="/signup"
+              href={
+                invitationToken
+                  ? `/signup?invitation=${invitationToken}`
+                  : "/signup"
+              }
               className="text-cyan-400 hover:text-cyan-300 transition-colors underline underline-offset-4 decoration-cyan-500/30 hover:decoration-cyan-400"
             >
               Sign up
@@ -135,5 +155,19 @@ export default function LoginPage() {
         </CardFooter>
       </form>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

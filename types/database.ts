@@ -9,6 +9,7 @@ export type Json =
 export type OutputFormat = "text" | "list" | "table" | "json";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 export type MemberRole = "owner" | "admin" | "member";
+export type InvitationStatus = "pending" | "accepted" | "expired" | "cancelled";
 export type LanguageCode = "en" | "pl" | "es" | "it" | "de";
 export type SourceType = "url" | "agent_report" | "web_search";
 
@@ -354,6 +355,44 @@ export interface Database {
           user_id?: string;
           role?: MemberRole;
           created_at?: string;
+        };
+      };
+      mosaic_invitations: {
+        Row: {
+          id: string;
+          mosaic_id: string;
+          email: string;
+          role: Exclude<MemberRole, "owner">;
+          token: string;
+          invited_by: string | null;
+          status: InvitationStatus;
+          expires_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          mosaic_id: string;
+          email: string;
+          role?: Exclude<MemberRole, "owner">;
+          token?: string;
+          invited_by?: string | null;
+          status?: InvitationStatus;
+          expires_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          mosaic_id?: string;
+          email?: string;
+          role?: Exclude<MemberRole, "owner">;
+          token?: string;
+          invited_by?: string | null;
+          status?: InvitationStatus;
+          expires_at?: string;
+          created_at?: string;
+          updated_at?: string;
         };
       };
       tiles: {
@@ -766,6 +805,21 @@ export interface Database {
         };
         Returns: boolean;
       };
+      accept_mosaic_invitation: {
+        Args: {
+          p_token: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      transfer_mosaic_ownership: {
+        Args: {
+          p_mosaic_id: string;
+          p_current_owner_id: string;
+          p_new_owner_id: string;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       [_ in never]: never;
@@ -808,6 +862,13 @@ export type MosaicMemberInsert =
   Database["public"]["Tables"]["mosaic_members"]["Insert"];
 export type MosaicMemberUpdate =
   Database["public"]["Tables"]["mosaic_members"]["Update"];
+
+export type MosaicInvitation =
+  Database["public"]["Tables"]["mosaic_invitations"]["Row"];
+export type MosaicInvitationInsert =
+  Database["public"]["Tables"]["mosaic_invitations"]["Insert"];
+export type MosaicInvitationUpdate =
+  Database["public"]["Tables"]["mosaic_invitations"]["Update"];
 
 // New Tile types
 export type Tile = Database["public"]["Tables"]["tiles"]["Row"];

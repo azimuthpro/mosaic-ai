@@ -2,8 +2,8 @@
 
 import { ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,16 +16,22 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { acceptMosaicInvitation } from "@/lib/actions/mosaics";
 import { createClient } from "@/lib/supabase/client";
 
-export default function SignupPage() {
-  const [email, setEmail] = useState("");
+function SignupForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const supabase = createClient();
+
+  const invitationToken = searchParams.get("invitation");
+  const initialEmail = searchParams.get("email") || "";
+
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-  const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,6 +71,16 @@ export default function SignupPage() {
       return;
     }
 
+    // Handle invitation acceptance if token is present
+    if (invitationToken) {
+      const result = await acceptMosaicInvitation(invitationToken);
+      if (result.mosaicId) {
+        router.push(`/mosaics/${result.mosaicId}`);
+        router.refresh();
+        return;
+      }
+    }
+
     router.push("/dashboard");
     router.refresh();
   }
@@ -76,7 +92,9 @@ export default function SignupPage() {
           Create an account
         </CardTitle>
         <CardDescription className="text-slate-400 text-base">
-          Join the automated intelligence network. Invite only.
+          {invitationToken
+            ? "Complete your account to accept the invitation."
+            : "Join the automated intelligence network. Invite only."}
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -156,7 +174,9 @@ export default function SignupPage() {
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <div className="flex items-center gap-2">
-                <span>Create account</span>
+                <span>
+                  {invitationToken ? "Create account & join" : "Create account"}
+                </span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
             )}
@@ -164,7 +184,11 @@ export default function SignupPage() {
           <p className="text-center text-sm text-slate-500 font-medium">
             Already have an account?{" "}
             <Link
-              href="/login"
+              href={
+                invitationToken
+                  ? `/login?invitation=${invitationToken}`
+                  : "/login"
+              }
               className="text-cyan-400 hover:text-cyan-300 transition-colors underline underline-offset-4 decoration-cyan-500/30 hover:decoration-cyan-400"
             >
               Sign in
@@ -173,5 +197,19 @@ export default function SignupPage() {
         </CardFooter>
       </form>
     </Card>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+        </div>
+      }
+    >
+      <SignupForm />
+    </Suspense>
   );
 }
