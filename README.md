@@ -41,6 +41,29 @@ For a detailed technical overview, please refer to the [Project Specification](d
 
 ## Version History
 
+### 1.0.0 (2026-01-31)
+
+**BREAKING CHANGES:**
+- Complete architecture refactor from Agent system to Mosaic/Tile model
+- Legacy agent tables and APIs removed
+- New V1 API structure (`/api/v1/tiles/[tileId]/*`)
+
+**New Features:**
+- Mosaic workspaces with visual tile canvas
+- Magic link authentication (passwordless email-based login)
+- Tile connections for data pipelines between tiles
+- Member invitation and ownership transfer
+- Runtime URL sources for url_reader tiles
+- Advanced scheduler with hourly resolution and day-of-week selection
+- Per-mosaic timezone configuration
+- Security guards and rate limiting (per-user hourly and concurrent limits)
+- Tile drawer with API curl examples and request/response schemas
+
+**Improvements:**
+- Auto-generated mosaic names
+- Pending invitations UI
+- Database schema cleanup (tile_reports → tile_job_results)
+
 ### 0.5.0 (2026-01-31)
 
 - Advanced scheduler: Custom cron schedules with hourly resolution and day-of-week selection
