@@ -41,6 +41,10 @@ For a detailed technical overview, please refer to the [Project Specification](d
 
 ## Version History
 
+### 1.1.0 (2026-01-31)
+
+- Tile results now render as formatted markdown for improved readability
+
 ### 1.0.0 (2026-01-31)
 
 **BREAKING CHANGES:**
