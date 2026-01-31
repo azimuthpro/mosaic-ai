@@ -913,3 +913,134 @@ export async function getMosaicAdmins(
     })
     .filter(Boolean) as (MosaicMember & { user: UserData })[];
 }
+
+/**
+ * Get pending invitations for the current user
+ */
+export type PendingInvitation = {
+  id: string;
+  mosaic_id: string;
+  mosaic_name: string;
+  role: string;
+  token: string;
+  invited_by_name: string | null;
+  expires_at: string;
+  created_at: string;
+};
+
+export async function getPendingInvitationsForUser(): Promise<PendingInvitation[]> {
+  const supabase = await createClient();
+  const user = await getUser();
+
+  if (!user?.email) {
+    return [];
+  }
+
+  const adminClient = createAdminClient();
+
+  // Define type for the query result
+  type InvitationQueryResult = {
+    id: string;
+    mosaic_id: string;
+    role: string;
+    token: string;
+    invited_by: string | null;
+    expires_at: string;
+    created_at: string;
+    mosaics: { name: string; owner_id: string };
+  };
+
+  // Get pending invitations for user's email
+  const { data, error } = await adminClient
+    .from("mosaic_invitations")
+    .select(`
+      id,
+      mosaic_id,
+      role,
+      token,
+      invited_by,
+      expires_at,
+      created_at,
+      mosaics!inner (name, owner_id)
+    `)
+    .eq("email", user.email)
+    .eq("status", "pending")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching pending invitations:", error);
+    return [];
+  }
+
+  const invitations = data as InvitationQueryResult[] | null;
+
+  if (!invitations?.length) {
+    return [];
+  }
+
+  // Get inviter names
+  const inviterIds = invitations
+    .map((inv) => inv.invited_by)
+    .filter(Boolean) as string[];
+  const inviterMap = inviterIds.length > 0 ? await fetchUserDataByIds(inviterIds) : new Map();
+
+  return invitations.map((inv) => {
+    const inviterData = inv.invited_by ? inviterMap.get(inv.invited_by) : null;
+
+    return {
+      id: inv.id,
+      mosaic_id: inv.mosaic_id,
+      mosaic_name: inv.mosaics.name,
+      role: inv.role,
+      token: inv.token,
+      invited_by_name: inviterData?.full_name || inviterData?.email || null,
+      expires_at: inv.expires_at,
+      created_at: inv.created_at,
+    };
+  });
+}
+
+/**
+ * Decline a mosaic invitation
+ */
+export async function declineMosaicInvitation(invitationId: string) {
+  const user = await getUser();
+
+  if (!user?.email) {
+    return { error: "Not authenticated" };
+  }
+
+  const adminClient = createAdminClient();
+
+  // Verify invitation belongs to user
+  const { data: invitation } = await adminClient
+    .from("mosaic_invitations")
+    .select("id, email, mosaic_id")
+    .eq("id", invitationId)
+    .eq("status", "pending")
+    .single();
+
+  if (!invitation) {
+    return { error: "Invitation not found" };
+  }
+
+  if ((invitation as { email: string }).email !== user.email) {
+    return { error: "Not authorized to decline this invitation" };
+  }
+
+  // Update invitation status to cancelled
+  const { error } = await adminClient
+    .from("mosaic_invitations")
+    .update({ status: "cancelled" } as never)
+    .eq("id", invitationId);
+
+  if (error) {
+    console.error("Error declining invitation:", error);
+    return { error: "Failed to decline invitation" };
+  }
+
+  revalidatePath("/mosaics");
+
+  return { success: true };
+}

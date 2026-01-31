@@ -41,9 +41,9 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Public routes that don't require authentication
-  const publicRoutes = ["/", "/login", "/signup", "/callback"];
+  const publicRoutes = ["/", "/signin", "/signup", "/callback", "/auth/callback"];
   const isPublicRoute = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith("/callback"),
+    (route) => pathname === route || pathname.startsWith("/callback") || pathname.startsWith("/auth/callback"),
   );
 
   // API routes are handled separately
@@ -51,14 +51,14 @@ export async function proxy(request: NextRequest) {
 
   // If not authenticated and trying to access protected route
   if (!user && !isPublicRoute && !isApiRoute) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+    const signinUrl = new URL("/signin", request.url);
+    signinUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(signinUrl);
   }
 
   // If authenticated and trying to access auth pages
-  if (user && (pathname === "/login" || pathname === "/signup")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  if (user && (pathname === "/signin" || pathname === "/signup")) {
+    return NextResponse.redirect(new URL("/mosaics", request.url));
   }
 
   return response;

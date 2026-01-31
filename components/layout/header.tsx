@@ -36,7 +36,7 @@ export function Header({ user }: HeaderProps) {
       <div className="container max-w-6xl flex h-16 items-center justify-between">
         <div className="flex items-center">
           <Link
-            href={user ? "/dashboard" : "/"}
+            href={user ? "/mosaics" : "/"}
             className="group mr-12 flex items-center space-x-2 transition-opacity hover:opacity-90"
             onClick={handleLinkClick}
           >
@@ -81,7 +81,7 @@ export function Header({ user }: HeaderProps) {
                   variant="ghost"
                   className="text-sm font-medium text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/5 transition-all"
                 >
-                  <Link href="/login">Sign In</Link>
+                  <Link href="/signin">Sign In</Link>
                 </Button>
                 <Button
                   asChild
@@ -148,7 +148,7 @@ export function Header({ user }: HeaderProps) {
             {!user && (
               <>
                 <Link
-                  href="/login"
+                  href="/signin"
                   className="text-xl font-bold text-slate-400 hover:text-white transition-colors"
                   onClick={handleLinkClick}
                 >
@@ -168,11 +168,11 @@ export function Header({ user }: HeaderProps) {
             )}
             {user && (
               <Link
-                href="/dashboard"
+                href="/mosaics"
                 className="text-xl font-bold text-slate-400 hover:text-white transition-colors"
                 onClick={handleLinkClick}
               >
-                Go to Dashboard
+                Go to Mosaics
               </Link>
             )}
           </div>

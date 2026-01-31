@@ -18,7 +18,7 @@ export default async function DashboardLayout({
   const user = await getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect("/signin");
   }
 
   const [ownedMosaics, sharedMosaics] = await Promise.all([

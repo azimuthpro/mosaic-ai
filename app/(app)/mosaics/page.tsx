@@ -1,11 +1,17 @@
 import { CreateMosaicDialog } from "@/components/mosaic/create-mosaic-dialog";
 import { MosaicCard } from "@/components/mosaic/mosaic-card";
-import { getMosaics, getSharedMosaics } from "@/lib/actions/mosaics";
+import { UserPendingInvitations } from "@/components/mosaic/user-pending-invitations";
+import {
+  getMosaics,
+  getPendingInvitationsForUser,
+  getSharedMosaics,
+} from "@/lib/actions/mosaics";
 
 export default async function MosaicsPage() {
-  const [ownedMosaics, sharedMosaics] = await Promise.all([
+  const [ownedMosaics, sharedMosaics, pendingInvitations] = await Promise.all([
     getMosaics(),
     getSharedMosaics(),
+    getPendingInvitationsForUser(),
   ]);
 
   return (
@@ -19,6 +25,10 @@ export default async function MosaicsPage() {
         </div>
         <CreateMosaicDialog />
       </div>
+
+      {pendingInvitations.length > 0 && (
+        <UserPendingInvitations invitations={pendingInvitations} />
+      )}
 
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">My Mosaics</h2>

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signUpWithMagicLink } from "@/lib/auth/actions";
+import { signInWithMagicLink } from "@/lib/auth/actions";
 
 interface InvitationDetails {
   email: string;
@@ -24,13 +24,11 @@ interface InvitationDetails {
   mosaicName: string;
 }
 
-function SignupForm(): React.ReactElement {
+function SigninForm(): React.ReactElement {
   const searchParams = useSearchParams();
   const invitationToken = searchParams.get("invitation");
-  const initialEmail = searchParams.get("email") || "";
 
-  const [email, setEmail] = useState(initialEmail);
-  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isEmailSent, setIsEmailSent] = useState(false);
@@ -53,10 +51,6 @@ function SignupForm(): React.ReactElement {
           setError(data.error);
         } else {
           setInvitation(data);
-          // Pre-fill email from invitation if not already set
-          if (data.email) {
-            setEmail((prev) => prev || data.email);
-          }
         }
       })
       .catch(() => {
@@ -78,32 +72,11 @@ function SignupForm(): React.ReactElement {
     setError(null);
     setIsLoading(true);
 
-    // First check if email is allowed (via API endpoint)
-    const checkResponse = await fetch("/api/auth/check-allowlist", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-
-    const checkResult = await checkResponse.json();
-
-    if (!checkResult.allowed) {
-      setError(
-        "This email is not on the invite list. Please request an invite.",
-      );
-      setIsLoading(false);
-      return;
-    }
-
     const next = invitationToken
       ? `/mosaics?invitation=${invitationToken}`
       : undefined;
 
-    const result = await signUpWithMagicLink({
-      email,
-      fullName,
-      next,
-    });
+    const result = await signInWithMagicLink(email, next);
 
     if (!result.success) {
       setError(result.error);
@@ -134,7 +107,7 @@ function SignupForm(): React.ReactElement {
           <div className="flex items-center justify-center gap-3 rounded-xl bg-slate-800/50 border border-slate-700 p-4">
             <Mail className="h-5 w-5 text-cyan-400" />
             <p className="text-sm text-slate-300">
-              Click the link in your email to complete signup
+              Click the link in your email to sign in
             </p>
           </div>
         </CardContent>
@@ -160,21 +133,21 @@ function SignupForm(): React.ReactElement {
     if (invitation) {
       return (
         <>
-          You&apos;ve been invited to join{" "}
+          Sign in to join{" "}
           <span className="text-white font-semibold">
             {invitation.mosaicName}
           </span>
         </>
       );
     }
-    return "Join the automated intelligence network. Invite only.";
+    return "Enter your email and we'll send you a magic link.";
   }
 
   return (
     <Card className="w-full bg-slate-900/40 border-slate-800 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden">
       <CardHeader className="space-y-2 pb-8 pt-8">
         <CardTitle className="text-3xl font-bold text-white tracking-tight">
-          Create an account
+          Welcome back
         </CardTitle>
         <CardDescription className="text-slate-400 text-base">
           {renderDescription()}
@@ -189,25 +162,6 @@ function SignupForm(): React.ReactElement {
           )}
           <div className="space-y-2">
             <Label
-              htmlFor="fullName"
-              className="text-slate-300 font-medium ml-1 text-xs uppercase tracking-widest"
-            >
-              Full Name
-            </Label>
-            <Input
-              id="fullName"
-              type="text"
-              placeholder="John Doe"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-              autoFocus
-              className="h-12 bg-slate-950/50 border-slate-800 focus:border-cyan-500/50 focus:ring-cyan-500/20 rounded-xl text-white placeholder:text-slate-600 transition-all font-medium"
-              disabled={isLoading}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label
               htmlFor="email"
               className="text-slate-300 font-medium ml-1 text-xs uppercase tracking-widest"
             >
@@ -220,6 +174,7 @@ function SignupForm(): React.ReactElement {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoFocus
               className="h-12 bg-slate-950/50 border-slate-800 focus:border-cyan-500/50 focus:ring-cyan-500/20 rounded-xl text-white placeholder:text-slate-600 transition-all font-medium"
               disabled={isLoading}
             />
@@ -241,16 +196,16 @@ function SignupForm(): React.ReactElement {
             )}
           </Button>
           <p className="text-center text-sm text-slate-500 font-medium">
-            Already have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
               href={
                 invitationToken
-                  ? `/signin?invitation=${invitationToken}`
-                  : "/signin"
+                  ? `/signup?invitation=${invitationToken}`
+                  : "/signup"
               }
               className="text-cyan-400 hover:text-cyan-300 transition-colors underline underline-offset-4 decoration-cyan-500/30 hover:decoration-cyan-400"
             >
-              Sign in
+              Sign up
             </Link>
           </p>
         </CardFooter>
@@ -259,7 +214,7 @@ function SignupForm(): React.ReactElement {
   );
 }
 
-export default function SignupPage(): React.ReactElement {
+export default function SigninPage(): React.ReactElement {
   return (
     <Suspense
       fallback={
@@ -268,7 +223,7 @@ export default function SignupPage(): React.ReactElement {
         </div>
       }
     >
-      <SignupForm />
+      <SigninForm />
     </Suspense>
   );
 }
