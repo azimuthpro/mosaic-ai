@@ -856,6 +856,11 @@ export type Mosaic = Database["public"]["Tables"]["mosaics"]["Row"];
 export type MosaicInsert = Database["public"]["Tables"]["mosaics"]["Insert"];
 export type MosaicUpdate = Database["public"]["Tables"]["mosaics"]["Update"];
 
+// Mosaic settings structure
+export interface MosaicSettings {
+  timezone?: string; // IANA timezone e.g. "America/New_York"
+}
+
 export type MosaicMember =
   Database["public"]["Tables"]["mosaic_members"]["Row"];
 export type MosaicMemberInsert =
@@ -892,11 +897,18 @@ export type TileJob = Database["public"]["Tables"]["tile_jobs"]["Row"];
 export type TileJobInsert = Database["public"]["Tables"]["tile_jobs"]["Insert"];
 export type TileJobUpdate = Database["public"]["Tables"]["tile_jobs"]["Update"];
 
-export type TileReport = Database["public"]["Tables"]["tile_reports"]["Row"];
-export type TileReportInsert =
+// Job results (output content from tile executions)
+// Note: DB table is still named tile_reports for backwards compatibility
+export type TileJobResult = Database["public"]["Tables"]["tile_reports"]["Row"];
+export type TileJobResultInsert =
   Database["public"]["Tables"]["tile_reports"]["Insert"];
-export type TileReportUpdate =
+export type TileJobResultUpdate =
   Database["public"]["Tables"]["tile_reports"]["Update"];
+
+// Backwards compatible aliases
+export type TileReport = TileJobResult;
+export type TileReportInsert = TileJobResultInsert;
+export type TileReportUpdate = TileJobResultUpdate;
 
 // Execution logs
 export type ExecutionLog =
@@ -964,14 +976,18 @@ export type TileWithStats = Tile & {
   last_job: TileJob | null;
 };
 
-export type TileJobWithReport = TileJob & {
-  report: TileReport | null;
+export type TileJobWithResult = TileJob & {
+  result: TileJobResult | null;
 };
 
-export type TileReportWithTile = TileReport & {
+export type TileJobResultWithTile = TileJobResult & {
   tile: Tile;
   job: TileJob;
 };
+
+// Backwards compatible aliases
+export type TileJobWithReport = TileJobWithResult;
+export type TileReportWithTile = TileJobResultWithTile;
 
 export type TileSourceWithReferencedTile = TileSource & {
   referenced_tile?: Tile | null;

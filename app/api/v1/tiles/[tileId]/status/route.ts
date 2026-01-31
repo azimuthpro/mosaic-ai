@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 
 import { authenticateApiRequest, verifyTileAccess } from "@/lib/api/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { TileJob, TileReport } from "@/types/database";
+import type { TileJob, TileJobResult } from "@/types/database";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type JobWithReport = TileJob & {
-  tile_reports: TileReport[] | null;
+  tile_job_results: TileJobResult[] | null;
 };
 
 export async function GET(
@@ -56,7 +56,7 @@ export async function GET(
     .select(
       `
       *,
-      tile_reports (*)
+      tile_job_results (*)
     `,
     )
     .eq("tile_id", tileId)
@@ -77,8 +77,8 @@ export async function GET(
 
   const job = jobData as unknown as JobWithReport;
   const report =
-    job.tile_reports && job.tile_reports.length > 0
-      ? job.tile_reports[0]
+    job.tile_job_results && job.tile_job_results.length > 0
+      ? job.tile_job_results[0]
       : null;
 
   return NextResponse.json({

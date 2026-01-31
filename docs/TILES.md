@@ -55,7 +55,7 @@ A **Tile** is the fundamental intelligence gathering unit. Tiles replace the leg
   - Pattern: Solid
   - Icon: Globe
 - **Output**:
-  - Structured analysis stored in the `tile_reports` table.
+  - Structured analysis stored in the `tile_job_results` table.
 
 ---
 

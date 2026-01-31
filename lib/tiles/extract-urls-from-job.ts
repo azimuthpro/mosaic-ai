@@ -1,4 +1,4 @@
-import type { Json, TileJob, TileReport } from "@/types/database";
+import type { Json, TileJob, TileJobResult } from "@/types/database";
 
 // URL extraction regex - matches http/https URLs
 const URL_REGEX = /https?:\/\/[^\s\)\"\'\>\<\]\,]+/gi;
@@ -70,18 +70,18 @@ export function extractUrlsFromContent(content: Json): string[] {
  * Returns a deduplicated array of URLs found in the report content.
  */
 export function extractUrlsFromJob(
-  job: TileJob & { tile_reports?: TileReport[] },
+  job: TileJob & { tile_job_results?: TileJobResult[] },
 ): string[] {
-  const report = job.tile_reports?.[0];
+  const report = job.tile_job_results?.[0];
   if (!report) return [];
 
   return [...new Set(extractUrlsFromContent(report.content))];
 }
 
 /**
- * Extracts URLs from a tile report.
- * Returns a deduplicated array of URLs found in the report content.
+ * Extracts URLs from a tile job result.
+ * Returns a deduplicated array of URLs found in the result content.
  */
-export function extractUrlsFromReport(report: TileReport): string[] {
+export function extractUrlsFromReport(report: TileJobResult): string[] {
   return [...new Set(extractUrlsFromContent(report.content))];
 }

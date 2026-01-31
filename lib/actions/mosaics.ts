@@ -14,6 +14,7 @@ import type {
   MosaicInvitationInsert,
   MosaicMember,
   MosaicMemberInsert,
+  MosaicSettings,
   MosaicUpdate,
   Tile,
   TileSource,
@@ -268,7 +269,7 @@ export async function createMosaic(formData: FormData) {
 
   const mosaic = data as Mosaic;
   revalidatePath("/mosaics");
-  redirect(`/mosaics/${mosaic.id}`);
+  return { success: true, mosaicId: mosaic.id };
 }
 
 /**
@@ -285,11 +286,30 @@ export async function updateMosaic(id: string, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string | null;
   const isActive = formData.get("isActive") === "true";
+  const timezone = formData.get("timezone") as string | null;
+
+  // Get current settings to merge with new timezone
+  const { data: currentMosaicData } = await supabase
+    .from("mosaics")
+    .select("settings")
+    .eq("id", id)
+    .eq("owner_id", user.id)
+    .single();
+
+  const currentMosaic = currentMosaicData as {
+    settings: MosaicSettings;
+  } | null;
+  const currentSettings = currentMosaic?.settings || {};
+  const newSettings: MosaicSettings = {
+    ...currentSettings,
+    timezone: timezone || undefined,
+  };
 
   const updateData: MosaicUpdate = {
     name,
     description: description || null,
     is_active: isActive,
+    settings: newSettings as { [key: string]: string | undefined },
   };
 
   const { error } = await supabase
@@ -928,7 +948,9 @@ export type PendingInvitation = {
   created_at: string;
 };
 
-export async function getPendingInvitationsForUser(): Promise<PendingInvitation[]> {
+export async function getPendingInvitationsForUser(): Promise<
+  PendingInvitation[]
+> {
   const supabase = await createClient();
   const user = await getUser();
 
@@ -953,7 +975,8 @@ export async function getPendingInvitationsForUser(): Promise<PendingInvitation[
   // Get pending invitations for user's email
   const { data, error } = await adminClient
     .from("mosaic_invitations")
-    .select(`
+    .select(
+      `
       id,
       mosaic_id,
       role,
@@ -962,7 +985,8 @@ export async function getPendingInvitationsForUser(): Promise<PendingInvitation[
       expires_at,
       created_at,
       mosaics!inner (name, owner_id)
-    `)
+    `,
+    )
     .eq("email", user.email)
     .eq("status", "pending")
     .gt("expires_at", new Date().toISOString())
@@ -983,7 +1007,8 @@ export async function getPendingInvitationsForUser(): Promise<PendingInvitation[
   const inviterIds = invitations
     .map((inv) => inv.invited_by)
     .filter(Boolean) as string[];
-  const inviterMap = inviterIds.length > 0 ? await fetchUserDataByIds(inviterIds) : new Map();
+  const inviterMap =
+    inviterIds.length > 0 ? await fetchUserDataByIds(inviterIds) : new Map();
 
   return invitations.map((inv) => {
     const inviterData = inv.invited_by ? inviterMap.get(inv.invited_by) : null;

@@ -3,13 +3,13 @@ import { NextResponse } from "next/server";
 import { authenticateApiRequest, verifyTileAccess } from "@/lib/api/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { extractUrlsFromReport } from "@/lib/tiles/extract-urls-from-job";
-import type { TileJob, TileReport } from "@/types/database";
+import type { TileJob, TileJobResult } from "@/types/database";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type JobWithReport = TileJob & {
-  tile_reports: TileReport[] | null;
+  tile_job_results: TileJobResult[] | null;
 };
 
 interface UrlReaderDataResponse {
@@ -120,7 +120,7 @@ export async function GET(
     .select(
       `
       *,
-      tile_reports (*)
+      tile_job_results (*)
     `,
     )
     .eq("tile_id", tileId)
@@ -142,8 +142,8 @@ export async function GET(
 
   const latestJob = latestJobData as unknown as JobWithReport;
   const latestReport =
-    latestJob.tile_reports && latestJob.tile_reports.length > 0
-      ? latestJob.tile_reports[0]
+    latestJob.tile_job_results && latestJob.tile_job_results.length > 0
+      ? latestJob.tile_job_results[0]
       : null;
 
   if (!latestReport) {
@@ -165,7 +165,7 @@ export async function GET(
       .select(
         `
         *,
-        tile_reports (*)
+        tile_job_results (*)
       `,
       )
       .eq("tile_id", tileId)
@@ -189,11 +189,11 @@ export async function GET(
 
       if (includeHistory && history.length > 0) {
         response.history = history
-          .filter((j) => j.tile_reports && j.tile_reports.length > 0)
+          .filter((j) => j.tile_job_results && j.tile_job_results.length > 0)
           .map((j) => ({
             job_id: j.id,
-            urls: extractUrlsFromReport(j.tile_reports![0]),
-            created_at: j.tile_reports![0].created_at,
+            urls: extractUrlsFromReport(j.tile_job_results![0]),
+            created_at: j.tile_job_results![0].created_at,
           }));
       }
 
@@ -216,9 +216,9 @@ export async function GET(
 
       if (includeHistory && history.length > 0) {
         response.history = history
-          .filter((j) => j.tile_reports && j.tile_reports.length > 0)
+          .filter((j) => j.tile_job_results && j.tile_job_results.length > 0)
           .map((j) => {
-            const report = j.tile_reports![0];
+            const report = j.tile_job_results![0];
             return {
               job_id: j.id,
               content:
@@ -252,10 +252,10 @@ export async function GET(
           status: j.status,
           created_at: j.created_at,
           result:
-            j.tile_reports && j.tile_reports.length > 0
+            j.tile_job_results && j.tile_job_results.length > 0
               ? {
-                  content: j.tile_reports[0].content,
-                  format: j.tile_reports[0].format,
+                  content: j.tile_job_results[0].content,
+                  format: j.tile_job_results[0].format,
                 }
               : null,
         }));

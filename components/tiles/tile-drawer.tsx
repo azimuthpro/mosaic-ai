@@ -3,6 +3,7 @@
 import {
   Activity,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Code2,
   Copy,
@@ -21,8 +22,14 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { AdvancedScheduler } from "@/components/tiles/advanced-scheduler";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Drawer,
   DrawerClose,
@@ -46,9 +53,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   getTileExecutionStatus,
-  getTileReports,
+  getTileJobResults,
   type TileExecutionStatus,
-  type TileReportSummary,
+  type TileJobResultSummary,
 } from "@/lib/actions/tile-execution";
 import {
   addTileSource,
@@ -88,6 +95,16 @@ const SOURCE_TYPE_CONFIG = {
   agent_report: { icon: Link2, color: "text-teal-400", label: "Tile Report" },
 } as const;
 
+const DEFAULT_SOURCE_TYPES: Record<
+  TileType,
+  "url" | "web_search" | "agent_report"
+> = {
+  url_reader: "url",
+  web_search: "web_search",
+  recursive: "agent_report",
+  analyzer: "agent_report",
+};
+
 interface SourceIconProps {
   type: keyof typeof SOURCE_TYPE_CONFIG;
   className?: string;
@@ -104,11 +121,8 @@ function getSourceDisplayName(source: {
   url: string | null;
   config: unknown;
 }): string {
-  if (source.name) return source.name;
-  if (source.url) return source.url;
   const config = source.config as { query?: string } | null;
-  if (config?.query) return config.query;
-  return "Unnamed source";
+  return source.name || source.url || config?.query || "Unnamed source";
 }
 
 interface ApiKey {
@@ -147,11 +161,15 @@ export function TileDrawer({
   const [showNewKey, setShowNewKey] = useState<string | null>(null);
   const [copiedEndpoint, setCopiedEndpoint] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedCurl, setCopiedCurl] = useState(false);
 
-  // Reports state
-  const [reports, setReports] = useState<TileReportSummary[]>([]);
-  const [isLoadingReports, setIsLoadingReports] = useState(false);
-  const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
+  // Scheduler state
+  const [scheduleCron, setScheduleCron] = useState<string | null>(null);
+
+  // Job results state
+  const [jobResults, setJobResults] = useState<TileJobResultSummary[]>([]);
+  const [isLoadingJobResults, setIsLoadingJobResults] = useState(false);
+  const [expandedResultId, setExpandedResultId] = useState<string | null>(null);
 
   // Source management state
   const [newSourceType, setNewSourceType] = useState<
@@ -175,20 +193,6 @@ export function TileDrawer({
   const [isAddingSource, setIsAddingSource] = useState(false);
   const [deletingSourceId, setDeletingSourceId] = useState<string | null>(null);
 
-  // Map tile type to default source type
-  function getDefaultSourceType(
-    tileType: TileType,
-  ): "url" | "web_search" | "agent_report" {
-    switch (tileType) {
-      case "url_reader":
-        return "url";
-      case "web_search":
-        return "web_search";
-      default:
-        return "agent_report";
-    }
-  }
-
   // Load execution status when tile changes
   useEffect(() => {
     if (tile && open) {
@@ -202,9 +206,10 @@ export function TileDrawer({
       setName(tile.name);
       setInstructions(tile.system_prompt || "");
       setIsActive(tile.is_active);
+      setScheduleCron(tile.schedule_cron);
 
       // Reset source form based on tile type
-      setNewSourceType(getDefaultSourceType(tile.tile_type));
+      setNewSourceType(DEFAULT_SOURCE_TYPES[tile.tile_type]);
       setNewSourceUrl("");
       setNewSourceName("");
       setNewSearchQuery("");
@@ -231,13 +236,13 @@ export function TileDrawer({
     }
   }, [activeTab, tile, mosaicId]);
 
-  // Load reports when Reports tab is selected
+  // Load job results when Jobs tab is selected
   useEffect(() => {
     if (activeTab === "reports" && tile) {
-      setIsLoadingReports(true);
-      getTileReports(tile.id).then((data) => {
-        setReports(data);
-        setIsLoadingReports(false);
+      setIsLoadingJobResults(true);
+      getTileJobResults(tile.id).then((data) => {
+        setJobResults(data);
+        setIsLoadingJobResults(false);
       });
     }
   }, [activeTab, tile]);
@@ -284,6 +289,7 @@ export function TileDrawer({
       await updateTile(tile.id, {
         name,
         systemPrompt: instructions,
+        scheduleCron: scheduleCron ?? undefined,
       });
     } catch (error) {
       console.error("Failed to save config:", error);
@@ -346,15 +352,16 @@ export function TileDrawer({
   };
 
   const copyToClipboard = useCallback(
-    (text: string, type: "endpoint" | "key") => {
+    (text: string, type: "endpoint" | "key" | "curl") => {
       navigator.clipboard.writeText(text);
-      if (type === "endpoint") {
-        setCopiedEndpoint(true);
-        setTimeout(() => setCopiedEndpoint(false), 2000);
-      } else {
-        setCopiedKey(true);
-        setTimeout(() => setCopiedKey(false), 2000);
-      }
+      const setters = {
+        endpoint: setCopiedEndpoint,
+        key: setCopiedKey,
+        curl: setCopiedCurl,
+      };
+      const setter = setters[type];
+      setter(true);
+      setTimeout(() => setter(false), 2000);
     },
     [],
   );
@@ -520,7 +527,7 @@ export function TileDrawer({
                 className="flex items-center gap-2 border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
                 <FileText className="h-4 w-4" />
-                Reports
+                Jobs
               </TabsTrigger>
               <TabsTrigger
                 value="api"
@@ -534,7 +541,10 @@ export function TileDrawer({
 
           <div className="overflow-y-auto p-6">
             {/* Status Tab */}
-            <TabsContent value="status" className="m-0 space-y-6">
+            <TabsContent
+              value="status"
+              className="m-0 space-y-6 max-h-[60vh] overflow-y-auto"
+            >
               {isLoadingStatus ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -951,7 +961,10 @@ export function TileDrawer({
             </TabsContent>
 
             {/* Config Tab */}
-            <TabsContent value="config" className="m-0 space-y-6">
+            <TabsContent
+              value="config"
+              className="m-0 space-y-6 max-h-[60vh] overflow-y-auto"
+            >
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="tile-name">Name</Label>
@@ -991,6 +1004,14 @@ export function TileDrawer({
                   />
                 </div>
 
+                <Separator />
+
+                <AdvancedScheduler
+                  value={scheduleCron}
+                  onChange={setScheduleCron}
+                  disabled={isSaving}
+                />
+
                 <Button
                   onClick={handleSaveConfig}
                   disabled={isSaving}
@@ -1004,33 +1025,36 @@ export function TileDrawer({
               </div>
             </TabsContent>
 
-            {/* Reports Tab */}
-            <TabsContent value="reports" className="m-0 space-y-4">
-              {isLoadingReports ? (
+            {/* Jobs Tab */}
+            <TabsContent
+              value="reports"
+              className="m-0 space-y-4 max-h-[60vh] overflow-y-auto"
+            >
+              {isLoadingJobResults ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : reports.length === 0 ? (
+              ) : jobResults.length === 0 ? (
                 <div className="py-8 text-center text-muted-foreground">
-                  No reports generated yet. Run the tile to generate reports.
+                  No jobs yet. Run the tile to see execution history.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {reports.map((report) => {
-                    const isExpanded = expandedReportId === report.id;
+                  {jobResults.map((result) => {
+                    const isExpanded = expandedResultId === result.id;
                     const contentStr =
-                      typeof report.content === "string"
-                        ? report.content
-                        : JSON.stringify(report.content, null, 2);
+                      typeof result.content === "string"
+                        ? result.content
+                        : JSON.stringify(result.content, null, 2);
 
                     return (
                       <div
-                        key={report.id}
+                        key={result.id}
                         className="rounded-lg border border-border bg-muted/20 overflow-hidden"
                       >
                         <button
                           onClick={() =>
-                            setExpandedReportId(isExpanded ? null : report.id)
+                            setExpandedResultId(isExpanded ? null : result.id)
                           }
                           className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
                         >
@@ -1038,11 +1062,11 @@ export function TileDrawer({
                             <FileText className="h-4 w-4 text-muted-foreground" />
                             <div className="text-left">
                               <p className="text-sm font-medium">
-                                {formatRelativeTime(report.created_at)}
+                                {formatRelativeTime(result.created_at)}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {report.source_urls?.length || 0} sources ·{" "}
-                                {report.format}
+                                {result.source_urls?.length || 0} sources ·{" "}
+                                {result.format}
                               </p>
                             </div>
                           </div>
@@ -1056,14 +1080,14 @@ export function TileDrawer({
                             <pre className="whitespace-pre-wrap text-sm font-mono bg-muted/30 rounded p-3 max-h-[300px] overflow-y-auto">
                               {contentStr}
                             </pre>
-                            {report.source_urls &&
-                              report.source_urls.length > 0 && (
+                            {result.source_urls &&
+                              result.source_urls.length > 0 && (
                                 <div className="mt-3 pt-3 border-t border-border">
                                   <p className="text-xs font-medium text-muted-foreground mb-2">
                                     Sources:
                                   </p>
                                   <div className="space-y-1">
-                                    {report.source_urls.map((url, i) => (
+                                    {result.source_urls.map((url, i) => (
                                       <a
                                         key={i}
                                         href={url}
@@ -1087,7 +1111,10 @@ export function TileDrawer({
             </TabsContent>
 
             {/* API Tab */}
-            <TabsContent value="api" className="m-0 space-y-6">
+            <TabsContent
+              value="api"
+              className="m-0 space-y-6 max-h-[60vh] overflow-y-auto"
+            >
               {/* Endpoint */}
               <div className="space-y-2">
                 <Label>Endpoint</Label>
@@ -1110,6 +1137,92 @@ export function TileDrawer({
                   </Button>
                 </div>
               </div>
+
+              {/* curl Example */}
+              <div className="space-y-2">
+                <Label>Example Request</Label>
+                <div className="rounded-lg border border-border bg-muted/30 p-3">
+                  <pre className="overflow-x-auto whitespace-pre-wrap text-xs font-mono">{`curl -X POST "${apiEndpoint}" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"urls": ["https://example.com"]}'`}</pre>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() =>
+                    copyToClipboard(
+                      `curl -X POST "${apiEndpoint}" \\\n  -H "Authorization: Bearer YOUR_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"urls": ["https://example.com"]}'`,
+                      "curl",
+                    )
+                  }
+                >
+                  {copiedCurl ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-400" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  Copy curl
+                </Button>
+              </div>
+
+              {/* Request Schema */}
+              <div className="space-y-2">
+                <Label>Request Body (optional)</Label>
+                <div className="rounded-lg border border-border bg-muted/30 p-3">
+                  <pre className="text-xs font-mono">{`{
+  "urls": string[]  // Optional: Override configured sources
+}`}</pre>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  If urls array is provided, these take priority over configured
+                  tile sources.
+                </p>
+              </div>
+
+              {/* Response Schema (SSE Events) */}
+              <Collapsible>
+                <div className="space-y-2">
+                  <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2 text-left hover:bg-muted/30 transition-colors">
+                    <Label className="cursor-pointer">
+                      Response (Server-Sent Events)
+                    </Label>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        SSE Event Types:
+                      </p>
+                      <div className="space-y-1.5 text-xs font-mono">
+                        <p>
+                          <span className="text-cyan-400">started</span>:{" "}
+                          {"{ jobId, tileId }"}
+                        </p>
+                        <p>
+                          <span className="text-cyan-400">progress</span>:{" "}
+                          {"{ jobId, sourceId, type, status }"}
+                        </p>
+                        <p>
+                          <span className="text-cyan-400">result</span>:
+                          {
+                            " { jobId, report: { id, content, format, source_urls } }"
+                          }
+                        </p>
+                        <p>
+                          <span className="text-cyan-400">done</span>:{" "}
+                          {"{ jobId }"}
+                        </p>
+                        <p>
+                          <span className="text-red-400">error</span>:{" "}
+                          {"{ message, code }"}
+                        </p>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
 
               <Separator />
 

@@ -7,6 +7,10 @@ import { useEffect, useState } from "react";
 import { InviteMemberDialog } from "@/components/mosaic/invite-member-dialog";
 import { MemberList } from "@/components/mosaic/member-list";
 import { PendingInvitations } from "@/components/mosaic/pending-invitations";
+import {
+  getDefaultTimezone,
+  TimezoneSelector,
+} from "@/components/mosaic/timezone-selector";
 import { TransferOwnershipDialog } from "@/components/mosaic/transfer-ownership-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +39,7 @@ import type {
   MemberRole,
   MosaicInvitation,
   MosaicMember,
+  MosaicSettings,
   MosaicWithTiles,
 } from "@/types/database";
 
@@ -67,6 +72,7 @@ export default function MosaicSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [timezone, setTimezone] = useState<string>(getDefaultTimezone());
 
   const isOwner = userRole === "owner";
 
@@ -93,6 +99,11 @@ export default function MosaicSettingsPage() {
     setInvitations(invitationsData);
     setAdmins(adminsData);
     setUserRole(role);
+    // Set timezone from mosaic settings
+    if (mosaicData) {
+      const settings = mosaicData.settings as MosaicSettings | null;
+      setTimezone(settings?.timezone || getDefaultTimezone());
+    }
     setIsLoading(false);
   }
 
@@ -107,6 +118,7 @@ export default function MosaicSettingsPage() {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
+    formData.set("timezone", timezone);
     const result = await updateMosaic(mosaicId, formData);
 
     if (result.error) {
@@ -211,6 +223,14 @@ export default function MosaicSettingsPage() {
                 disabled={isSaving || !isOwner}
               />
             </div>
+
+            <Separator />
+
+            <TimezoneSelector
+              value={timezone}
+              onChange={setTimezone}
+              disabled={isSaving || !isOwner}
+            />
 
             {isOwner && (
               <div className="flex justify-end">

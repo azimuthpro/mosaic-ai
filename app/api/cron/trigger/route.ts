@@ -19,6 +19,7 @@ import {
 } from "@/lib/sources/tile-content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
+  MosaicSettings,
   Tile,
   TileJob,
   TileJobInsert,
@@ -29,8 +30,70 @@ import type {
 
 type TileWithSources = Tile & {
   tile_sources: TileSource[];
-  mosaics: { owner_id: string };
+  mosaics: { owner_id: string; settings: MosaicSettings | null };
 };
+
+/**
+ * Check if a tile should run at the current time based on its cron schedule
+ * and the mosaic's timezone setting.
+ */
+function shouldTileRunNow(
+  scheduleCron: string,
+  timezone: string | undefined,
+): boolean {
+  // Use UTC if no timezone specified
+  const tz = timezone || "UTC";
+
+  // Get current time in the mosaic's timezone
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    hour: "numeric",
+    minute: "numeric",
+    weekday: "short",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(now);
+  const hour = parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
+  const minute = parseInt(
+    parts.find((p) => p.type === "minute")?.value || "0",
+    10,
+  );
+  const weekdayStr = parts.find((p) => p.type === "weekday")?.value || "";
+
+  // Map weekday string to cron day (0=Sun, 1=Mon, etc)
+  const dayOfWeek =
+    { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[weekdayStr] ?? 0;
+
+  // Parse cron: "minute hour dayOfMonth month dayOfWeek"
+  // We only care about minute, hour, and dayOfWeek for this scheduler
+  const cronParts = scheduleCron.split(" ");
+  if (cronParts.length !== 5) return false;
+
+  const [cronMinute, cronHour, , , cronDayOfWeek] = cronParts;
+
+  // Check minute (we run at minute 0, so check if cron expects 0)
+  if (cronMinute !== "*" && cronMinute !== "0") {
+    // Only run on the exact minute specified
+    const cronMinutes = cronMinute.split(",").map(Number);
+    if (!cronMinutes.includes(minute)) return false;
+  }
+
+  // Check hour
+  if (cronHour !== "*") {
+    const cronHours = cronHour.split(",").map(Number);
+    if (!cronHours.includes(hour)) return false;
+  }
+
+  // Check day of week
+  if (cronDayOfWeek !== "*") {
+    const cronDays = cronDayOfWeek.split(",").map(Number);
+    if (!cronDays.includes(dayOfWeek)) return false;
+  }
+
+  return true;
+}
 
 type TileResult = {
   tileId: string;
@@ -175,7 +238,7 @@ async function processTile(
         source_urls: sourceIdentifiers,
       };
 
-      await adminClient.from("tile_reports").insert(reportInsert as never);
+      await adminClient.from("tile_job_results").insert(reportInsert as never);
 
       // Mark job complete
       const completedUpdate: TileJobUpdate = {
@@ -277,14 +340,14 @@ export async function GET(request: Request): Promise<Response> {
 
     const adminClient = createAdminClient();
 
-    // Get all active tiles with schedules
+    // Get all active tiles with schedules (also fetch mosaic settings for timezone)
     const { data: tiles, error: tilesError } = await adminClient
       .from("tiles")
       .select(
         `
         *,
         tile_sources!tile_sources_tile_id_fkey (*),
-        mosaics!inner (owner_id)
+        mosaics!inner (owner_id, settings)
       `,
       )
       .eq("is_active", true)
@@ -298,13 +361,21 @@ export async function GET(request: Request): Promise<Response> {
       );
     }
 
-    const typedTiles = (tiles || []) as TileWithSources[];
+    const allTiles = (tiles || []) as TileWithSources[];
+
+    // Filter tiles that should run at the current time based on their schedule and timezone
+    const typedTiles = allTiles.filter((tile) => {
+      if (!tile.schedule_cron) return false;
+      const settings = tile.mosaics.settings as MosaicSettings | null;
+      return shouldTileRunNow(tile.schedule_cron, settings?.timezone);
+    });
 
     if (typedTiles.length === 0) {
       return NextResponse.json({
         success: true,
-        message: "No tiles to run",
+        message: "No tiles scheduled to run at this time",
         processed: 0,
+        totalWithSchedule: allTiles.length,
       });
     }
 
@@ -329,6 +400,7 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json({
       success: true,
       processed: typedTiles.length,
+      totalWithSchedule: allTiles.length,
       successful,
       failed,
       results: processedResults,

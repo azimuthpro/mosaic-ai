@@ -20,9 +20,9 @@ import type {
   Tile,
   TileConnection,
   TileJobInsert,
+  TileJobResult,
+  TileJobResultInsert,
   TileJobUpdate,
-  TileReport,
-  TileReportInsert,
   TileSource,
 } from "@/types/database";
 
@@ -30,11 +30,11 @@ type TileWithSources = Tile & {
   tile_sources: TileSource[];
 };
 
-type TileWithReport = {
+type TileWithResult = {
   id: string;
   name: string;
   tile_type: string;
-  latest_report: TileReport | null;
+  latest_result: TileJobResult | null;
 };
 
 type SimpleTile = {
@@ -192,7 +192,7 @@ export async function POST(
       // Log execution start
       await logExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
-        agentId: tileId,
+        tileId: tileId,
         eventType: "started",
         metadata: {
           tileType: typedTile.tile_type,
@@ -238,7 +238,7 @@ export async function POST(
       writer.sendStarted(job.id, tileId);
 
       // For pipeline tiles, get all tiles in the mosaic for context
-      let availableTiles: TileWithReport[] = [];
+      let availableTiles: TileWithResult[] = [];
 
       if (isPipelineTile) {
         // Fetch all tiles in the mosaic with their latest reports
@@ -254,15 +254,15 @@ export async function POST(
           // Get latest reports for each tile
           const tileIds = mosaicTiles.map((t) => t.id);
           const { data: reports } = await adminClient
-            .from("tile_reports")
+            .from("tile_job_results")
             .select("*")
             .in("tile_id", tileIds)
             .order("created_at", { ascending: false });
 
-          const reportsByTile = new Map<string, TileReport>();
-          for (const report of (reports || []) as TileReport[]) {
-            if (!reportsByTile.has(report.tile_id)) {
-              reportsByTile.set(report.tile_id, report);
+          const resultsByTile = new Map<string, TileJobResult>();
+          for (const result of (reports || []) as TileJobResult[]) {
+            if (!resultsByTile.has(result.tile_id)) {
+              resultsByTile.set(result.tile_id, result);
             }
           }
 
@@ -270,7 +270,7 @@ export async function POST(
             id: t.id,
             name: t.name,
             tile_type: t.tile_type,
-            latest_report: reportsByTile.get(t.id) || null,
+            latest_result: resultsByTile.get(t.id) || null,
           }));
 
           // Send context event
@@ -279,7 +279,7 @@ export async function POST(
             availableTiles.map((t) => ({
               tile_id: t.id,
               name: t.name,
-              has_report: t.latest_report !== null,
+              has_report: t.latest_result !== null,
             })),
           );
         }
@@ -384,12 +384,12 @@ export async function POST(
             "fetching_report",
           );
 
-          if (connectedTile.latest_report) {
-            // Format report content
+          if (connectedTile.latest_result) {
+            // Format result content
             const content =
-              typeof connectedTile.latest_report.content === "string"
-                ? connectedTile.latest_report.content
-                : JSON.stringify(connectedTile.latest_report.content, null, 2);
+              typeof connectedTile.latest_result.content === "string"
+                ? connectedTile.latest_result.content
+                : JSON.stringify(connectedTile.latest_result.content, null, 2);
 
             sourceResults.push({
               sourceId: connection.id,
@@ -397,10 +397,10 @@ export async function POST(
               identifier: connectedTile.name,
               success: true,
               content,
-              title: `Report from ${connectedTile.name}`,
+              title: `Result from ${connectedTile.name}`,
               metadata: {
-                reportId: connectedTile.latest_report.id,
-                reportCreatedAt: connectedTile.latest_report.created_at,
+                reportId: connectedTile.latest_result.id,
+                reportCreatedAt: connectedTile.latest_result.created_at,
                 tileId: connectedTile.id,
                 tileName: connectedTile.name,
               },
@@ -498,8 +498,8 @@ export async function POST(
       const sourceIdentifiers = getTileSourceIdentifiers(sourceResults);
       const sourceBreakdown = getTileSourceTypeBreakdown(sourceResults);
 
-      // Create report
-      const reportInsert: TileReportInsert = {
+      // Create job result
+      const resultInsert: TileJobResultInsert = {
         job_id: job.id,
         tile_id: tileId,
         content: analysis.content,
@@ -507,18 +507,18 @@ export async function POST(
         source_urls: sourceIdentifiers,
       };
 
-      const { data: reportData, error: reportError } = await adminClient
-        .from("tile_reports")
-        .insert(reportInsert as never)
+      const { data: resultData, error: resultError } = await adminClient
+        .from("tile_job_results")
+        .insert(resultInsert as never)
         .select()
         .single();
 
-      if (reportError || !reportData) {
+      if (resultError || !resultData) {
         // Update job as failed
         const failedUpdate: TileJobUpdate = {
           status: "failed",
           completed_at: new Date().toISOString(),
-          error_message: "Failed to save report",
+          error_message: "Failed to save result",
         };
 
         await adminClient
@@ -527,14 +527,14 @@ export async function POST(
           .eq("id", job.id);
 
         writer.sendError(
-          "Failed to save report",
+          "Failed to save result",
           SSE_ERROR_CODES.REPORT_SAVE_FAILED,
         );
         writer.close();
         return;
       }
 
-      const report = reportData as TileReport;
+      const jobResult = resultData as TileJobResult;
 
       // Update job as completed
       const completedUpdate: TileJobUpdate = {
@@ -559,7 +559,7 @@ export async function POST(
       // Log successful completion
       await logExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
-        agentId: tileId,
+        tileId: tileId,
         jobId: job.id,
         eventType: "completed",
         metadata: {
@@ -572,11 +572,11 @@ export async function POST(
 
       // Send result event
       writer.sendResult(job.id, {
-        id: report.id,
-        content: report.content,
-        format: report.format,
-        source_urls: report.source_urls,
-        created_at: report.created_at,
+        id: jobResult.id,
+        content: jobResult.content,
+        format: jobResult.format,
+        source_urls: jobResult.source_urls,
+        created_at: jobResult.created_at,
       });
 
       // Send done event

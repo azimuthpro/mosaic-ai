@@ -62,23 +62,19 @@ npm run lint     # Run ESLint
 
 ### Database Schema (Supabase)
 
-**New Tables (Mosaic/Tile Architecture):**
+**Core Tables:**
 - `mosaics` - Workspace containers (name, owner_id, settings)
 - `mosaic_members` - Sharing permissions at mosaic level
 - `tiles` - Tile configurations (mosaic_id, tile_type, color, pattern, grid position, prompt)
 - `tile_connections` - Data flow between tiles (source_tile_id, target_tile_id)
 - `tile_sources` - Data inputs for tiles (url, type, source_reference_id)
 - `tile_jobs` - Execution history for tiles
-- `tile_reports` - Analysis results from tile runs
+- `tile_job_results` - Analysis results from tile job executions
 
-**Legacy Tables (Backwards Compatible):**
+**Other Tables:**
 - `users` - Managed by Supabase Auth
 - `allowlist` - Email-based access control (invite-only)
-- `agents` - Deprecated, migrated to tiles
-- `agent_members` - Deprecated, use mosaic_members
-- `sources` - Deprecated, migrated to tile_sources
-- `jobs` - Deprecated, migrated to tile_jobs
-- `reports` - Deprecated, migrated to tile_reports
+- `execution_logs` - Logging for tile execution events
 
 ### Key Utilities
 

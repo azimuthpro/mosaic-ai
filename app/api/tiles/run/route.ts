@@ -296,7 +296,7 @@ export async function POST(request: Request): Promise<Response> {
       };
 
       const { error: reportError } = await adminClient
-        .from("tile_reports")
+        .from("tile_job_results")
         .insert(reportInsert as never);
 
       if (reportError) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ interface CreateMosaicDialogProps {
 }
 
 export function CreateMosaicDialog({ trigger }: CreateMosaicDialogProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,8 +40,10 @@ export function CreateMosaicDialog({ trigger }: CreateMosaicDialogProps) {
     if (result?.error) {
       setError(result.error);
       setIsLoading(false);
+    } else if (result?.mosaicId) {
+      setOpen(false);
+      router.push(`/mosaics/${result.mosaicId}`);
     }
-    // If successful, the action will redirect
   }
 
   return (

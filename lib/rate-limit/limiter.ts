@@ -211,14 +211,12 @@ export function assertRateLimitAllowed(result: RateLimitResult): void {
 
 /**
  * Logs an execution event to the execution_logs table.
- * Pass either agentId (for legacy agents) or tileId (for tiles).
  */
 export async function logExecutionEvent(
   adminClient: SupabaseClient<Database>,
   params: {
     executionId: string;
-    agentId?: string;
-    tileId?: string;
+    tileId: string;
     jobId?: string;
     eventType:
       | "started"
@@ -234,11 +232,10 @@ export async function logExecutionEvent(
   const rpcClient = adminClient as unknown as RpcClient;
   const { data, error } = await rpcClient.rpc<string>("log_execution_event", {
     p_execution_id: params.executionId,
-    p_agent_id: params.agentId || null,
+    p_tile_id: params.tileId,
     p_job_id: params.jobId || null,
     p_event_type: params.eventType,
     p_metadata: params.metadata || {},
-    p_tile_id: params.tileId || null,
   });
 
   if (error) {

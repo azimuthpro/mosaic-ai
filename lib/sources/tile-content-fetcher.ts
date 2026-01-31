@@ -240,7 +240,7 @@ async function fetchTileReportContent(
 
   // Get the latest successful report from the referenced tile
   const { data: report, error } = await adminClient
-    .from("tile_reports")
+    .from("tile_job_results")
     .select(
       `
       id,
@@ -660,7 +660,7 @@ export async function fetchLinkedTileUrls(
 
   // Fetch all reports in a single query
   const { data: reportsData } = await adminClient
-    .from("tile_reports")
+    .from("tile_job_results")
     .select("tile_id, content, format")
     .in("tile_id", sourceTileIds)
     .order("created_at", { ascending: false });

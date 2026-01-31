@@ -1,11 +1,11 @@
 "use server";
 
 import { createClient, getUser } from "@/lib/supabase/server";
-import type { TileJob, TileReport } from "@/types/database";
+import type { TileJob, TileJobResult } from "@/types/database";
 
 export interface TileExecutionStatus {
   lastJob: TileJob | null;
-  lastReport: TileReport | null;
+  lastResult: TileJobResult | null;
   recentJobs: TileJob[];
   sourcesCount: number;
   successfulSources: number;
@@ -40,16 +40,16 @@ export async function getTileExecutionStatus(
   const recentJobs = (jobsData || []) as TileJob[];
   const lastJob = recentJobs[0] || null;
 
-  // Get the last report if there's a completed job
-  let lastReport: TileReport | null = null;
+  // Get the last result if there's a completed job
+  let lastResult: TileJobResult | null = null;
   if (lastJob?.status === "completed") {
-    const { data: reportData } = await supabase
-      .from("tile_reports")
+    const { data: resultData } = await supabase
+      .from("tile_job_results")
       .select("*")
       .eq("job_id", lastJob.id)
       .single();
 
-    lastReport = reportData ? (reportData as TileReport) : null;
+    lastResult = resultData ? (resultData as TileJobResult) : null;
   }
 
   // Get sources count
@@ -64,7 +64,7 @@ export async function getTileExecutionStatus(
 
   return {
     lastJob,
-    lastReport,
+    lastResult,
     recentJobs,
     sourcesCount: sourcesCount || 0,
     successfulSources: Number(successfulSources),
@@ -148,7 +148,7 @@ export async function getTileAllExecutionLogs(
   return (data || []) as ExecutionLogEntry[];
 }
 
-export interface TileReportSummary {
+export interface TileJobResultSummary {
   id: string;
   job_id: string;
   content: unknown;
@@ -157,13 +157,16 @@ export interface TileReportSummary {
   created_at: string;
 }
 
+// Backwards compatible alias
+export type TileReportSummary = TileJobResultSummary;
+
 /**
- * Get recent reports for a tile
+ * Get recent job results for a tile
  */
-export async function getTileReports(
+export async function getTileJobResults(
   tileId: string,
   limit: number = 10,
-): Promise<TileReportSummary[]> {
+): Promise<TileJobResultSummary[]> {
   const supabase = await createClient();
   const user = await getUser();
 
@@ -172,16 +175,19 @@ export async function getTileReports(
   }
 
   const { data, error } = await supabase
-    .from("tile_reports")
+    .from("tile_job_results")
     .select("id, job_id, content, format, source_urls, created_at")
     .eq("tile_id", tileId)
     .order("created_at", { ascending: false })
     .limit(limit);
 
   if (error) {
-    console.error("Error fetching tile reports:", error);
+    console.error("Error fetching tile job results:", error);
     return [];
   }
 
-  return (data || []) as TileReportSummary[];
+  return (data || []) as TileJobResultSummary[];
 }
+
+// Backwards compatible alias
+export const getTileReports = getTileJobResults;
