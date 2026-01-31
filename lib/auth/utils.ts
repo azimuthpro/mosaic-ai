@@ -1,5 +1,6 @@
-import { createClient as createServerClient } from "@/lib/supabase/server"
-import type { User } from "@supabase/supabase-js"
+import type { User } from "@supabase/supabase-js";
+
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 const MOCK_DEVELOPER_USER: User = {
   id: "dev-user-id",
@@ -16,7 +17,7 @@ const MOCK_DEVELOPER_USER: User = {
   last_sign_in_at: new Date().toISOString(),
   role: "authenticated",
   updated_at: new Date().toISOString(),
-}
+};
 
 /**
  * Get the current user session (server-side)
@@ -25,23 +26,23 @@ const MOCK_DEVELOPER_USER: User = {
  * Use this in Server Components and Server Actions to validate auth state.
  */
 export async function getUserSession(): Promise<User | null> {
-  const supabase = await createServerClient()
+  const supabase = await createServerClient();
 
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (error || !user) {
     // In development mode, return a mock user if no real session exists
     if (process.env.NODE_ENV === "development") {
-      console.log("🛠️ Dev Mode: Using mock developer session")
-      return MOCK_DEVELOPER_USER
+      console.log("🛠️ Dev Mode: Using mock developer session");
+      return MOCK_DEVELOPER_USER;
     }
-    return null
+    return null;
   }
 
-  return user
+  return user;
 }
 
 /**
@@ -51,7 +52,7 @@ export async function getUserSession(): Promise<User | null> {
  * Returns a generic message for unknown errors.
  */
 export function getAuthErrorMessage(error?: string): string {
-  if (!error) return ""
+  if (!error) return "";
 
   // Map known error codes to friendly messages
   const errorMessages: Record<string, string> = {
@@ -61,8 +62,9 @@ export function getAuthErrorMessage(error?: string): string {
     session_expired: "Your session has expired. Please sign in again.",
     email_not_allowed:
       "Your email is not authorized for signup. Contact support@themeshline.com to request access.",
-    user_not_found: "No account found with this email. Please sign up to create an account.",
-  }
+    user_not_found:
+      "No account found with this email. Please sign up to create an account.",
+  };
 
-  return errorMessages[error] || "An unexpected error occurred."
+  return errorMessages[error] || "An unexpected error occurred.";
 }

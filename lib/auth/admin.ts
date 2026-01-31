@@ -5,13 +5,13 @@
  * Uses the is_super_admin flag from the profiles table.
  */
 
-import { createClient as createServerClient } from "@/lib/supabase/server"
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 // Profile type for admin authentication
 interface Profile {
-  user_id: string
-  is_super_admin: boolean
-  [key: string]: unknown
+  user_id: string;
+  is_super_admin: boolean;
+  [key: string]: unknown;
 }
 
 /**
@@ -20,13 +20,13 @@ interface Profile {
  */
 export async function isSuperAdmin(): Promise<boolean> {
   try {
-    const supabase = await createServerClient()
+    const supabase = await createServerClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser();
 
     if (!user) {
-      return false
+      return false;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,11 +34,11 @@ export async function isSuperAdmin(): Promise<boolean> {
       .from("profiles")
       .select("is_super_admin")
       .eq("user_id", user.id)
-      .single()
+      .single();
 
-    return profile?.is_super_admin === true
+    return profile?.is_super_admin === true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -48,31 +48,31 @@ export async function isSuperAdmin(): Promise<boolean> {
  * @throws Error if user is not authenticated or not a super admin
  */
 export async function getSuperAdminUser(): Promise<Profile> {
-  const supabase = await createServerClient()
+  const supabase = await createServerClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("Not authenticated")
+    throw new Error("Not authenticated");
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile, error } = await (supabase as any)
+  const { data: profile, error } = (await (supabase as any)
     .from("profiles")
     .select("*")
     .eq("user_id", user.id)
-    .single() as { data: Profile | null; error: Error | null }
+    .single()) as { data: Profile | null; error: Error | null };
 
   if (error || !profile) {
-    throw new Error("Profile not found")
+    throw new Error("Profile not found");
   }
 
   if (!profile.is_super_admin) {
-    throw new Error("Not authorized: Super admin access required")
+    throw new Error("Not authorized: Super admin access required");
   }
 
-  return profile
+  return profile;
 }
 
 /**
@@ -82,8 +82,8 @@ export async function getSuperAdminUser(): Promise<Profile> {
  */
 export async function requireSuperAdmin(): Promise<Profile> {
   try {
-    return await getSuperAdminUser()
+    return await getSuperAdminUser();
   } catch {
-    throw new Error("Unauthorized")
+    throw new Error("Unauthorized");
   }
 }
