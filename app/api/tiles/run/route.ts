@@ -16,6 +16,8 @@ import {
 } from "@/lib/rate-limit/limiter";
 import {
   fetchAllTileSourcesContent,
+  fetchLinkedTileUrls,
+  fetchRuntimeUrlsContent,
   getTileSourceIdentifiers,
   getTileSourceTypeBreakdown,
 } from "@/lib/sources/tile-content-fetcher";
@@ -51,7 +53,7 @@ export async function POST(request: Request): Promise<Response> {
 
     userId = user.id;
 
-    const { tileId } = await request.json();
+    const { tileId, urls } = await request.json();
 
     if (!tileId) {
       return NextResponse.json(
@@ -59,6 +61,9 @@ export async function POST(request: Request): Promise<Response> {
         { status: 400 },
       );
     }
+
+    // Validate runtime URLs if provided
+    const runtimeUrls: string[] = Array.isArray(urls) ? urls : [];
 
     // Check rate limits before proceeding
     const rateLimitResult = await checkAndIncrementRateLimit(
@@ -118,9 +123,35 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
-    if (!typedTile.tile_sources || typedTile.tile_sources.length === 0) {
+    // Source priority check for url_reader tiles:
+    // 1. Runtime URLs (if provided)
+    // 2. Configured tile_sources
+    // 3. Linked tiles (via connections)
+    const hasRuntimeUrls = runtimeUrls.length > 0;
+    const hasConfiguredSources =
+      typedTile.tile_sources && typedTile.tile_sources.length > 0;
+
+    // For url_reader tiles, check if we can get URLs from linked tiles
+    let linkedTileUrls: string[] = [];
+    if (
+      !hasRuntimeUrls &&
+      !hasConfiguredSources &&
+      typedTile.tile_type === "url_reader"
+    ) {
+      linkedTileUrls = await fetchLinkedTileUrls(tileId, adminClient);
+    }
+
+    // Validate we have at least one source
+    if (
+      !hasRuntimeUrls &&
+      !hasConfiguredSources &&
+      linkedTileUrls.length === 0
+    ) {
       return NextResponse.json(
-        { error: "Tile has no sources configured" },
+        {
+          error:
+            "No URLs provided. Tile has no sources configured and no linked tiles with URLs.",
+        },
         { status: 400 },
       );
     }
@@ -175,25 +206,46 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     try {
-      // Fetch content from all sources (URLs, tile reports, web search)
-      const sourceResults = await fetchAllTileSourcesContent(
-        typedTile.tile_sources,
-        adminClient,
-        executionContext,
-      );
+      // Fetch content based on source priority:
+      // 1. Runtime URLs (if provided) - use only these
+      // 2. Configured sources - use if no runtime URLs
+      // 3. Linked tile URLs - use if no runtime URLs and no configured sources
+      let sourceResults;
+      let sourceMode: "runtime" | "configured" | "linked";
 
-      // Update source last_scraped_at
-      const now = new Date().toISOString();
-      await Promise.all(
-        typedTile.tile_sources
-          .filter((s) => s.is_active)
-          .map((source) =>
-            adminClient
-              .from("tile_sources")
-              .update({ last_scraped_at: now } as never)
-              .eq("id", source.id),
-          ),
-      );
+      if (hasRuntimeUrls) {
+        sourceMode = "runtime";
+        sourceResults = await fetchRuntimeUrlsContent(
+          runtimeUrls,
+          executionContext,
+        );
+      } else if (hasConfiguredSources) {
+        sourceMode = "configured";
+        sourceResults = await fetchAllTileSourcesContent(
+          typedTile.tile_sources,
+          adminClient,
+          executionContext,
+        );
+
+        // Update source last_scraped_at for configured sources
+        const now = new Date().toISOString();
+        await Promise.all(
+          typedTile.tile_sources
+            .filter((s) => s.is_active)
+            .map((source) =>
+              adminClient
+                .from("tile_sources")
+                .update({ last_scraped_at: now } as never)
+                .eq("id", source.id),
+            ),
+        );
+      } else {
+        sourceMode = "linked";
+        sourceResults = await fetchRuntimeUrlsContent(
+          linkedTileUrls,
+          executionContext,
+        );
+      }
 
       // Collect successful fetches
       const successfulFetches = sourceResults.filter(
@@ -258,6 +310,7 @@ export async function POST(request: Request): Promise<Response> {
         metadata: {
           execution_id: executionContext.executionId,
           chain_depth: 0,
+          source_mode: sourceMode,
           sources_total: sourceResults.length,
           sources_succeeded: successfulFetches.length,
           sources_failed: sourceResults.length - successfulFetches.length,

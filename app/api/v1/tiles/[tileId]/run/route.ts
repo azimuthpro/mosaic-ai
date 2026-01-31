@@ -8,6 +8,8 @@ import {
 } from "@/lib/execution/context";
 import { logExecutionEvent } from "@/lib/rate-limit/limiter";
 import {
+  fetchLinkedTileUrls,
+  fetchRuntimeUrlsContent,
   fetchTileSourceContent,
   getTileSourceIdentifiers,
   getTileSourceTypeBreakdown,
@@ -66,6 +68,17 @@ export async function POST(
   // Run the execution in a separate async context
   (async () => {
     try {
+      // Parse request body for runtime URLs
+      let runtimeUrls: string[] = [];
+      try {
+        const body = await request.json();
+        if (Array.isArray(body?.urls)) {
+          runtimeUrls = body.urls;
+        }
+      } catch {
+        // No body or invalid JSON is fine, we'll use configured sources
+      }
+
       // Authenticate using API key
       const authResult = await authenticateApiRequest(request);
 
@@ -128,17 +141,44 @@ export async function POST(
       const isPipelineTile =
         typedTile.tile_type === "recursive" ||
         typedTile.tile_type === "analyzer";
+      const hasRuntimeUrls = runtimeUrls.length > 0;
       const hasDirectSources =
         typedTile.tile_sources && typedTile.tile_sources.length > 0;
       const hasConnections = connections.length > 0;
 
-      if (!hasDirectSources && !hasConnections) {
+      // For url_reader tiles, check if we can get URLs from linked tiles
+      let linkedTileUrls: string[] = [];
+      if (
+        !hasRuntimeUrls &&
+        !hasDirectSources &&
+        typedTile.tile_type === "url_reader"
+      ) {
+        linkedTileUrls = await fetchLinkedTileUrls(tileId, adminClient);
+      }
+
+      if (
+        !hasRuntimeUrls &&
+        !hasDirectSources &&
+        !hasConnections &&
+        linkedTileUrls.length === 0
+      ) {
         writer.sendError(
-          "Tile has no sources configured",
+          "No URLs provided. Tile has no sources configured and no linked tiles.",
           SSE_ERROR_CODES.NO_SOURCES,
         );
         writer.close();
         return;
+      }
+
+      // Determine source mode for url_reader tiles
+      let sourceMode: "runtime" | "configured" | "linked" | "pipeline" =
+        "configured";
+      if (hasRuntimeUrls) {
+        sourceMode = "runtime";
+      } else if (!hasDirectSources && linkedTileUrls.length > 0) {
+        sourceMode = "linked";
+      } else if (isPipelineTile && hasConnections) {
+        sourceMode = "pipeline";
       }
 
       // Create execution context
@@ -245,11 +285,49 @@ export async function POST(
         }
       }
 
-      // Fetch content from all sources
+      // Fetch content from all sources based on priority
       const sourceResults: TileSourceContent[] = [];
 
-      // Process direct sources (URL, web search)
-      if (typedTile.tile_sources && typedTile.tile_sources.length > 0) {
+      // Source priority for url_reader tiles:
+      // 1. Runtime URLs (if provided) - use only these
+      // 2. Configured sources - use if no runtime URLs
+      // 3. Linked tile URLs - use if no runtime URLs and no configured sources
+      if (sourceMode === "runtime") {
+        // Process runtime URLs
+        writer.sendProgress(job.id, "runtime", "url", "fetching");
+
+        const results = await fetchRuntimeUrlsContent(
+          runtimeUrls,
+          executionContext,
+        );
+        sourceResults.push(...results);
+
+        const succeeded = results.filter((r) => r.success).length;
+        writer.sendProgress(
+          job.id,
+          "runtime",
+          "url",
+          succeeded > 0 ? "completed" : "failed",
+        );
+      } else if (sourceMode === "linked") {
+        // Process linked tile URLs
+        writer.sendProgress(job.id, "linked", "url", "fetching");
+
+        const results = await fetchRuntimeUrlsContent(
+          linkedTileUrls,
+          executionContext,
+        );
+        sourceResults.push(...results);
+
+        const succeeded = results.filter((r) => r.success).length;
+        writer.sendProgress(
+          job.id,
+          "linked",
+          "url",
+          succeeded > 0 ? "completed" : "failed",
+        );
+      } else if (typedTile.tile_sources && typedTile.tile_sources.length > 0) {
+        // Process direct sources (URL, web search)
         for (const source of typedTile.tile_sources.filter(
           (s) => s.is_active,
         )) {
@@ -340,9 +418,9 @@ export async function POST(
         }
       }
 
-      // Update source last_scraped_at
-      const now = new Date().toISOString();
-      if (typedTile.tile_sources) {
+      // Update source last_scraped_at (only for configured sources mode)
+      if (sourceMode === "configured" && typedTile.tile_sources) {
+        const now = new Date().toISOString();
         await Promise.all(
           typedTile.tile_sources
             .filter((s) => s.is_active)
@@ -465,6 +543,7 @@ export async function POST(
         metadata: {
           execution_id: executionContext.executionId,
           chain_depth: 0,
+          source_mode: sourceMode,
           sources_total: sourceResults.length,
           sources_succeeded: successfulFetches.length,
           sources_failed: sourceResults.length - successfulFetches.length,

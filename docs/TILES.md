@@ -41,9 +41,11 @@ A **Tile** is the fundamental intelligence gathering unit. Tiles replace the leg
 - **Trigger**:
   - **Schedule**: Cron-based periodic runs (Daily, Weekly, etc.).
   - **Manual**: Triggered by user from the mosaic canvas.
-  - **API**: `POST /api/tiles/run` with `tileId`.
-- **Input**:
-  - `sources`: A list of web URLs to scrape via Firecrawl.
+  - **API**: `POST /api/tiles/run` with `tileId` and optional `urls`.
+- **Input** (priority order):
+  1. **Runtime URLs**: URLs passed in the API request body
+  2. **Configured Sources**: Stored `tile_sources` from database
+  3. **Linked Tiles**: URLs extracted from connected tiles' reports
 - **Configuration**:
   - `system_prompt`: Instructions for the LLM on how to process the scraped content.
   - `output_format`: The desired structure of the analysis (`text`, `list`, `table`, `json`).
@@ -186,12 +188,89 @@ Tiles can be configured with a `schedule_cron` for periodic execution via Vercel
 
 ### API Execution
 
+#### Internal API (authenticated session)
+
 ```http
 POST /api/tiles/run
 Content-Type: application/json
 
 {
-  "tileId": "uuid-of-tile"
+  "tileId": "uuid-of-tile",
+  "urls": ["https://example.com"]  // Optional runtime URLs
+}
+```
+
+#### External API (API key authentication)
+
+```http
+POST /api/v1/tiles/{tileId}/run
+Authorization: Bearer msk_...
+Content-Type: application/json
+
+{
+  "urls": ["https://example.com", "https://another.com"]  // Optional
+}
+```
+
+### URL Reader Source Priority
+
+For `url_reader` tiles, URLs are resolved in priority order:
+
+1. **Runtime URLs**: If `urls[]` is provided in the API request body, only those URLs are processed
+2. **Configured Sources**: If no runtime URLs, use the tile's stored `tile_sources`
+3. **Linked Tiles**: If no direct sources, extract URLs from connected tiles' latest reports
+
+This enables `url_reader` tiles to work as API-triggered scraping endpoints with **zero configured sources**.
+
+### Tile Data Endpoint
+
+Each tile exposes its data via a dedicated endpoint for consumption by other tiles or external systems.
+
+```http
+GET /api/v1/tiles/{tileId}/data
+Authorization: Bearer msk_...
+```
+
+#### Query Parameters
+
+| Parameter         | Type    | Description                                         |
+| :---------------- | :------ | :-------------------------------------------------- |
+| `for`             | string  | Requester tile type: `url_reader`, `analyzer`, etc. |
+| `include_history` | boolean | Include last 10 completed jobs (default: false)     |
+
+#### Response Formats
+
+**For `url_reader` requester:**
+```json
+{
+  "urls": ["https://extracted-url.com", ...],
+  "job_id": "uuid",
+  "created_at": "2024-01-01T00:00:00Z"
+}
+```
+
+**For `analyzer` requester:**
+```json
+{
+  "content": "Report content as string",
+  "format": "text",
+  "job_id": "uuid",
+  "created_at": "2024-01-01T00:00:00Z",
+  "source_urls": ["https://source.com"]
+}
+```
+
+**Default response:**
+```json
+{
+  "job_id": "uuid",
+  "status": "completed",
+  "created_at": "2024-01-01T00:00:00Z",
+  "result": {
+    "content": {...},
+    "format": "json",
+    "source_urls": [...]
+  }
 }
 ```
 

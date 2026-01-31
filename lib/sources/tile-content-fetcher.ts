@@ -7,6 +7,7 @@ import {
   formatSearchResultsAsMarkdown,
   searchWeb,
 } from "@/lib/search/tavily";
+import { extractUrlsFromContent } from "@/lib/tiles/extract-urls-from-job";
 import {
   sanitizeSearchQuery,
   validateUrlWithDnsCheck,
@@ -273,10 +274,7 @@ async function fetchTileReportContent(
 
   // If URL extraction is enabled, extract and fetch URLs from the report
   if (config?.extract_urls) {
-    const urls = extractUrlsFromContent(
-      typedReport.content,
-      typedReport.format,
-    );
+    const urls = extractUrlsFromContent(typedReport.content);
 
     if (urls.length > 0) {
       const extractResult = await extractMultipleUrls(urls, {
@@ -433,74 +431,6 @@ async function fetchWebSearchContent(
   }
 }
 
-// URL extraction regex - matches http/https URLs
-const URL_REGEX = /https?:\/\/[^\s\)\"\'\>\<\]\,]+/gi;
-
-/**
- * Extracts URLs from a string.
- */
-function extractUrlsFromString(text: string): string[] {
-  const matches = text.match(URL_REGEX);
-  if (!matches) return [];
-
-  // Deduplicate and clean URLs (remove trailing punctuation that might have been captured)
-  const urls = new Set<string>();
-  for (const match of matches) {
-    // Clean up trailing punctuation that's often captured
-    const cleanUrl = match.replace(/[.,;:!?)]+$/, "");
-    urls.add(cleanUrl);
-  }
-  return Array.from(urls);
-}
-
-/**
- * Recursively extracts URLs from an object (for table/json formats).
- */
-function extractUrlsFromObject(obj: unknown): string[] {
-  if (obj === null || obj === undefined) return [];
-
-  if (typeof obj === "string") {
-    return extractUrlsFromString(obj);
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.flatMap((item) => extractUrlsFromObject(item));
-  }
-
-  if (typeof obj === "object") {
-    return Object.values(obj).flatMap((value) => extractUrlsFromObject(value));
-  }
-
-  return [];
-}
-
-/**
- * Extracts URLs from report content based on its format.
- */
-function extractUrlsFromContent(content: Json, _format: string): string[] {
-  // Handle string content (text format)
-  if (typeof content === "string") {
-    return extractUrlsFromString(content);
-  }
-
-  // Handle list format - each item may contain URLs
-  if (Array.isArray(content)) {
-    return content.flatMap((item) => {
-      if (typeof item === "string") {
-        return extractUrlsFromString(item);
-      }
-      return extractUrlsFromObject(item);
-    });
-  }
-
-  // Handle table/json format - recursively find URLs in values
-  if (typeof content === "object" && content !== null) {
-    return extractUrlsFromObject(content);
-  }
-
-  return [];
-}
-
 /**
  * Formats report content based on its format type.
  */
@@ -512,6 +442,90 @@ function formatReportContent(content: Json, format: string): string {
   }
 
   return JSON.stringify(content, null, 2);
+}
+
+/**
+ * Enforces total content size limit across results.
+ * Mutates results to truncate or mark as failed when limit is exceeded.
+ */
+function enforceTotalContentLimit(
+  results: TileSourceContent[],
+  currentTotal: number,
+): number {
+  let totalContentSize = currentTotal;
+
+  for (const result of results) {
+    if (!result.success || !result.content) continue;
+
+    const contentSize = Buffer.byteLength(result.content, "utf-8");
+    totalContentSize += contentSize;
+
+    if (totalContentSize <= MAX_TOTAL_CONTENT_SIZE) continue;
+
+    const overage = totalContentSize - MAX_TOTAL_CONTENT_SIZE;
+    const allowedSize = contentSize - overage;
+
+    if (allowedSize > 0) {
+      const { content: truncated } = truncateContent(
+        result.content,
+        allowedSize,
+      );
+      result.content = truncated;
+      result.contentTruncated = true;
+      result.originalSize = contentSize;
+    } else {
+      result.success = false;
+      result.content = undefined;
+      result.error = "Total content size limit exceeded";
+    }
+  }
+
+  return totalContentSize;
+}
+
+/**
+ * Fetches a single URL and returns a TileSourceContent result.
+ */
+async function fetchSingleUrl(
+  url: string,
+  sourceId: string,
+): Promise<TileSourceContent> {
+  const urlValidation = await validateUrlWithDnsCheck(url);
+  if (!urlValidation.isValid) {
+    return {
+      sourceId,
+      sourceType: "url",
+      identifier: url,
+      success: false,
+      error: `URL validation failed: ${urlValidation.error}`,
+    };
+  }
+
+  const result = await extractUrl(url, { extractDepth: "basic" });
+
+  if (result.success && result.content) {
+    const { content, truncated, originalSize } = truncateContent(
+      result.content,
+    );
+    return {
+      sourceId,
+      sourceType: "url",
+      identifier: url,
+      success: true,
+      content,
+      title: url,
+      contentTruncated: truncated,
+      originalSize: truncated ? originalSize : undefined,
+    };
+  }
+
+  return {
+    sourceId,
+    sourceType: "url",
+    identifier: url,
+    success: false,
+    error: result.error,
+  };
 }
 
 /**
@@ -527,9 +541,7 @@ export async function fetchAllTileSourcesContent(
   const results: TileSourceContent[] = [];
   let totalContentSize = 0;
 
-  // Process in batches for concurrency control
   for (let i = 0; i < activeSources.length; i += CONCURRENCY_LIMIT) {
-    // Check timeout before each batch
     checkTimeout(context);
 
     const batch = activeSources.slice(i, i + CONCURRENCY_LIMIT);
@@ -539,35 +551,7 @@ export async function fetchAllTileSourcesContent(
       ),
     );
 
-    // Track total content size and enforce limit
-    for (const result of batchResults) {
-      if (result.success && result.content) {
-        const contentSize = Buffer.byteLength(result.content, "utf-8");
-        totalContentSize += contentSize;
-
-        // If we've exceeded the total limit, truncate remaining content
-        if (totalContentSize > MAX_TOTAL_CONTENT_SIZE) {
-          const overage = totalContentSize - MAX_TOTAL_CONTENT_SIZE;
-          const allowedSize = contentSize - overage;
-
-          if (allowedSize > 0) {
-            const { content: truncated } = truncateContent(
-              result.content,
-              allowedSize,
-            );
-            result.content = truncated;
-            result.contentTruncated = true;
-            result.originalSize = contentSize;
-          } else {
-            // No room left, mark as failed due to size
-            result.success = false;
-            result.content = undefined;
-            result.error = "Total content size limit exceeded";
-          }
-        }
-      }
-    }
-
+    totalContentSize = enforceTotalContentLimit(batchResults, totalContentSize);
     results.push(...batchResults);
   }
 
@@ -623,4 +607,81 @@ export function getTileSourceTypeBreakdown(results: TileSourceContent[]): {
     tile_report_succeeded: counts.agent_report.success,
     web_search_succeeded: counts.web_search.success,
   };
+}
+
+/**
+ * Fetches content from runtime URLs (provided via API request).
+ * Validates each URL and uses Tavily Extract with concurrency limiting.
+ */
+export async function fetchRuntimeUrlsContent(
+  urls: string[],
+  context?: ExecutionContext,
+): Promise<TileSourceContent[]> {
+  const results: TileSourceContent[] = [];
+  let totalContentSize = 0;
+
+  for (let i = 0; i < urls.length; i += CONCURRENCY_LIMIT) {
+    checkTimeout(context);
+
+    const batch = urls.slice(i, i + CONCURRENCY_LIMIT);
+    const batchResults = await Promise.all(
+      batch.map((url, batchIndex) =>
+        fetchSingleUrl(url, `runtime-${i + batchIndex}`),
+      ),
+    );
+
+    totalContentSize = enforceTotalContentLimit(batchResults, totalContentSize);
+    results.push(...batchResults);
+  }
+
+  return results;
+}
+
+/**
+ * Fetches URLs from connected tiles' reports.
+ * Returns a deduplicated list of URLs extracted from all connected tiles.
+ */
+export async function fetchLinkedTileUrls(
+  tileId: string,
+  adminClient: SupabaseClient<Database>,
+): Promise<string[]> {
+  const { data: connectionsData } = await adminClient
+    .from("tile_connections")
+    .select("source_tile_id")
+    .eq("target_tile_id", tileId);
+
+  const connections = connectionsData as { source_tile_id: string }[] | null;
+
+  if (!connections || connections.length === 0) {
+    return [];
+  }
+
+  const sourceTileIds = connections.map((c) => c.source_tile_id);
+
+  // Fetch all reports in a single query
+  const { data: reportsData } = await adminClient
+    .from("tile_reports")
+    .select("tile_id, content, format")
+    .in("tile_id", sourceTileIds)
+    .order("created_at", { ascending: false });
+
+  const reports = reportsData as
+    | { tile_id: string; content: Json; format: string }[]
+    | null;
+
+  if (!reports || reports.length === 0) {
+    return [];
+  }
+
+  // Get the latest report per tile (first occurrence due to ordering)
+  const seenTiles = new Set<string>();
+  const allUrls: string[] = [];
+
+  for (const report of reports) {
+    if (seenTiles.has(report.tile_id)) continue;
+    seenTiles.add(report.tile_id);
+    allUrls.push(...extractUrlsFromContent(report.content));
+  }
+
+  return [...new Set(allUrls)];
 }
