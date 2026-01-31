@@ -21,6 +21,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 import { AdvancedScheduler } from "@/components/tiles/advanced-scheduler";
 import { Badge } from "@/components/ui/badge";
@@ -1077,9 +1078,9 @@ export function TileDrawer({
 
                         {isExpanded && (
                           <div className="border-t border-border p-4">
-                            <pre className="whitespace-pre-wrap text-sm font-mono bg-muted/30 rounded p-3 max-h-[300px] overflow-y-auto">
-                              {contentStr}
-                            </pre>
+                            <div className="prose prose-sm prose-invert max-w-none rounded-lg border border-border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
+                              <ReactMarkdown>{contentStr}</ReactMarkdown>
+                            </div>
                             {result.source_urls &&
                               result.source_urls.length > 0 && (
                                 <div className="mt-3 pt-3 border-t border-border">
