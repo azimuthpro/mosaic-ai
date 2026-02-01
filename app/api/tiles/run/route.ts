@@ -276,6 +276,7 @@ export async function POST(request: Request): Promise<Response> {
         typedTile.system_prompt || "",
         typedTile.output_format,
         typedTile.language,
+        typedTile.output_schema,
       );
 
       if (!analysis.success) {

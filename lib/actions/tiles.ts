@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type {
   AgentReportSourceConfig,
-  DisplayFormat,
   Json,
   LanguageCode,
   OutputFormat,
@@ -127,9 +126,9 @@ interface CreateTileParams {
   gridHeight?: number;
   systemPrompt?: string;
   outputFormat?: OutputFormat;
+  outputSchema?: string;
   language?: LanguageCode;
   scheduleCron?: string;
-  displayFormat?: DisplayFormat;
   sources?: {
     url?: string;
     name?: string;
@@ -266,11 +265,11 @@ export async function updateTile(
     updateData.system_prompt = params.systemPrompt || null;
   if (params.outputFormat !== undefined)
     updateData.output_format = params.outputFormat;
+  if (params.outputSchema !== undefined)
+    updateData.output_schema = params.outputSchema || null;
   if (params.language !== undefined) updateData.language = params.language;
   if (params.scheduleCron !== undefined)
     updateData.schedule_cron = params.scheduleCron || null;
-  if (params.displayFormat !== undefined)
-    updateData.display_format = params.displayFormat;
 
   const { data: tileData, error } = await supabase
     .from("tiles")
@@ -456,22 +455,12 @@ export async function addTileSource(params: AddTileSourceParams) {
     return { error: "Search query is required for web_search source type" };
   }
 
-  // Build config based on source type
-  function buildSourceConfig(): Json {
-    switch (sourceType) {
-      case "url":
-        return params.urlConfig ? (params.urlConfig as unknown as Json) : {};
-      case "agent_report":
-        return params.agentReportConfig
-          ? (params.agentReportConfig as unknown as Json)
-          : {};
-      case "web_search":
-        return params.config ? (params.config as unknown as Json) : {};
-      default:
-        return {};
-    }
-  }
-  const config = buildSourceConfig();
+  const configByType: Record<SourceType, unknown> = {
+    url: params.urlConfig,
+    agent_report: params.agentReportConfig,
+    web_search: params.config,
+  };
+  const config = (configByType[sourceType] as Json) ?? {};
 
   const sourceInsert: TileSourceInsert = {
     tile_id: params.tileId,

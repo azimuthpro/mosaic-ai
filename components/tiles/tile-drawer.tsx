@@ -24,6 +24,7 @@ import { useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { AdvancedScheduler } from "@/components/tiles/advanced-scheduler";
+import { ZodSchemaEditor } from "@/components/tiles/zod-schema-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,8 +68,8 @@ import {
 } from "@/lib/actions/tiles";
 import { formatDuration, formatRelativeTime } from "@/lib/utils/format";
 import type {
-  DisplayFormat,
   FetchMode,
+  OutputFormat,
   TileType,
   TileWithSources,
 } from "@/types/database";
@@ -239,8 +240,9 @@ export function TileDrawer({
   const [isAddingSource, setIsAddingSource] = useState(false);
   const [deletingSourceId, setDeletingSourceId] = useState<string | null>(null);
 
-  // Display format state
-  const [displayFormat, setDisplayFormat] = useState<DisplayFormat>("markdown");
+  // Output format state
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>("text");
+  const [outputSchema, setOutputSchema] = useState<string>("");
 
   // Load execution status when tile changes
   useEffect(() => {
@@ -256,7 +258,8 @@ export function TileDrawer({
       setInstructions(tile.system_prompt || "");
       setIsActive(tile.is_active);
       setScheduleCron(tile.schedule_cron);
-      setDisplayFormat(tile.display_format || "markdown");
+      setOutputFormat(tile.output_format || "text");
+      setOutputSchema(tile.output_schema || "");
 
       // Reset source form based on tile type
       setNewSourceType(DEFAULT_SOURCE_TYPES[tile.tile_type]);
@@ -341,7 +344,8 @@ export function TileDrawer({
         name,
         systemPrompt: instructions,
         scheduleCron: scheduleCron ?? undefined,
-        displayFormat,
+        outputFormat,
+        outputSchema: outputFormat === "json" ? outputSchema : undefined,
       });
     } catch (error) {
       console.error("Failed to save config:", error);
@@ -1062,27 +1066,36 @@ export function TileDrawer({
                 <Separator />
 
                 <div className="space-y-2">
-                  <Label>Results Display Format</Label>
+                  <Label>Output Format</Label>
                   <Select
-                    value={displayFormat}
-                    onValueChange={(v) => setDisplayFormat(v as DisplayFormat)}
+                    value={outputFormat}
+                    onValueChange={(v) => setOutputFormat(v as OutputFormat)}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="markdown">
-                        Markdown (rendered)
-                      </SelectItem>
-                      <SelectItem value="code">Code (raw JSON/text)</SelectItem>
+                      <SelectItem value="text">Text (Markdown)</SelectItem>
+                      <SelectItem value="json">JSON (Structured)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    {displayFormat === "markdown"
-                      ? "Results are rendered as formatted text with lists and tables"
-                      : "Results are displayed as raw text in a code block"}
+                    {outputFormat === "text"
+                      ? "AI generates markdown text, displayed as rendered content"
+                      : "AI generates structured JSON, displayed as a code block"}
                   </p>
                 </div>
+
+                {outputFormat === "json" && (
+                  <>
+                    <Separator />
+                    <ZodSchemaEditor
+                      value={outputSchema}
+                      onChange={setOutputSchema}
+                      disabled={isSaving}
+                    />
+                  </>
+                )}
 
                 <Button
                   onClick={handleSaveConfig}
@@ -1114,10 +1127,14 @@ export function TileDrawer({
                 <div className="space-y-3">
                   {jobResults.map((result) => {
                     const isExpanded = expandedResultId === result.id;
+                    // For text format, extract the text property; for JSON, stringify
+                    const contentObj = result.content as { text?: string } | null;
                     const contentStr =
-                      typeof result.content === "string"
-                        ? result.content
-                        : JSON.stringify(result.content, null, 2);
+                      result.format === "text" && contentObj?.text
+                        ? contentObj.text
+                        : typeof result.content === "string"
+                          ? result.content
+                          : JSON.stringify(result.content, null, 2);
 
                     return (
                       <div
@@ -1149,7 +1166,7 @@ export function TileDrawer({
 
                         {isExpanded && (
                           <div className="border-t border-border p-4">
-                            {tile.display_format === "code" ? (
+                            {result.format === "json" ? (
                               <div className="rounded-lg border border-border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
                                 <pre className="whitespace-pre-wrap break-words text-sm font-mono">
                                   <code>{contentStr}</code>

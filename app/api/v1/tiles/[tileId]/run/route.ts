@@ -471,6 +471,7 @@ export async function POST(
         typedTile.system_prompt || "",
         typedTile.output_format,
         typedTile.language,
+        typedTile.output_schema,
       );
 
       if (!analysis.success) {

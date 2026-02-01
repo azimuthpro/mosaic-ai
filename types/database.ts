@@ -6,13 +6,12 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type OutputFormat = "text" | "list" | "table" | "json";
+export type OutputFormat = "text" | "json";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 export type MemberRole = "owner" | "admin" | "member";
 export type InvitationStatus = "pending" | "accepted" | "expired" | "cancelled";
 export type LanguageCode = "en" | "pl" | "es" | "it" | "de";
 export type SourceType = "url" | "agent_report" | "web_search";
-export type DisplayFormat = "markdown" | "code";
 export type FetchMode = "fast" | "memory";
 
 // New Tile types
@@ -413,12 +412,12 @@ export interface Database {
           grid_height: number;
           system_prompt: string | null;
           output_format: OutputFormat;
+          output_schema: string | null;
           language: LanguageCode;
           schedule_cron: string | null;
           is_active: boolean;
           max_chain_depth: number;
           execution_timeout_ms: number;
-          display_format: DisplayFormat;
           created_at: string;
           updated_at: string;
         };
@@ -436,12 +435,12 @@ export interface Database {
           grid_height?: number;
           system_prompt?: string | null;
           output_format?: OutputFormat;
+          output_schema?: string | null;
           language?: LanguageCode;
           schedule_cron?: string | null;
           is_active?: boolean;
           max_chain_depth?: number;
           execution_timeout_ms?: number;
-          display_format?: DisplayFormat;
           created_at?: string;
           updated_at?: string;
         };
@@ -459,12 +458,12 @@ export interface Database {
           grid_height?: number;
           system_prompt?: string | null;
           output_format?: OutputFormat;
+          output_schema?: string | null;
           language?: LanguageCode;
           schedule_cron?: string | null;
           is_active?: boolean;
           max_chain_depth?: number;
           execution_timeout_ms?: number;
-          display_format?: DisplayFormat;
           created_at?: string;
           updated_at?: string;
         };

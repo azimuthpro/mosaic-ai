@@ -13,19 +13,47 @@ interface AnalysisResult {
   error?: string;
 }
 
-function getFormatInstructions(format: OutputFormat): string {
-  switch (format) {
-    case "text":
-      return "Provide your response as a clear, well-structured paragraph or paragraphs of text.";
-    case "list":
-      return 'Provide your response as a JSON array of strings, where each string is a bullet point. Example: ["Point 1", "Point 2", "Point 3"]';
-    case "table":
-      return 'Provide your response as a JSON object with "headers" (array of column names) and "rows" (array of arrays with values). Example: {"headers": ["Name", "Value"], "rows": [["Item 1", "100"], ["Item 2", "200"]]}';
-    case "json":
-      return "Provide your response as a valid JSON object with structured data.";
-    default:
-      return "Provide your response as clear text.";
+function stripCodeFences(text: string): string {
+  // Remove markdown code fences (```markdown, ```json, ``` etc.)
+  const match = text.match(/^```\w*\n?([\s\S]*?)```$/);
+  return match?.[1]?.trim() ?? text.trim();
+}
+
+function parseResponseContent(text: string, format: OutputFormat): Json {
+  if (format === "text") {
+    // Strip any code fences the AI might have added
+    return { text: stripCodeFences(text) };
   }
+
+  try {
+    const jsonStr = stripCodeFences(text);
+    const parsed = JSON.parse(jsonStr);
+    return Array.isArray(parsed) ? { items: parsed } : parsed;
+  } catch {
+    return { text, parseError: true };
+  }
+}
+
+function getFormatInstructions(
+  format: OutputFormat,
+  outputSchema?: string | null,
+): string {
+  if (format === "text") {
+    return "Provide your response as clear, well-structured markdown text. Do NOT wrap your response in code fences.";
+  }
+
+  // JSON format
+  if (outputSchema) {
+    return `You MUST respond with a valid JSON object that conforms to this Zod schema:
+
+\`\`\`typescript
+${outputSchema}
+\`\`\`
+
+Output ONLY the JSON object, no markdown code blocks.`;
+  }
+
+  return "Provide your response as a valid JSON object. Output ONLY the JSON object, no markdown code blocks.";
 }
 
 export async function analyzeContent(
@@ -33,9 +61,13 @@ export async function analyzeContent(
   systemPrompt: string,
   outputFormat: OutputFormat,
   language: LanguageCode = "en",
+  outputSchema?: string | null,
 ): Promise<AnalysisResult> {
   try {
-    const formatInstructions = getFormatInstructions(outputFormat);
+    const formatInstructions = getFormatInstructions(
+      outputFormat,
+      outputSchema,
+    );
     const languageInstruction = getLanguageInstruction(language);
 
     const combinedContent = scrapedContent.join("\n\n---\n\n");
@@ -54,28 +86,7 @@ ${combinedContent}`;
       prompt: fullPrompt,
     });
 
-    // Parse the response based on format
-    let content: Json;
-
-    if (outputFormat === "text") {
-      content = { text };
-    } else {
-      // Try to parse JSON from the response
-      try {
-        // Find JSON in the response (might be wrapped in markdown code blocks)
-        const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [
-          null,
-          text,
-        ];
-        const jsonStr = jsonMatch[1] || text;
-
-        const parsed = JSON.parse(jsonStr.trim());
-        content = Array.isArray(parsed) ? { items: parsed } : parsed;
-      } catch {
-        // If parsing fails, wrap in text format
-        content = { text, parseError: true };
-      }
-    }
+    const content = parseResponseContent(text, outputFormat);
 
     return {
       success: true,
