@@ -66,7 +66,12 @@ import {
   updateTile,
 } from "@/lib/actions/tiles";
 import { formatDuration, formatRelativeTime } from "@/lib/utils/format";
-import type { TileType, TileWithSources } from "@/types/database";
+import type {
+  DisplayFormat,
+  FetchMode,
+  TileType,
+  TileWithSources,
+} from "@/types/database";
 
 interface TileDrawerProps {
   tile: TileWithSources | null;
@@ -105,6 +110,45 @@ const DEFAULT_SOURCE_TYPES: Record<
   recursive: "agent_report",
   analyzer: "agent_report",
 };
+
+function renderSourceTypeOptions(tileType: TileType): React.ReactNode {
+  const urlOption = (
+    <SelectItem key="url" value="url">
+      <div className="flex items-center gap-2">
+        <Globe className="h-4 w-4 text-cyan-400" />
+        URL
+      </div>
+    </SelectItem>
+  );
+
+  const tileReportOption = (
+    <SelectItem key="agent_report" value="agent_report">
+      <div className="flex items-center gap-2">
+        <Link2 className="h-4 w-4 text-teal-400" />
+        Tile Report
+      </div>
+    </SelectItem>
+  );
+
+  const webSearchOption = (
+    <SelectItem key="web_search" value="web_search">
+      <div className="flex items-center gap-2">
+        <Search className="h-4 w-4 text-pink-400" />
+        Web Search
+      </div>
+    </SelectItem>
+  );
+
+  switch (tileType) {
+    case "url_reader":
+      return [urlOption, tileReportOption];
+    case "web_search":
+      return webSearchOption;
+    case "recursive":
+    case "analyzer":
+      return tileReportOption;
+  }
+}
 
 interface SourceIconProps {
   type: keyof typeof SOURCE_TYPE_CONFIG;
@@ -186,6 +230,7 @@ export function TileDrawer({
   const [selectedTileId, setSelectedTileId] = useState<string>("");
   const [extractUrlsFromReport, setExtractUrlsFromReport] = useState(false);
   const [maxUrls, setMaxUrls] = useState(10);
+  const [sourceFetchMode, setSourceFetchMode] = useState<FetchMode>("fast");
   const [availableTiles, setAvailableTiles] = useState<
     { id: string; name: string; tile_type: string }[]
   >([]);
@@ -193,6 +238,9 @@ export function TileDrawer({
 
   const [isAddingSource, setIsAddingSource] = useState(false);
   const [deletingSourceId, setDeletingSourceId] = useState<string | null>(null);
+
+  // Display format state
+  const [displayFormat, setDisplayFormat] = useState<DisplayFormat>("markdown");
 
   // Load execution status when tile changes
   useEffect(() => {
@@ -208,6 +256,7 @@ export function TileDrawer({
       setInstructions(tile.system_prompt || "");
       setIsActive(tile.is_active);
       setScheduleCron(tile.schedule_cron);
+      setDisplayFormat(tile.display_format || "markdown");
 
       // Reset source form based on tile type
       setNewSourceType(DEFAULT_SOURCE_TYPES[tile.tile_type]);
@@ -218,6 +267,7 @@ export function TileDrawer({
       setSelectedTileId("");
       setExtractUrlsFromReport(false);
       setMaxUrls(10);
+      setSourceFetchMode("fast");
     }
   }, [tile, open]);
 
@@ -291,6 +341,7 @@ export function TileDrawer({
         name,
         systemPrompt: instructions,
         scheduleCron: scheduleCron ?? undefined,
+        displayFormat,
       });
     } catch (error) {
       console.error("Failed to save config:", error);
@@ -406,6 +457,7 @@ export function TileDrawer({
           extract_urls: extractUrlsFromReport,
           extract_depth: extractDepth,
           max_urls: maxUrls,
+          fetch_mode: sourceFetchMode,
         };
       }
 
@@ -422,6 +474,7 @@ export function TileDrawer({
         setSelectedTileId("");
         setExtractUrlsFromReport(false);
         setMaxUrls(10);
+        setSourceFetchMode("fast");
       }
     } catch (error) {
       console.error("Failed to add source:", error);
@@ -662,42 +715,7 @@ export function TileDrawer({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {/* URL Reader tiles: url and agent_report sources */}
-                        {tile.tile_type === "url_reader" && (
-                          <>
-                            <SelectItem value="url">
-                              <div className="flex items-center gap-2">
-                                <Globe className="h-4 w-4 text-cyan-400" />
-                                URL
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="agent_report">
-                              <div className="flex items-center gap-2">
-                                <Link2 className="h-4 w-4 text-teal-400" />
-                                Tile Report
-                              </div>
-                            </SelectItem>
-                          </>
-                        )}
-                        {/* Web Search tiles: web_search sources */}
-                        {tile.tile_type === "web_search" && (
-                          <SelectItem value="web_search">
-                            <div className="flex items-center gap-2">
-                              <Search className="h-4 w-4 text-pink-400" />
-                              Web Search
-                            </div>
-                          </SelectItem>
-                        )}
-                        {/* Pipeline/Analyzer tiles: agent_report sources */}
-                        {(tile.tile_type === "recursive" ||
-                          tile.tile_type === "analyzer") && (
-                          <SelectItem value="agent_report">
-                            <div className="flex items-center gap-2">
-                              <Link2 className="h-4 w-4 text-teal-400" />
-                              Tile Report
-                            </div>
-                          </SelectItem>
-                        )}
+                        {renderSourceTypeOptions(tile.tile_type)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -766,6 +784,34 @@ export function TileDrawer({
                             )}
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      {/* Fetch mode toggle */}
+                      <div className="space-y-2">
+                        <Label>Fetch Mode</Label>
+                        <Select
+                          value={sourceFetchMode}
+                          onValueChange={(v) =>
+                            setSourceFetchMode(v as FetchMode)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="fast">
+                              Fast (latest only)
+                            </SelectItem>
+                            <SelectItem value="memory">
+                              Memory (with history)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          {sourceFetchMode === "fast"
+                            ? "Fetches only the latest report from the source tile"
+                            : "Includes historical summaries from the last month"}
+                        </p>
                       </div>
 
                       {/* URL extraction options for url_reader tiles */}
@@ -1013,6 +1059,31 @@ export function TileDrawer({
                   disabled={isSaving}
                 />
 
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label>Results Display Format</Label>
+                  <Select
+                    value={displayFormat}
+                    onValueChange={(v) => setDisplayFormat(v as DisplayFormat)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="markdown">
+                        Markdown (rendered)
+                      </SelectItem>
+                      <SelectItem value="code">Code (raw JSON/text)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {displayFormat === "markdown"
+                      ? "Results are rendered as formatted text with lists and tables"
+                      : "Results are displayed as raw text in a code block"}
+                  </p>
+                </div>
+
                 <Button
                   onClick={handleSaveConfig}
                   disabled={isSaving}
@@ -1078,9 +1149,17 @@ export function TileDrawer({
 
                         {isExpanded && (
                           <div className="border-t border-border p-4">
-                            <div className="prose prose-sm prose-invert max-w-none rounded-lg border border-border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
-                              <ReactMarkdown>{contentStr}</ReactMarkdown>
-                            </div>
+                            {tile.display_format === "code" ? (
+                              <div className="rounded-lg border border-border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
+                                <pre className="whitespace-pre-wrap break-words text-sm font-mono">
+                                  <code>{contentStr}</code>
+                                </pre>
+                              </div>
+                            ) : (
+                              <div className="prose prose-sm prose-invert max-w-none rounded-lg border border-border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
+                                <ReactMarkdown>{contentStr}</ReactMarkdown>
+                              </div>
+                            )}
                             {result.source_urls &&
                               result.source_urls.length > 0 && (
                                 <div className="mt-3 pt-3 border-t border-border">

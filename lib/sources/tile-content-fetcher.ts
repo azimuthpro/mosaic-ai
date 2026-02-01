@@ -15,6 +15,7 @@ import {
 import type {
   AgentReportSourceConfig,
   Database,
+  FetchMode,
   Json,
   TileReport,
   TileSource,
@@ -203,9 +204,98 @@ async function fetchUrlContent(source: TileSource): Promise<TileSourceContent> {
   };
 }
 
+// Memory mode constants
+const MEMORY_HISTORY_LIMIT = 10; // Max historical reports to include
+const MEMORY_HISTORY_DAYS = 30; // Look back period in days
+const MEMORY_SUMMARY_LENGTH = 500; // Max chars for historical summaries
+
+const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+};
+
+function formatReportDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString("en-US", DATE_FORMAT_OPTIONS);
+}
+
+function truncateToSummary(content: string): string {
+  if (content.length <= MEMORY_SUMMARY_LENGTH) {
+    return content;
+  }
+  return content.substring(0, MEMORY_SUMMARY_LENGTH) + "...";
+}
+
+/**
+ * Fetches historical reports with summaries for memory mode.
+ * Returns the latest report in full, plus truncated summaries of previous reports.
+ */
+async function fetchTileReportWithMemory(
+  tileId: string,
+  tileName: string,
+  adminClient: SupabaseClient<Database>,
+): Promise<{ content: string; latestReportId: string; reportCount: number }> {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - MEMORY_HISTORY_DAYS);
+
+  const { data: reports, error } = await adminClient
+    .from("tile_job_results")
+    .select(
+      `
+      id,
+      content,
+      format,
+      created_at,
+      tile_jobs!inner (status)
+    `,
+    )
+    .eq("tile_id", tileId)
+    .gte("created_at", cutoffDate.toISOString())
+    .order("created_at", { ascending: false })
+    .limit(MEMORY_HISTORY_LIMIT);
+
+  if (error || !reports || reports.length === 0) {
+    throw new Error(`No reports found for tile "${tileName}"`);
+  }
+
+  const typedReports = reports as (TileReport & {
+    tile_jobs: { status: string };
+  })[];
+
+  const latestReport = typedReports[0];
+  const latestContent = formatReportContent(
+    latestReport.content,
+    latestReport.format,
+  );
+  const latestDate = formatReportDate(latestReport.created_at);
+
+  let combinedContent = `## Latest Report (${latestDate})\n\n${latestContent}`;
+
+  if (typedReports.length > 1) {
+    const historicalReports = typedReports.slice(1);
+    const historySummaries = historicalReports.map((report) => {
+      const reportDate = formatReportDate(report.created_at);
+      const fullContent = formatReportContent(report.content, report.format);
+      const summary = truncateToSummary(fullContent);
+      return `### ${reportDate}\n${summary}`;
+    });
+
+    combinedContent += `\n\n---\n\n## Historical Context (${historicalReports.length} previous reports)\n\n${historySummaries.join("\n\n")}`;
+  }
+
+  return {
+    content: combinedContent,
+    latestReportId: latestReport.id,
+    reportCount: typedReports.length,
+  };
+}
+
 /**
  * Fetches the latest successful report from a referenced tile.
  * Optionally extracts URLs from the report and fetches their content.
+ * Supports "memory" mode for including historical context.
  */
 async function fetchTileReportContent(
   source: TileSource,
@@ -238,7 +328,53 @@ async function fetchTileReportContent(
   const tile = tileData as { id: string; name: string } | null;
   const tileName = tile?.name || "Unknown Tile";
 
-  // Get the latest successful report from the referenced tile
+  const config = source.config as AgentReportSourceConfig | null;
+  const fetchMode: FetchMode = config?.fetch_mode || "fast";
+
+  // Handle memory mode - fetch with historical context
+  if (fetchMode === "memory") {
+    try {
+      const memoryResult = await fetchTileReportWithMemory(
+        source.source_reference_id,
+        tileName,
+        adminClient,
+      );
+
+      const { content, truncated, originalSize } = truncateContent(
+        memoryResult.content,
+      );
+
+      return {
+        sourceId: source.id,
+        sourceType: "agent_report",
+        identifier: tileName,
+        success: true,
+        content,
+        title: `Report from ${tileName} (with ${memoryResult.reportCount} reports)`,
+        contentTruncated: truncated,
+        originalSize: truncated ? originalSize : undefined,
+        metadata: {
+          reportId: memoryResult.latestReportId,
+          tileId: source.source_reference_id,
+          tileName,
+        },
+      };
+    } catch (err) {
+      return {
+        sourceId: source.id,
+        sourceType: "agent_report",
+        identifier: tileName,
+        success: false,
+        error: err instanceof Error ? err.message : "Failed to fetch reports",
+        metadata: {
+          tileId: source.source_reference_id,
+          tileName,
+        },
+      };
+    }
+  }
+
+  // Fast mode (default): Get the latest successful report from the referenced tile
   const { data: report, error } = await adminClient
     .from("tile_job_results")
     .select(
@@ -270,7 +406,6 @@ async function fetchTileReportContent(
   }
 
   const typedReport = report as TileReport & { tile_jobs: { status: string } };
-  const config = source.config as AgentReportSourceConfig | null;
 
   // If URL extraction is enabled, extract and fetch URLs from the report
   if (config?.extract_urls) {
@@ -455,13 +590,18 @@ function enforceTotalContentLimit(
   let totalContentSize = currentTotal;
 
   for (const result of results) {
-    if (!result.success || !result.content) continue;
+    if (!result.success || !result.content) {
+      continue;
+    }
 
     const contentSize = Buffer.byteLength(result.content, "utf-8");
     totalContentSize += contentSize;
 
-    if (totalContentSize <= MAX_TOTAL_CONTENT_SIZE) continue;
+    if (totalContentSize <= MAX_TOTAL_CONTENT_SIZE) {
+      continue;
+    }
 
+    // Content exceeds limit - determine how much can be kept
     const overage = totalContentSize - MAX_TOTAL_CONTENT_SIZE;
     const allowedSize = contentSize - overage;
 

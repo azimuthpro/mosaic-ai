@@ -12,6 +12,8 @@ export type MemberRole = "owner" | "admin" | "member";
 export type InvitationStatus = "pending" | "accepted" | "expired" | "cancelled";
 export type LanguageCode = "en" | "pl" | "es" | "it" | "de";
 export type SourceType = "url" | "agent_report" | "web_search";
+export type DisplayFormat = "markdown" | "code";
+export type FetchMode = "fast" | "memory";
 
 // New Tile types
 export type TileType = "url_reader" | "web_search" | "recursive" | "analyzer";
@@ -34,6 +36,7 @@ export interface AgentReportSourceConfig {
   extract_urls?: boolean; // Enable URL extraction from report
   extract_depth?: "basic" | "advanced"; // Depth for URL extraction
   max_urls?: number; // Max URLs to extract (default: 10)
+  fetch_mode?: FetchMode; // "fast" = latest only, "memory" = with historical context
 }
 
 export type SkillCategory =
@@ -415,6 +418,7 @@ export interface Database {
           is_active: boolean;
           max_chain_depth: number;
           execution_timeout_ms: number;
+          display_format: DisplayFormat;
           created_at: string;
           updated_at: string;
         };
@@ -437,6 +441,7 @@ export interface Database {
           is_active?: boolean;
           max_chain_depth?: number;
           execution_timeout_ms?: number;
+          display_format?: DisplayFormat;
           created_at?: string;
           updated_at?: string;
         };
@@ -459,6 +464,7 @@ export interface Database {
           is_active?: boolean;
           max_chain_depth?: number;
           execution_timeout_ms?: number;
+          display_format?: DisplayFormat;
           created_at?: string;
           updated_at?: string;
         };

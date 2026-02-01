@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type {
   AgentReportSourceConfig,
+  DisplayFormat,
   Json,
   LanguageCode,
   OutputFormat,
@@ -128,6 +129,7 @@ interface CreateTileParams {
   outputFormat?: OutputFormat;
   language?: LanguageCode;
   scheduleCron?: string;
+  displayFormat?: DisplayFormat;
   sources?: {
     url?: string;
     name?: string;
@@ -267,6 +269,8 @@ export async function updateTile(
   if (params.language !== undefined) updateData.language = params.language;
   if (params.scheduleCron !== undefined)
     updateData.schedule_cron = params.scheduleCron || null;
+  if (params.displayFormat !== undefined)
+    updateData.display_format = params.displayFormat;
 
   const { data: tileData, error } = await supabase
     .from("tiles")
