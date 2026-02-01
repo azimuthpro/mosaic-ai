@@ -83,17 +83,6 @@ export function CreateMosaicDialog({ trigger }: CreateMosaicDialogProps) {
                 disabled={isLoading}
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (optional)</Label>
-              <Textarea
-                id="description"
-                name="description"
-                placeholder="Track market trends, competitor activity, and news..."
-                rows={3}
-                disabled={isLoading}
-              />
-            </div>
           </div>
 
           <DialogFooter>

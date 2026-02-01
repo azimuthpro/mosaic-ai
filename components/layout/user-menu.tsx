@@ -49,7 +49,7 @@ export function UserMenu({ user }: UserMenuProps) {
     router.refresh();
   }
 
-  function handleDashboard(): void {
+  function handleMosaics(): void {
     router.push("/mosaics");
   }
 
@@ -77,9 +77,9 @@ export function UserMenu({ user }: UserMenuProps) {
             </p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuItem onClick={handleDashboard}>
+        <DropdownMenuItem onClick={handleMosaics}>
           <DashboardIcon className="mr-2 h-4 w-4" />
-          <span>Dashboard</span>
+          <span>Mosaics</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleSignOut}>
           <LogoutIcon className="mr-2 h-4 w-4" />

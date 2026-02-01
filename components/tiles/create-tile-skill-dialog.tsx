@@ -47,12 +47,10 @@ export function CreateTileSkillDialog({
 
   // Initialize state from editing skill or empty values
   const initialName = editingSkill?.name ?? "";
-  const initialDescription = editingSkill?.description ?? "";
   const initialPrompt = editingSkill?.prompt ?? "";
   const initialCategory = editingSkill?.category ?? "custom";
 
   const [name, setName] = useState(initialName);
-  const [description, setDescription] = useState(initialDescription);
   const [prompt, setPrompt] = useState(initialPrompt);
   const [category, setCategory] = useState<TileSkillCategory>(initialCategory);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,7 +59,6 @@ export function CreateTileSkillDialog({
   // Reset state when editingSkill changes (dialog opens with different skill)
   if (editingSkill && name !== editingSkill.name && !isLoading) {
     setName(editingSkill.name);
-    setDescription(editingSkill.description ?? "");
     setPrompt(editingSkill.prompt);
     setCategory(editingSkill.category);
     setError(null);
@@ -71,7 +68,6 @@ export function CreateTileSkillDialog({
     if (!newOpen) {
       // Reset form when closing
       setName("");
-      setDescription("");
       setPrompt("");
       setCategory("custom");
       setError(null);
@@ -101,7 +97,6 @@ export function CreateTileSkillDialog({
     if (isEditing && editingSkill) {
       result = await updateTileSkill(editingSkill.id, {
         name: name.trim(),
-        description: description.trim() || undefined,
         prompt: prompt.trim(),
         category,
       });
@@ -110,7 +105,6 @@ export function CreateTileSkillDialog({
         mosaicId,
         tileType,
         name: name.trim(),
-        description: description.trim() || undefined,
         prompt: prompt.trim(),
         category,
       });
@@ -156,17 +150,6 @@ export function CreateTileSkillDialog({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="My Custom Analyzer"
                 required
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="skill-description">Description (optional)</Label>
-              <Input
-                id="skill-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="A brief description of what this skill does"
                 disabled={isLoading}
               />
             </div>
