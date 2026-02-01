@@ -54,6 +54,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  deleteTileJobResult,
   getTileExecutionStatus,
   getTileJobResults,
   type TileExecutionStatus,
@@ -239,6 +240,7 @@ export function TileDrawer({
 
   const [isAddingSource, setIsAddingSource] = useState(false);
   const [deletingSourceId, setDeletingSourceId] = useState<string | null>(null);
+  const [deletingResultId, setDeletingResultId] = useState<string | null>(null);
 
   // Output format state
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("text");
@@ -502,6 +504,29 @@ export function TileDrawer({
       alert("Failed to delete source");
     } finally {
       setDeletingSourceId(null);
+    }
+  };
+
+  const handleDeleteJobResult = async (resultId: string) => {
+    if (!confirm("Are you sure you want to delete this job result?")) return;
+
+    setDeletingResultId(resultId);
+    try {
+      const result = await deleteTileJobResult(resultId);
+      if (result.error) {
+        alert(result.error);
+      } else {
+        // Remove from local state
+        setJobResults((prev) => prev.filter((r) => r.id !== resultId));
+        if (expandedResultId === resultId) {
+          setExpandedResultId(null);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to delete job result:", error);
+      alert("Failed to delete job result");
+    } finally {
+      setDeletingResultId(null);
     }
   };
 
@@ -1128,7 +1153,9 @@ export function TileDrawer({
                   {jobResults.map((result) => {
                     const isExpanded = expandedResultId === result.id;
                     // For text format, extract the text property; for JSON, stringify
-                    const contentObj = result.content as { text?: string } | null;
+                    const contentObj = result.content as {
+                      text?: string;
+                    } | null;
                     const contentStr =
                       result.format === "text" && contentObj?.text
                         ? contentObj.text
@@ -1141,15 +1168,15 @@ export function TileDrawer({
                         key={result.id}
                         className="rounded-lg border border-border bg-muted/20 overflow-hidden"
                       >
-                        <button
-                          onClick={() =>
-                            setExpandedResultId(isExpanded ? null : result.id)
-                          }
-                          className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-between px-4 py-3">
+                          <button
+                            onClick={() =>
+                              setExpandedResultId(isExpanded ? null : result.id)
+                            }
+                            className="flex-1 flex items-center gap-3 hover:bg-muted/30 transition-colors text-left"
+                          >
                             <FileText className="h-4 w-4 text-muted-foreground" />
-                            <div className="text-left">
+                            <div>
                               <p className="text-sm font-medium">
                                 {formatRelativeTime(result.created_at)}
                               </p>
@@ -1158,11 +1185,29 @@ export function TileDrawer({
                                 {result.format}
                               </p>
                             </div>
+                          </button>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {isExpanded ? "Collapse" : "Expand"}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-red-400"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteJobResult(result.id);
+                              }}
+                              disabled={deletingResultId === result.id}
+                            >
+                              {deletingResultId === result.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
                           </div>
-                          <Badge variant="outline" className="text-xs">
-                            {isExpanded ? "Collapse" : "Expand"}
-                          </Badge>
-                        </button>
+                        </div>
 
                         {isExpanded && (
                           <div className="border-t border-border p-4">

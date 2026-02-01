@@ -191,3 +191,52 @@ export async function getTileJobResults(
 
 // Backwards compatible alias
 export const getTileReports = getTileJobResults;
+
+/**
+ * Delete a tile job result (owners and admins only)
+ */
+export async function deleteTileJobResult(
+  resultId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const user = await getUser();
+
+  if (!user) {
+    return { success: false, error: "Not authenticated" };
+  }
+
+  const { error } = await supabase
+    .from("tile_job_results")
+    .delete()
+    .eq("id", resultId);
+
+  if (error) {
+    console.error("Error deleting tile job result:", error);
+    return { success: false, error: "Failed to delete job result" };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Delete a tile job and its results (owners and admins only)
+ */
+export async function deleteTileJob(
+  jobId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const user = await getUser();
+
+  if (!user) {
+    return { success: false, error: "Not authenticated" };
+  }
+
+  const { error } = await supabase.from("tile_jobs").delete().eq("id", jobId);
+
+  if (error) {
+    console.error("Error deleting tile job:", error);
+    return { success: false, error: "Failed to delete job" };
+  }
+
+  return { success: true };
+}
