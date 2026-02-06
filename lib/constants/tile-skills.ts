@@ -192,14 +192,14 @@ Balance depth with clarity. Cite sources throughout.`,
   },
 ];
 
-// Recursive (Pipeline) Skills
-const RECURSIVE_SKILLS: DefaultTileSkill[] = [
+// Analyzer Skills
+const ANALYZER_SKILLS: DefaultTileSkill[] = [
   {
-    id: "recursive-data-synthesizer",
+    id: "analyzer-data-synthesizer",
     name: "Data Synthesizer",
     description: "Combine and synthesize data from multiple tile outputs",
     category: "analysis",
-    tileType: "recursive",
+    tileType: "analyzer",
     prompt: `You are a data synthesizer. Combine the input from connected tiles:
 
 1. **Common Themes**: What patterns appear across sources?
@@ -211,11 +211,11 @@ const RECURSIVE_SKILLS: DefaultTileSkill[] = [
 Create a unified analysis that is more valuable than the parts.`,
   },
   {
-    id: "recursive-report-combiner",
+    id: "analyzer-report-combiner",
     name: "Report Combiner",
     description: "Merge multiple reports into a single comprehensive document",
     category: "analysis",
-    tileType: "recursive",
+    tileType: "analyzer",
     prompt: `You are a report editor. Combine these inputs into one cohesive report:
 
 1. **Unified Summary**: Single overview covering all inputs
@@ -227,11 +227,11 @@ Create a unified analysis that is more valuable than the parts.`,
 Eliminate redundancy while preserving all unique insights.`,
   },
   {
-    id: "recursive-cross-reference",
+    id: "analyzer-cross-reference",
     name: "Cross-Reference Analyzer",
     description: "Find connections and validate information across sources",
     category: "analysis",
-    tileType: "recursive",
+    tileType: "analyzer",
     prompt: `You are a cross-reference analyst. Validate and connect information:
 
 1. **Verified Facts**: Information confirmed by multiple sources
@@ -243,12 +243,12 @@ Eliminate redundancy while preserving all unique insights.`,
 Flag uncertainty clearly. Prioritize verified information.`,
   },
   {
-    id: "recursive-multi-source-briefing",
+    id: "analyzer-multi-source-briefing",
     name: "Multi-Source Briefing",
     description:
       "Create executive briefings from multiple intelligence sources",
     category: "analysis",
-    tileType: "recursive",
+    tileType: "analyzer",
     prompt: `You are an intelligence briefer. Create an executive summary:
 
 1. **Bottom Line Up Front**: Most critical finding in 1-2 sentences
@@ -259,10 +259,6 @@ Flag uncertainty clearly. Prioritize verified information.`,
 
 Keep it concise and actionable. Prioritize by importance.`,
   },
-];
-
-// Analyzer Skills
-const ANALYZER_SKILLS: DefaultTileSkill[] = [
   {
     id: "analyzer-sentiment",
     name: "Sentiment Analyzer",
@@ -349,7 +345,6 @@ Use tables for clear comparisons. Be specific with criteria.`,
 export const DEFAULT_TILE_SKILLS: Record<TileType, DefaultTileSkill[]> = {
   url_reader: URL_READER_SKILLS,
   web_search: WEB_SEARCH_SKILLS,
-  recursive: RECURSIVE_SKILLS,
   analyzer: ANALYZER_SKILLS,
 };
 
@@ -357,7 +352,6 @@ export const DEFAULT_TILE_SKILLS: Record<TileType, DefaultTileSkill[]> = {
 export const ALL_DEFAULT_TILE_SKILLS: DefaultTileSkill[] = [
   ...URL_READER_SKILLS,
   ...WEB_SEARCH_SKILLS,
-  ...RECURSIVE_SKILLS,
   ...ANALYZER_SKILLS,
 ];
 

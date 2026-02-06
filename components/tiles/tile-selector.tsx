@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Check, GitBranch, Globe, Search, X } from "lucide-react";
+import { Brain, Check, Globe, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,6 @@ interface TileSelectorProps {
 const TILE_ICONS = {
   url_reader: Globe,
   web_search: Search,
-  recursive: GitBranch,
   analyzer: Brain,
 };
 

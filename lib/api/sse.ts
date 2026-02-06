@@ -6,7 +6,7 @@ export type SSEEventType =
   | "started"
   | "progress"
   | "context"
-  | "pipeline"
+  | "connection"
   | "result"
   | "done"
   | "error";
@@ -35,7 +35,7 @@ export interface SSEContextEvent {
   }[];
 }
 
-export interface SSEPipelineEvent {
+export interface SSEConnectionEvent {
   job_id: string;
   input_tile_id: string;
   status: "fetching_report" | "completed" | "failed";
@@ -67,7 +67,7 @@ export type SSEEventData =
   | SSEStartedEvent
   | SSEProgressEvent
   | SSEContextEvent
-  | SSEPipelineEvent
+  | SSEConnectionEvent
   | SSEResultEvent
   | SSEDoneEvent
   | SSEErrorEvent;
@@ -184,15 +184,15 @@ export class SSEWriter {
   }
 
   /**
-   * Send pipeline event for tile input processing
+   * Send connection event for tile input processing
    */
-  sendPipeline(
+  sendConnection(
     jobId: string,
     inputTileId: string,
     status: "fetching_report" | "completed" | "failed",
     error?: string,
   ): void {
-    this.send("pipeline", {
+    this.send("connection", {
       job_id: jobId,
       input_tile_id: inputTileId,
       status,

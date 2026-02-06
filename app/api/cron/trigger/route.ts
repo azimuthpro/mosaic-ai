@@ -14,17 +14,20 @@ import {
 } from "@/lib/rate-limit/limiter";
 import {
   fetchAllTileSourcesContent,
+  fetchConnectionContent,
   getTileSourceIdentifiers,
   getTileSourceTypeBreakdown,
+  type TileSourceContent,
 } from "@/lib/sources/tile-content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   MosaicSettings,
   Tile,
+  TileConnection,
   TileJob,
   TileJobInsert,
-  TileJobUpdate,
   TileJobResultInsert,
+  TileJobUpdate,
   TileSource,
 } from "@/types/database";
 
@@ -114,7 +117,17 @@ async function processTile(
   adminClient: ReturnType<typeof createAdminClient>,
   tile: TileWithSources,
 ): Promise<TileResult> {
-  if (!tile.tile_sources || tile.tile_sources.length === 0) {
+  // Fetch incoming connections
+  const { data: incomingConnections } = await adminClient
+    .from("tile_connections")
+    .select("*")
+    .eq("target_tile_id", tile.id);
+
+  const connections = (incomingConnections || []) as TileConnection[];
+  const hasDirectSources = tile.tile_sources && tile.tile_sources.length > 0;
+  const hasConnections = connections.length > 0;
+
+  if (!hasDirectSources && !hasConnections) {
     return { tileId: tile.id, skipped: true, reason: "No sources" };
   }
 
@@ -183,25 +196,41 @@ async function processTile(
     }
 
     try {
-      // Fetch content from all sources (URLs, tile reports, web search)
-      const sourceResults = await fetchAllTileSourcesContent(
-        tile.tile_sources,
-        adminClient,
-        executionContext,
-      );
+      // Fetch content from all direct sources (URLs, tile reports, web search)
+      const sourceResults: TileSourceContent[] = hasDirectSources
+        ? await fetchAllTileSourcesContent(
+            tile.tile_sources,
+            adminClient,
+            executionContext,
+          )
+        : [];
 
-      // Update source timestamps
-      const now = new Date().toISOString();
-      await Promise.all(
-        tile.tile_sources
-          .filter((s) => s.is_active)
-          .map((source) =>
-            adminClient
-              .from("tile_sources")
-              .update({ last_scraped_at: now } as never)
-              .eq("id", source.id),
-          ),
-      );
+      // Update source timestamps for direct sources
+      if (hasDirectSources) {
+        const now = new Date().toISOString();
+        await Promise.all(
+          tile.tile_sources
+            .filter((s) => s.is_active)
+            .map((source) =>
+              adminClient
+                .from("tile_sources")
+                .update({ last_scraped_at: now } as never)
+                .eq("id", source.id),
+            ),
+        );
+      }
+
+      // Fetch content from tile connections (URLs, keywords, or full reports)
+      if (hasConnections) {
+        const connectionResults = await fetchConnectionContent(
+          tile.id,
+          tile.tile_type,
+          connections,
+          adminClient,
+          executionContext,
+        );
+        sourceResults.push(...connectionResults);
+      }
 
       // Get successful fetches
       const successfulFetches = sourceResults.filter(
@@ -353,7 +382,8 @@ async function runDataRetentionCleanup(
 
   return {
     execution_logs: logsResult.status === "fulfilled" ? "ok" : "error",
-    webhook_deliveries: deliveriesResult.status === "fulfilled" ? "ok" : "error",
+    webhook_deliveries:
+      deliveriesResult.status === "fulfilled" ? "ok" : "error",
   };
 }
 

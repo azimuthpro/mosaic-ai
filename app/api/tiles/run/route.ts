@@ -16,19 +16,21 @@ import {
 } from "@/lib/rate-limit/limiter";
 import {
   fetchAllTileSourcesContent,
-  fetchLinkedTileUrls,
+  fetchConnectionContent,
   fetchRuntimeUrlsContent,
   getTileSourceIdentifiers,
   getTileSourceTypeBreakdown,
+  type TileSourceContent,
 } from "@/lib/sources/tile-content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type {
   Tile,
+  TileConnection,
   TileJob,
   TileJobInsert,
-  TileJobUpdate,
   TileJobResultInsert,
+  TileJobUpdate,
   TileSource,
 } from "@/types/database";
 
@@ -123,34 +125,25 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
-    // Source priority check for url_reader tiles:
-    // 1. Runtime URLs (if provided)
-    // 2. Configured tile_sources
-    // 3. Linked tiles (via connections)
+    // Fetch incoming connections for this tile
+    const { data: incomingConnections } = await adminClient
+      .from("tile_connections")
+      .select("*")
+      .eq("target_tile_id", tileId);
+
+    const connections = (incomingConnections || []) as TileConnection[];
+
     const hasRuntimeUrls = runtimeUrls.length > 0;
     const hasConfiguredSources =
       typedTile.tile_sources && typedTile.tile_sources.length > 0;
-
-    // For url_reader tiles, check if we can get URLs from linked tiles
-    let linkedTileUrls: string[] = [];
-    if (
-      !hasRuntimeUrls &&
-      !hasConfiguredSources &&
-      typedTile.tile_type === "url_reader"
-    ) {
-      linkedTileUrls = await fetchLinkedTileUrls(tileId, adminClient);
-    }
+    const hasConnections = connections.length > 0;
 
     // Validate we have at least one source
-    if (
-      !hasRuntimeUrls &&
-      !hasConfiguredSources &&
-      linkedTileUrls.length === 0
-    ) {
+    if (!hasRuntimeUrls && !hasConfiguredSources && !hasConnections) {
       return NextResponse.json(
         {
           error:
-            "No URLs provided. Tile has no sources configured and no linked tiles with URLs.",
+            "No sources configured. Tile has no sources and no connected tiles.",
         },
         { status: 400 },
       );
@@ -206,12 +199,9 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     try {
-      // Fetch content based on source priority:
-      // 1. Runtime URLs (if provided) - use only these
-      // 2. Configured sources - use if no runtime URLs
-      // 3. Linked tile URLs - use if no runtime URLs and no configured sources
-      let sourceResults;
-      let sourceMode: "runtime" | "configured" | "linked";
+      // Fetch content based on source priority
+      let sourceResults: TileSourceContent[];
+      let sourceMode: "runtime" | "configured" | "linked" | "connection";
 
       if (hasRuntimeUrls) {
         sourceMode = "runtime";
@@ -239,12 +229,32 @@ export async function POST(request: Request): Promise<Response> {
                 .eq("id", source.id),
             ),
         );
-      } else {
-        sourceMode = "linked";
-        sourceResults = await fetchRuntimeUrlsContent(
-          linkedTileUrls,
+
+        // Also include connection-derived content alongside configured sources
+        if (hasConnections) {
+          const connectionResults = await fetchConnectionContent(
+            tileId,
+            typedTile.tile_type,
+            connections,
+            adminClient,
+            executionContext,
+          );
+          sourceResults.push(...connectionResults);
+        }
+      } else if (hasConnections) {
+        // Tiles with only connections (no direct sources or runtime URLs)
+        const connectionResults = await fetchConnectionContent(
+          tileId,
+          typedTile.tile_type,
+          connections,
+          adminClient,
           executionContext,
         );
+        sourceMode = connectionResults.length > 0 ? "linked" : "connection";
+        sourceResults = connectionResults;
+      } else {
+        sourceResults = [];
+        sourceMode = "configured";
       }
 
       // Collect successful fetches

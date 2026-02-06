@@ -9,7 +9,7 @@ import {
 } from "@/lib/execution/context";
 import { logTileJobExecutionEvent } from "@/lib/rate-limit/limiter";
 import {
-  fetchLinkedTileUrls,
+  fetchConnectionContent,
   fetchRuntimeUrlsContent,
   fetchTileSourceContent,
   getTileSourceIdentifiers,
@@ -29,13 +29,6 @@ import type {
 
 type TileWithSources = Tile & {
   tile_sources: TileSource[];
-};
-
-type TileWithResult = {
-  id: string;
-  name: string;
-  tile_type: string;
-  latest_result: TileJobResult | null;
 };
 
 type SimpleTile = {
@@ -130,7 +123,7 @@ export async function POST(
 
       const typedTile = tile as unknown as TileWithSources;
 
-      // Get tile connections for pipeline/analyzer tiles
+      // Get tile connections
       const { data: incomingConnections } = await adminClient
         .from("tile_connections")
         .select("*")
@@ -138,48 +131,28 @@ export async function POST(
 
       const connections = (incomingConnections || []) as TileConnection[];
 
-      // Check if tile has sources or connections (for pipeline tiles)
-      const isPipelineTile =
-        typedTile.tile_type === "recursive" ||
-        typedTile.tile_type === "analyzer";
+      // Check if tile has sources or connections
       const hasRuntimeUrls = runtimeUrls.length > 0;
       const hasDirectSources =
         typedTile.tile_sources && typedTile.tile_sources.length > 0;
       const hasConnections = connections.length > 0;
 
-      // For url_reader tiles, check if we can get URLs from linked tiles
-      let linkedTileUrls: string[] = [];
-      if (
-        !hasRuntimeUrls &&
-        !hasDirectSources &&
-        typedTile.tile_type === "url_reader"
-      ) {
-        linkedTileUrls = await fetchLinkedTileUrls(tileId, adminClient);
-      }
-
-      if (
-        !hasRuntimeUrls &&
-        !hasDirectSources &&
-        !hasConnections &&
-        linkedTileUrls.length === 0
-      ) {
+      if (!hasRuntimeUrls && !hasDirectSources && !hasConnections) {
         writer.sendError(
-          "No URLs provided. Tile has no sources configured and no linked tiles.",
+          "No sources configured. Tile has no sources and no connected tiles.",
           SSE_ERROR_CODES.NO_SOURCES,
         );
         writer.close();
         return;
       }
 
-      // Determine source mode for url_reader tiles
-      let sourceMode: "runtime" | "configured" | "linked" | "pipeline" =
+      // Determine source mode
+      let sourceMode: "runtime" | "configured" | "linked" | "connection" =
         "configured";
       if (hasRuntimeUrls) {
         sourceMode = "runtime";
-      } else if (!hasDirectSources && linkedTileUrls.length > 0) {
+      } else if (!hasDirectSources && hasConnections) {
         sourceMode = "linked";
-      } else if (isPipelineTile && hasConnections) {
-        sourceMode = "pipeline";
       }
 
       // Create execution context
@@ -250,11 +223,8 @@ export async function POST(
         console.error("Failed to trigger started webhooks:", err),
       );
 
-      // For pipeline tiles, get all tiles in the mosaic for context
-      let availableTiles: TileWithResult[] = [];
-
-      if (isPipelineTile) {
-        // Fetch all tiles in the mosaic with their latest reports
+      // Send context event listing available tiles in the mosaic
+      if (hasConnections) {
         const { data: mosaicTilesData } = await adminClient
           .from("tiles")
           .select("id, name, tile_type")
@@ -264,35 +234,24 @@ export async function POST(
         const mosaicTiles = (mosaicTilesData || []) as SimpleTile[];
 
         if (mosaicTiles.length > 0) {
-          // Get latest reports for each tile
+          // Check which tiles have at least one report
           const tileIds = mosaicTiles.map((t) => t.id);
           const { data: reports } = await adminClient
             .from("tile_job_results")
-            .select("*")
+            .select("tile_id")
             .in("tile_id", tileIds)
             .order("created_at", { ascending: false });
 
-          const resultsByTile = new Map<string, TileJobResult>();
-          for (const result of (reports || []) as TileJobResult[]) {
-            if (!resultsByTile.has(result.tile_id)) {
-              resultsByTile.set(result.tile_id, result);
-            }
-          }
+          const tilesWithReports = new Set(
+            (reports || []).map((r: { tile_id: string }) => r.tile_id),
+          );
 
-          availableTiles = mosaicTiles.map((t) => ({
-            id: t.id,
-            name: t.name,
-            tile_type: t.tile_type,
-            latest_result: resultsByTile.get(t.id) || null,
-          }));
-
-          // Send context event
           writer.sendContext(
             job.id,
-            availableTiles.map((t) => ({
+            mosaicTiles.map((t) => ({
               tile_id: t.id,
               name: t.name,
-              has_report: t.latest_result !== null,
+              has_report: tilesWithReports.has(t.id),
             })),
           );
         }
@@ -301,20 +260,13 @@ export async function POST(
       // Fetch content from all sources based on priority
       const sourceResults: TileSourceContent[] = [];
 
-      // Source priority for url_reader tiles:
-      // 1. Runtime URLs (if provided) - use only these
-      // 2. Configured sources - use if no runtime URLs
-      // 3. Linked tile URLs - use if no runtime URLs and no configured sources
       if (sourceMode === "runtime") {
-        // Process runtime URLs
         writer.sendProgress(job.id, "runtime", "url", "fetching");
-
         const results = await fetchRuntimeUrlsContent(
           runtimeUrls,
           executionContext,
         );
         sourceResults.push(...results);
-
         const succeeded = results.filter((r) => r.success).length;
         writer.sendProgress(
           job.id,
@@ -322,25 +274,8 @@ export async function POST(
           "url",
           succeeded > 0 ? "completed" : "failed",
         );
-      } else if (sourceMode === "linked") {
-        // Process linked tile URLs
-        writer.sendProgress(job.id, "linked", "url", "fetching");
-
-        const results = await fetchRuntimeUrlsContent(
-          linkedTileUrls,
-          executionContext,
-        );
-        sourceResults.push(...results);
-
-        const succeeded = results.filter((r) => r.success).length;
-        writer.sendProgress(
-          job.id,
-          "linked",
-          "url",
-          succeeded > 0 ? "completed" : "failed",
-        );
-      } else if (typedTile.tile_sources && typedTile.tile_sources.length > 0) {
-        // Process direct sources (URL, web search)
+      } else if (sourceMode === "configured") {
+        // Process direct sources (URL, web search) with per-source progress
         for (const source of typedTile.tile_sources.filter(
           (s) => s.is_active,
         )) {
@@ -352,9 +287,7 @@ export async function POST(
               adminClient,
               executionContext,
             );
-
             sourceResults.push(result);
-
             writer.sendProgress(
               job.id,
               source.id,
@@ -380,59 +313,8 @@ export async function POST(
             });
           }
         }
-      }
 
-      // Process connected tiles (for pipeline/analyzer)
-      if (isPipelineTile && connections.length > 0) {
-        for (const connection of connections) {
-          const connectedTile = availableTiles.find(
-            (t) => t.id === connection.source_tile_id,
-          );
-
-          if (!connectedTile) continue;
-
-          writer.sendPipeline(
-            job.id,
-            connection.source_tile_id,
-            "fetching_report",
-          );
-
-          if (connectedTile.latest_result) {
-            // Format result content
-            const content =
-              typeof connectedTile.latest_result.content === "string"
-                ? connectedTile.latest_result.content
-                : JSON.stringify(connectedTile.latest_result.content, null, 2);
-
-            sourceResults.push({
-              sourceId: connection.id,
-              sourceType: "tile_connection",
-              identifier: connectedTile.name,
-              success: true,
-              content,
-              title: `Result from ${connectedTile.name}`,
-              metadata: {
-                reportId: connectedTile.latest_result.id,
-                reportCreatedAt: connectedTile.latest_result.created_at,
-                tileId: connectedTile.id,
-                tileName: connectedTile.name,
-              },
-            });
-
-            writer.sendPipeline(job.id, connection.source_tile_id, "completed");
-          } else {
-            writer.sendPipeline(
-              job.id,
-              connection.source_tile_id,
-              "failed",
-              "No report available",
-            );
-          }
-        }
-      }
-
-      // Update source last_scraped_at (only for configured sources mode)
-      if (sourceMode === "configured" && typedTile.tile_sources) {
+        // Update source last_scraped_at for configured sources
         const now = new Date().toISOString();
         await Promise.all(
           typedTile.tile_sources
@@ -443,6 +325,44 @@ export async function POST(
                 .update({ last_scraped_at: now } as never)
                 .eq("id", source.id),
             ),
+        );
+      }
+
+      // Fetch content from tile connections (always, for both configured and linked modes)
+      if (hasConnections) {
+        writer.sendProgress(
+          job.id,
+          "connections",
+          "tile_connection",
+          "fetching",
+        );
+        const connectionResults = await fetchConnectionContent(
+          tileId,
+          typedTile.tile_type,
+          connections,
+          adminClient,
+          executionContext,
+        );
+        sourceResults.push(...connectionResults);
+
+        // Send per-connection SSE events for analyzer tiles
+        if (typedTile.tile_type === "analyzer") {
+          for (const result of connectionResults) {
+            writer.sendConnection(
+              job.id,
+              result.metadata?.tileId || result.sourceId,
+              result.success ? "completed" : "failed",
+              result.success ? undefined : result.error,
+            );
+          }
+        }
+
+        const succeeded = connectionResults.filter((r) => r.success).length;
+        writer.sendProgress(
+          job.id,
+          "connections",
+          "tile_connection",
+          succeeded > 0 ? "completed" : "failed",
         );
       }
 

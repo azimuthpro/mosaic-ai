@@ -18,7 +18,6 @@ export type SectionType = keyof typeof SECTION_COLORS;
 export const TILE_TYPE_LABELS: Record<TileType, string> = {
   url_reader: "URL Reader",
   web_search: "Web Search",
-  recursive: "Pipeline",
   analyzer: "Analyzer",
 };
 
@@ -39,7 +38,6 @@ export type SourceTypeKey = keyof typeof SOURCE_TYPE_CONFIG;
 export const DEFAULT_SOURCE_TYPES: Record<TileType, SourceTypeKey> = {
   url_reader: "url",
   web_search: "web_search",
-  recursive: "tile_connection",
   analyzer: "tile_connection",
 };
 

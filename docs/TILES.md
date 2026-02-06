@@ -296,7 +296,7 @@ Authorization: Bearer msk_...
 | `id`                        | UUID    | Primary key                                 |
 | `mosaic_id`                 | UUID    | Parent mosaic                               |
 | `name`                      | VARCHAR | Display name                                |
-| `tile_type`                 | ENUM    | url_reader, web_search, recursive, analyzer |
+| `tile_type`                 | ENUM    | url_reader, web_search, analyzer            |
 | `color`                     | VARCHAR | Hex color code                              |
 | `pattern`                   | ENUM    | solid, stripes, dots, gradient              |
 | `grid_x`, `grid_y`          | INT     | Position on canvas                          |
@@ -325,7 +325,7 @@ Existing agents are automatically migrated to tiles:
 2. All agents become tiles in that mosaic
 3. Agent types are mapped to tile types based on sources:
    - URL sources → `url_reader`
-   - Agent report sources → `recursive`
+   - Agent report sources → `analyzer`
    - Web search sources → `web_search`
 4. Sources, jobs, and reports are migrated to new tables
 

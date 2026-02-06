@@ -14,7 +14,7 @@ export type LanguageCode = "en" | "pl" | "es" | "it" | "de";
 export type SourceType = "url" | "web_search";
 export type FetchMode = "fast" | "memory";
 
-export type TileType = "url_reader" | "web_search" | "recursive" | "analyzer";
+export type TileType = "url_reader" | "web_search" | "analyzer";
 export type TilePattern = "solid" | "stripes" | "dots" | "gradient";
 
 export interface WebSearchConfig {
@@ -855,14 +855,6 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
     pattern: "stripes",
     icon: "Search",
     description: "AI-powered web research",
-  },
-  recursive: {
-    type: "recursive",
-    label: "Pipeline",
-    color: "#14b8a6", // Neon teal (from homepage)
-    pattern: "dots",
-    icon: "GitBranch",
-    description: "Chain outputs from other tiles",
   },
   analyzer: {
     type: "analyzer",

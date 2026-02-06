@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { createTile, createTileConnection } from "@/lib/actions/tiles";
+import { createTile } from "@/lib/actions/tiles";
 import { TILE_TYPE_CONFIGS, type TileType } from "@/types/database";
 
 interface CreateTileDialogProps {
@@ -119,7 +119,6 @@ export function CreateTileDialog({
         return urls.length > 0;
       case "web_search":
         return searchQuery.trim().length > 0;
-      case "recursive":
       case "analyzer":
         return inputTileIds.length > 0;
       default:
@@ -135,7 +134,6 @@ export function CreateTileDialog({
         return urls.length === 0 ? "Add at least one URL" : null;
       case "web_search":
         return !searchQuery.trim() ? "Enter a search query" : null;
-      case "recursive":
       case "analyzer":
         return inputTileIds.length === 0
           ? "Select at least one input tile"
@@ -196,10 +194,7 @@ export function CreateTileDialog({
       systemPrompt: customInstructions || undefined,
       scheduleCron: getTriggerCron(trigger) || undefined,
       sources: sources.length > 0 ? sources : undefined,
-      connections:
-        selectedType === "recursive" || selectedType === "analyzer"
-          ? inputTileIds
-          : undefined,
+      connections: selectedType === "analyzer" ? inputTileIds : undefined,
       gridX,
       gridY,
     });
@@ -231,7 +226,7 @@ export function CreateTileDialog({
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-4xl">
         {step === "type" ? (
           <>
             <DialogHeader>
@@ -309,18 +304,13 @@ export function CreateTileDialog({
                   </div>
                 )}
 
-                {(selectedType === "recursive" ||
-                  selectedType === "analyzer") && (
+                {selectedType === "analyzer" && (
                   <TileSelector
                     mosaicId={mosaicId}
                     selectedTileIds={inputTileIds}
                     onChange={setInputTileIds}
                     disabled={isLoading}
-                    label={
-                      selectedType === "recursive"
-                        ? "Input Tiles (Pipeline)"
-                        : "Tiles to Analyze"
-                    }
+                    label="Tiles to Analyze"
                   />
                 )}
 

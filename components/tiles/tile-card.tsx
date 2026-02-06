@@ -2,7 +2,6 @@
 
 import {
   Brain,
-  GitBranch,
   Globe,
   Loader2,
   MoreHorizontal,
@@ -39,14 +38,12 @@ interface TileCardProps {
 const TILE_ICONS: Record<TileType, React.ElementType> = {
   url_reader: Globe,
   web_search: Search,
-  recursive: GitBranch,
   analyzer: Brain,
 };
 
 const TILE_TYPE_LABELS: Record<TileType, string> = {
   url_reader: "URL Reader",
   web_search: "Web Search",
-  recursive: "Pipeline",
   analyzer: "Analyzer",
 };
 

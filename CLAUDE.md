@@ -33,11 +33,10 @@ npm run lint     # Run ESLint
 
 - **Mosaics**: Workspace containers for organizing tiles. Users can have multiple mosaics and share them with team members.
 - **Tiles**: Visual intelligence gathering units with types:
-  - `url_reader`: Web pages scraped via Firecrawl
-  - `web_search`: AI-powered web search via Tavily API
-  - `recursive`: Pipeline tiles that chain outputs from connected tiles
-  - `analyzer`: Specialized analysis of connected tile data
-- **Tile Connections**: Data flow links between tiles within a mosaic
+  - `url_reader`: Web pages scraped via Firecrawl. With connections: extracts URLs from connected tile data and scrapes them.
+  - `web_search`: AI-powered web search via Tavily API. With connections: extracts keywords from connected tile data and uses them as search queries.
+  - `analyzer`: Process and analyze connected tile data. Receives full report content from connections.
+- **Tile Connections**: Universal data flow links between tiles. Any tile type can receive connections, with type-specific extraction of data from connected tiles.
 - **Tile Sources**: Data inputs for tiles (URLs, search queries, or referenced tiles)
 - **Mosaic Sharing**: Role-based access control (owner/admin/member) at mosaic level
 

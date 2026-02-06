@@ -24,11 +24,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { formatRelativeTime } from "@/lib/utils/format";
-import type {
-  FetchMode,
-  TileConnection,
-  TileType,
-} from "@/types/database";
+import type { FetchMode, TileConnection, TileType } from "@/types/database";
 
 import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
 import type { PluginBaseProps, SourceTypeKey } from "../../types";
@@ -74,8 +70,7 @@ function renderSourceTypeOptions(tileType: TileType): React.ReactNode {
     case "url_reader":
       return [urlOption, tileReportOption];
     case "web_search":
-      return webSearchOption;
-    case "recursive":
+      return [webSearchOption, tileReportOption];
     case "analyzer":
       return tileReportOption;
   }

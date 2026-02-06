@@ -2,20 +2,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ExecutionContext } from "@/lib/execution/context";
 import {
-  extractMultipleUrls,
   extractUrl,
   formatSearchResultsAsMarkdown,
   searchWeb,
 } from "@/lib/search/tavily";
+import { extractKeywordsFromContent } from "@/lib/tiles/extract-keywords-from-job";
 import { extractUrlsFromContent } from "@/lib/tiles/extract-urls-from-job";
 import {
   sanitizeSearchQuery,
   validateUrlWithDnsCheck,
 } from "@/lib/validation/url-validator";
 import type {
-  AgentReportSourceConfig,
   Database,
-  FetchMode,
   Json,
   TileJobResult as TileReport,
   TileSource,
@@ -285,100 +283,6 @@ async function fetchUrlContent(source: TileSource): Promise<TileSourceContent> {
     error: result.error,
   };
 }
-
-// Memory mode constants
-const MEMORY_HISTORY_LIMIT = 10; // Max historical reports to include
-const MEMORY_HISTORY_DAYS = 30; // Look back period in days
-const MEMORY_SUMMARY_LENGTH = 500; // Max chars for historical summaries
-
-const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-};
-
-function formatReportDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", DATE_FORMAT_OPTIONS);
-}
-
-function truncateToSummary(content: string): string {
-  if (content.length <= MEMORY_SUMMARY_LENGTH) {
-    return content;
-  }
-  return content.substring(0, MEMORY_SUMMARY_LENGTH) + "...";
-}
-
-/**
- * Fetches historical reports with summaries for memory mode.
- * Returns the latest report in full, plus truncated summaries of previous reports.
- */
-async function fetchTileReportWithMemory(
-  tileId: string,
-  tileName: string,
-  adminClient: SupabaseClient<Database>,
-): Promise<{ content: string; latestReportId: string; reportCount: number }> {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - MEMORY_HISTORY_DAYS);
-
-  const { data: reports, error } = await adminClient
-    .from("tile_job_results")
-    .select(
-      `
-      id,
-      content,
-      format,
-      created_at,
-      tile_jobs!inner (status)
-    `,
-    )
-    .eq("tile_id", tileId)
-    .gte("created_at", cutoffDate.toISOString())
-    .order("created_at", { ascending: false })
-    .limit(MEMORY_HISTORY_LIMIT);
-
-  if (error || !reports || reports.length === 0) {
-    throw new Error(`No reports found for tile "${tileName}"`);
-  }
-
-  const typedReports = reports as (TileReport & {
-    tile_jobs: { status: string };
-  })[];
-
-  const latestReport = typedReports[0];
-  const latestContent = formatReportContent(
-    latestReport.content,
-    latestReport.format,
-  );
-  const latestDate = formatReportDate(latestReport.created_at);
-
-  let combinedContent = `## Latest Report (${latestDate})\n\n${latestContent}`;
-
-  if (typedReports.length > 1) {
-    const historicalReports = typedReports.slice(1);
-    const historySummaries = historicalReports.map((report) => {
-      const reportDate = formatReportDate(report.created_at);
-      const fullContent = formatReportContent(report.content, report.format);
-      const summary = truncateToSummary(fullContent);
-      return `### ${reportDate}\n${summary}`;
-    });
-
-    combinedContent += `\n\n---\n\n## Historical Context (${historicalReports.length} previous reports)\n\n${historySummaries.join("\n\n")}`;
-  }
-
-  return {
-    content: combinedContent,
-    latestReportId: latestReport.id,
-    reportCount: typedReports.length,
-  };
-}
-
-/**
- * Fetches the latest successful report from a referenced tile.
- * Optionally extracts URLs from the report and fetches their content.
- * Supports "memory" mode for including historical context.
- */
 
 /**
  * Fetches search results using Tavily web search.
@@ -662,12 +566,101 @@ export async function fetchRuntimeUrlsContent(
 }
 
 /**
- * Fetches URLs from connected tiles' reports.
- * Returns a deduplicated list of URLs extracted from all connected tiles.
+ * Searches the web for each keyword and returns results as TileSourceContent.
+ * Shared across all route handlers to avoid duplicating keyword search logic.
  */
-export async function fetchLinkedTileUrls(
+export async function searchKeywordsContent(
+  keywords: string[],
+): Promise<TileSourceContent[]> {
+  const results: TileSourceContent[] = [];
+
+  for (const keyword of keywords) {
+    try {
+      const searchResults = await searchWeb(keyword, { maxResults: 5 });
+      const formattedResults = formatSearchResultsAsMarkdown(
+        keyword,
+        searchResults,
+      );
+      results.push({
+        sourceId: `keyword-${keyword}`,
+        sourceType: "web_search",
+        identifier: keyword,
+        success: true,
+        content: formattedResults,
+        title: `Search: ${keyword}`,
+        metadata: { searchResultCount: searchResults.length },
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Search failed";
+      results.push({
+        sourceId: `keyword-${keyword}`,
+        sourceType: "web_search",
+        identifier: keyword,
+        success: false,
+        error: errorMessage,
+      });
+    }
+  }
+
+  return results;
+}
+
+type TileTypeForConnections = "url_reader" | "web_search" | "analyzer";
+
+/**
+ * Fetches content from tile connections based on the tile type.
+ * - url_reader: extracts URLs from connected reports and fetches them
+ * - web_search: extracts keywords from connected reports and searches them
+ * - analyzer: fetches full reports from connected tiles
+ *
+ * Shared across all route handlers to avoid duplicating connection logic.
+ */
+export async function fetchConnectionContent(
+  tileId: string,
+  tileType: TileTypeForConnections,
+  connections: { id: string; source_tile_id: string }[],
+  adminClient: SupabaseClient<Database>,
+  context?: ExecutionContext,
+): Promise<TileSourceContent[]> {
+  if (connections.length === 0) {
+    return [];
+  }
+
+  switch (tileType) {
+    case "url_reader": {
+      const linkedUrls = await fetchLinkedTileUrls(tileId, adminClient);
+      if (linkedUrls.length === 0) return [];
+      return fetchRuntimeUrlsContent(linkedUrls, context);
+    }
+    case "web_search": {
+      const linkedKeywords = await fetchLinkedTileKeywords(tileId, adminClient);
+      if (linkedKeywords.length === 0) return [];
+      return searchKeywordsContent(linkedKeywords);
+    }
+    case "analyzer": {
+      const results: TileSourceContent[] = [];
+      for (const connection of connections) {
+        const result = await fetchConnectedTileContent(
+          connection.id,
+          connection.source_tile_id,
+          adminClient,
+          context,
+        );
+        results.push(result);
+      }
+      return results;
+    }
+  }
+}
+
+/**
+ * Fetches the latest report content from each connected tile.
+ * Applies the provided extractor to each report and returns deduplicated results.
+ */
+async function extractFromConnectedTileReports(
   tileId: string,
   adminClient: SupabaseClient<Database>,
+  extractor: (content: Json) => string[],
 ): Promise<string[]> {
   const { data: connectionsData } = await adminClient
     .from("tile_connections")
@@ -682,7 +675,6 @@ export async function fetchLinkedTileUrls(
 
   const sourceTileIds = connections.map((c) => c.source_tile_id);
 
-  // Fetch all reports in a single query
   const { data: reportsData } = await adminClient
     .from("tile_job_results")
     .select("tile_id, content, format")
@@ -699,13 +691,43 @@ export async function fetchLinkedTileUrls(
 
   // Get the latest report per tile (first occurrence due to ordering)
   const seenTiles = new Set<string>();
-  const allUrls: string[] = [];
+  const allItems: string[] = [];
 
   for (const report of reports) {
     if (seenTiles.has(report.tile_id)) continue;
     seenTiles.add(report.tile_id);
-    allUrls.push(...extractUrlsFromContent(report.content));
+    allItems.push(...extractor(report.content));
   }
 
-  return [...new Set(allUrls)];
+  return [...new Set(allItems)];
+}
+
+/**
+ * Fetches URLs from connected tiles' reports.
+ * Returns a deduplicated list of URLs extracted from all connected tiles.
+ */
+export function fetchLinkedTileUrls(
+  tileId: string,
+  adminClient: SupabaseClient<Database>,
+): Promise<string[]> {
+  return extractFromConnectedTileReports(
+    tileId,
+    adminClient,
+    extractUrlsFromContent,
+  );
+}
+
+/**
+ * Fetches keywords from connected tiles' reports.
+ * Returns a deduplicated list of keywords extracted from all connected tiles.
+ */
+export function fetchLinkedTileKeywords(
+  tileId: string,
+  adminClient: SupabaseClient<Database>,
+): Promise<string[]> {
+  return extractFromConnectedTileReports(
+    tileId,
+    adminClient,
+    extractKeywordsFromContent,
+  );
 }

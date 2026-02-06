@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, GitBranch, Globe, Search } from "lucide-react";
+import { Brain, Globe, Search } from "lucide-react";
 
 import {
   Card,
@@ -18,7 +18,6 @@ interface TileTypePickerProps {
 const TILE_ICONS = {
   url_reader: Globe,
   web_search: Search,
-  recursive: GitBranch,
   analyzer: Brain,
 };
 
@@ -26,7 +25,7 @@ export function TileTypePicker({ onSelect, disabled }: TileTypePickerProps) {
   const tileTypes = Object.values(TILE_TYPE_CONFIGS);
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-3 gap-4">
       {tileTypes.map((config) => {
         const Icon = TILE_ICONS[config.type];
         return (
