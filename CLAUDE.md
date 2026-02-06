@@ -57,7 +57,8 @@ npm run lint     # Run ESLint
    - Web search sources: Tavily API performs search
 6. Combined content sent to LLM with tile's system prompt
 7. Structured result stored in Supabase
-8. Data optionally appended to user's Google Sheet
+8. Webhooks triggered on job events (started, completed, failed)
+9. Data optionally appended to user's Google Sheet
 
 ### Database Schema (Supabase)
 
@@ -70,10 +71,22 @@ npm run lint     # Run ESLint
 - `tile_jobs` - Execution history for tiles
 - `tile_job_results` - Analysis results from tile job executions
 
-**Other Tables:**
+**Sharing & Auth Tables:**
 - `users` - Managed by Supabase Auth
 - `allowlist` - Email-based access control (invite-only)
-- `execution_logs` - Logging for tile execution events
+- `mosaic_invitations` - Pending share invitations
+- `mosaic_api_keys` - API key management for mosaics
+
+**Execution & Logging Tables:**
+- `tile_job_execution_logs` - Detailed execution event logging
+- `user_rate_limits` - Per-user rate limit tracking
+
+**Webhook Tables:**
+- `tile_webhooks` - Webhook destinations per tile (URL, auth, events)
+- `tile_webhook_deliveries` - Delivery history with retry tracking
+
+**Skills Tables:**
+- `tile_skills` - Reusable skill/prompt templates for tiles
 
 ### Key Utilities
 
@@ -81,8 +94,12 @@ npm run lint     # Run ESLint
 - `lib/actions/mosaics.ts` - Server actions for mosaic CRUD
 - `lib/actions/tiles.ts` - Server actions for tile CRUD and connections
 - `lib/actions/tile-execution.ts` - Tile job status and result fetching
+- `lib/actions/webhooks.ts` - Webhook CRUD and delivery management
+- `lib/actions/tile-skills.ts` - Tile skills management
 - `lib/rate-limit/limiter.ts` - Rate limiting and execution logging
 - `lib/email/sendgrid.ts` - Email sending with Mosaic AI branding
+- `lib/tiles/extract-urls-from-job.ts` - URL extraction from connected tile job results
+- `lib/tiles/extract-keywords-from-job.ts` - Keyword extraction from connected tile job results
 
 ### Key API Routes
 
@@ -91,15 +108,23 @@ npm run lint     # Run ESLint
 - `/api/v1/tiles/[tileId]/run` - V1 API tile execution with SSE streaming
 - `/api/v1/tiles/[tileId]/status` - V1 API tile status endpoint
 - `/api/v1/tiles/[tileId]/data` - V1 API tile data endpoint
+- `/api/v1/tiles/[tileId]/webhooks` - Webhook list and creation
+- `/api/v1/tiles/[tileId]/webhooks/[webhookId]` - Webhook get/update
+- `/api/v1/tiles/[tileId]/webhooks/[webhookId]/test` - Webhook test delivery
+- `/api/v1/tiles/[tileId]/webhooks/[webhookId]/deliveries` - Webhook delivery history
+- `/api/v1/mosaics/[mosaicId]/keys` - API key management
 - `/api/auth/check-allowlist` - Email allowlist verification for signup
+- `/api/auth/invitation` - Mosaic invitation handling
 
 ### Route Groups
 
-- `(auth)` - Authentication pages (login, signup with magic link, callback)
+- `(auth)` - Authentication pages (signin, signup with magic link, callback)
 - `(app)` - Protected app pages:
   - `/mosaics` - Mosaic list and management
   - `/mosaics/[id]` - Mosaic canvas with tiles
   - `/mosaics/[id]/settings` - Mosaic settings (timezone configuration)
+  - `/mosaics/[id]/tiles/[tileId]/settings` - Tile-specific settings
+- `(marketing)` - Public marketing landing page
 
 ## Path Alias
 
