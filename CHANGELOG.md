@@ -7,16 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-02-07
+
 ### Added
 - Webhook system for tile job event notifications (started, completed, failed)
 - Webhook delivery history and retry tracking
-- Tile drawer refactored to plugin-based architecture (input, processing, output sections)
-- Universal tile connections (any tile type can receive connections)
+- Webhook API routes for CRUD, testing, and delivery history
+- Unified output format with Zod schema support (text/JSON with schema editor)
+- Memory mode for tile sources (includes historical context from last 30 days)
+- Job result deletion for owners and admins
+- Universal tile connections with type-specific data extraction
 
 ### Changed
+- Tile drawer refactored to plugin-based architecture (input, processing, output sections)
 - Removed `recursive` tile type; existing recursive tiles converted to `analyzer`
 - Consolidated database schema into single initial migration
-- Documentation synced with codebase state
+- Simplified create dialogs (removed optional description fields)
+- Renamed Dashboard menu item to Mosaics
+
+### Fixed
+- Drawer data refresh after manual tile run
+- Citext extension moved to extensions schema for Supabase linter compliance
+- Replaced uuid_generate_v4() with built-in gen_random_uuid()
 
 ## [1.1.0] - 2026-01-31
 
