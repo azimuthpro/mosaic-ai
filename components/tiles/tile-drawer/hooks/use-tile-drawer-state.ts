@@ -98,6 +98,10 @@ export function useTileDrawerState({
   >(null);
   const [deletingResultId, setDeletingResultId] = useState<string | null>(null);
 
+  // Increment to re-fetch execution status and job results without resetting forms
+  const [dataVersion, setDataVersion] = useState(0);
+  const refreshData = useCallback(() => setDataVersion((v) => v + 1), []);
+
   // Plugin collapsed state (persisted in localStorage)
   const [pluginState, setPluginState] = useState<PluginCollapsedState>({});
 
@@ -132,7 +136,7 @@ export function useTileDrawerState({
     [],
   );
 
-  // Load execution status when tile changes
+  // Fetch execution status when tile changes or after a manual refresh
   useEffect(() => {
     if (tile && open) {
       setIsLoadingStatus(true);
@@ -140,8 +144,12 @@ export function useTileDrawerState({
         setExecutionStatus(status);
         setIsLoadingStatus(false);
       });
+    }
+  }, [tile, open, dataVersion]);
 
-      // Reset form state
+  // Reset form state when a different tile is opened
+  useEffect(() => {
+    if (tile && open) {
       setConfigState({
         name: tile.name,
         instructions: tile.system_prompt || "",
@@ -151,7 +159,6 @@ export function useTileDrawerState({
         outputSchema: tile.output_schema || "",
       });
 
-      // Reset source form based on tile type
       setSourceForm({
         type: DEFAULT_SOURCE_TYPES[tile.tile_type],
         url: "",
@@ -191,7 +198,7 @@ export function useTileDrawerState({
         setIsLoadingJobResults(false);
       });
     }
-  }, [activeSection, tile]);
+  }, [activeSection, tile, dataVersion]);
 
   // Load available tiles when input section is selected (for tile report sources)
   useEffect(() => {
@@ -467,6 +474,9 @@ export function useTileDrawerState({
     setExpandedResultId,
     deletingResultId,
     setDeletingResultId,
+
+    // Refresh
+    refreshData,
 
     // Plugin state
     pluginState,

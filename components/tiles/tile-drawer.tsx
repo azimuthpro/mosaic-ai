@@ -68,6 +68,7 @@ export function TileDrawer({
       alert("Failed to run tile");
     } finally {
       state.setIsRunning(false);
+      state.refreshData();
     }
   };
 
