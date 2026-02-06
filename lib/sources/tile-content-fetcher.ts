@@ -17,7 +17,7 @@ import type {
   Database,
   FetchMode,
   Json,
-  TileReport,
+  TileJobResult as TileReport,
   TileSource,
   UrlSourceConfig,
   WebSearchConfig,
@@ -25,8 +25,8 @@ import type {
 
 export interface TileSourceContent {
   sourceId: string;
-  sourceType: "url" | "agent_report" | "web_search";
-  identifier: string; // URL for url type, tile name for agent_report, query for web_search
+  sourceType: "url" | "web_search" | "tile_connection";
+  identifier: string; // URL for url type, tile name for tile_connection, query for web_search
   success: boolean;
   content?: string;
   title?: string;
@@ -130,18 +130,100 @@ export async function fetchTileSourceContent(
   switch (source.type) {
     case "url":
       return fetchUrlContent(source);
-    case "agent_report":
-      return fetchTileReportContent(source, adminClient, context);
     case "web_search":
       return fetchWebSearchContent(source);
     default:
       return {
         sourceId: source.id,
-        sourceType: source.type,
+        sourceType: "url",
         identifier: "unknown",
         success: false,
         error: `Unknown source type: ${source.type}`,
       };
+  }
+}
+
+/**
+ * Fetches the latest report from a connected tile.
+ */
+export async function fetchConnectedTileContent(
+  connectionId: string,
+  sourceTileId: string,
+  adminClient: SupabaseClient<Database>,
+  context?: ExecutionContext,
+): Promise<TileSourceContent> {
+  checkTimeout(context);
+
+  // Runtime cycle detection
+  checkCycle(sourceTileId, context);
+
+  // Check depth
+  checkDepth(context);
+
+  // Get the referenced tile's name
+  const { data: tileData } = await adminClient
+    .from("tiles")
+    .select("id, name")
+    .eq("id", sourceTileId)
+    .single();
+
+  const tile = tileData as { id: string; name: string } | null;
+  const tileName = tile?.name || "Unknown Tile";
+
+  try {
+    const { data: report, error } = await adminClient
+      .from("tile_job_results")
+      .select(`id, content, format, created_at`)
+      .eq("tile_id", sourceTileId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    const typedReport = report as TileReport | null;
+
+    if (error || !typedReport) {
+      return {
+        sourceId: connectionId,
+        sourceType: "tile_connection",
+        identifier: tileName,
+        success: false,
+        error: `No results found for tile "${tileName}"`,
+        metadata: { tileId: sourceTileId, tileName },
+      };
+    }
+
+    const formattedContent = formatReportContent(
+      typedReport.content,
+      typedReport.format,
+    );
+    const { content, truncated, originalSize } =
+      truncateContent(formattedContent);
+
+    return {
+      sourceId: connectionId,
+      sourceType: "tile_connection",
+      identifier: tileName,
+      success: true,
+      content,
+      title: `Result from ${tileName}`,
+      contentTruncated: truncated,
+      originalSize: truncated ? originalSize : undefined,
+      metadata: {
+        reportId: typedReport.id,
+        reportCreatedAt: typedReport.created_at,
+        tileId: sourceTileId,
+        tileName,
+      },
+    };
+  } catch (err) {
+    return {
+      sourceId: connectionId,
+      sourceType: "tile_connection",
+      identifier: tileName,
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to fetch results",
+      metadata: { tileId: sourceTileId, tileName },
+    };
   }
 }
 
@@ -297,204 +379,6 @@ async function fetchTileReportWithMemory(
  * Optionally extracts URLs from the report and fetches their content.
  * Supports "memory" mode for including historical context.
  */
-async function fetchTileReportContent(
-  source: TileSource,
-  adminClient: SupabaseClient<Database>,
-  context?: ExecutionContext,
-): Promise<TileSourceContent> {
-  if (!source.source_reference_id) {
-    return {
-      sourceId: source.id,
-      sourceType: "agent_report",
-      identifier: "no-reference",
-      success: false,
-      error: "Tile report source is missing reference ID",
-    };
-  }
-
-  // Runtime cycle detection
-  checkCycle(source.source_reference_id, context);
-
-  // Check depth before fetching from another tile
-  checkDepth(context);
-
-  // Get the referenced tile's name
-  const { data: tileData } = await adminClient
-    .from("tiles")
-    .select("id, name")
-    .eq("id", source.source_reference_id)
-    .single();
-
-  const tile = tileData as { id: string; name: string } | null;
-  const tileName = tile?.name || "Unknown Tile";
-
-  const config = source.config as AgentReportSourceConfig | null;
-  const fetchMode: FetchMode = config?.fetch_mode || "fast";
-
-  // Handle memory mode - fetch with historical context
-  if (fetchMode === "memory") {
-    try {
-      const memoryResult = await fetchTileReportWithMemory(
-        source.source_reference_id,
-        tileName,
-        adminClient,
-      );
-
-      const { content, truncated, originalSize } = truncateContent(
-        memoryResult.content,
-      );
-
-      return {
-        sourceId: source.id,
-        sourceType: "agent_report",
-        identifier: tileName,
-        success: true,
-        content,
-        title: `Report from ${tileName} (with ${memoryResult.reportCount} reports)`,
-        contentTruncated: truncated,
-        originalSize: truncated ? originalSize : undefined,
-        metadata: {
-          reportId: memoryResult.latestReportId,
-          tileId: source.source_reference_id,
-          tileName,
-        },
-      };
-    } catch (err) {
-      return {
-        sourceId: source.id,
-        sourceType: "agent_report",
-        identifier: tileName,
-        success: false,
-        error: err instanceof Error ? err.message : "Failed to fetch reports",
-        metadata: {
-          tileId: source.source_reference_id,
-          tileName,
-        },
-      };
-    }
-  }
-
-  // Fast mode (default): Get the latest successful report from the referenced tile
-  const { data: report, error } = await adminClient
-    .from("tile_job_results")
-    .select(
-      `
-      id,
-      content,
-      format,
-      created_at,
-      tile_jobs!inner (status)
-    `,
-    )
-    .eq("tile_id", source.source_reference_id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error || !report) {
-    return {
-      sourceId: source.id,
-      sourceType: "agent_report",
-      identifier: tileName,
-      success: false,
-      error: `No reports found for tile "${tileName}"`,
-      metadata: {
-        tileId: source.source_reference_id,
-        tileName,
-      },
-    };
-  }
-
-  const typedReport = report as TileReport & { tile_jobs: { status: string } };
-
-  // If URL extraction is enabled, extract and fetch URLs from the report
-  if (config?.extract_urls) {
-    const urls = extractUrlsFromContent(typedReport.content);
-
-    if (urls.length > 0) {
-      const extractResult = await extractMultipleUrls(urls, {
-        extractDepth: config.extract_depth || "basic",
-        maxUrls: config.max_urls || 10,
-      });
-
-      if (extractResult.success && extractResult.content) {
-        const {
-          content: truncatedContent,
-          truncated,
-          originalSize,
-        } = truncateContent(extractResult.content);
-
-        return {
-          sourceId: source.id,
-          sourceType: "agent_report",
-          identifier: tileName,
-          success: true,
-          content: truncatedContent,
-          title: `URLs extracted from ${tileName}`,
-          contentTruncated: truncated,
-          originalSize: truncated ? originalSize : undefined,
-          metadata: {
-            reportId: typedReport.id,
-            reportCreatedAt: typedReport.created_at,
-            tileId: source.source_reference_id,
-            tileName,
-          },
-        };
-      }
-
-      // If extraction failed, return error with failed URLs info
-      return {
-        sourceId: source.id,
-        sourceType: "agent_report",
-        identifier: tileName,
-        success: false,
-        error: `URL extraction failed. Found ${urls.length} URLs, extracted ${extractResult.extractedCount}. Failed: ${extractResult.failedUrls.join(", ")}`,
-        metadata: {
-          tileId: source.source_reference_id,
-          tileName,
-        },
-      };
-    }
-
-    // No URLs found in the report
-    return {
-      sourceId: source.id,
-      sourceType: "agent_report",
-      identifier: tileName,
-      success: false,
-      error: `No URLs found in report from "${tileName}"`,
-      metadata: {
-        tileId: source.source_reference_id,
-        tileName,
-      },
-    };
-  }
-
-  // Default behavior: return report content as-is with size limits applied
-  const formattedContent = formatReportContent(
-    typedReport.content,
-    typedReport.format,
-  );
-  const { content, truncated, originalSize } =
-    truncateContent(formattedContent);
-
-  return {
-    sourceId: source.id,
-    sourceType: "agent_report",
-    identifier: tileName,
-    success: true,
-    content,
-    title: `Report from ${tileName}`,
-    contentTruncated: truncated,
-    originalSize: truncated ? originalSize : undefined,
-    metadata: {
-      reportId: typedReport.id,
-      reportCreatedAt: typedReport.created_at,
-      tileId: source.source_reference_id,
-      tileName,
-    },
-  };
-}
 
 /**
  * Fetches search results using Tavily web search.
@@ -710,7 +594,7 @@ export function getTileSourceIdentifiers(
         return r.identifier;
       case "web_search":
         return `search:${r.identifier}`;
-      case "agent_report":
+      case "tile_connection":
         return `tile:${r.metadata?.tileName || r.identifier}`;
     }
   });
@@ -729,7 +613,7 @@ export function getTileSourceTypeBreakdown(results: TileSourceContent[]): {
 } {
   const counts = {
     url: { total: 0, success: 0 },
-    agent_report: { total: 0, success: 0 },
+    tile_connection: { total: 0, success: 0 },
     web_search: { total: 0, success: 0 },
   };
 
@@ -741,10 +625,10 @@ export function getTileSourceTypeBreakdown(results: TileSourceContent[]): {
 
   return {
     url_sources: counts.url.total,
-    tile_report_sources: counts.agent_report.total,
+    tile_report_sources: counts.tile_connection.total,
     web_search_sources: counts.web_search.total,
     url_succeeded: counts.url.success,
-    tile_report_succeeded: counts.agent_report.success,
+    tile_report_succeeded: counts.tile_connection.success,
     web_search_succeeded: counts.web_search.success,
   };
 }

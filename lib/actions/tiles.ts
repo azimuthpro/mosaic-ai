@@ -133,9 +133,9 @@ interface CreateTileParams {
     url?: string;
     name?: string;
     type?: SourceType;
-    sourceReferenceId?: string;
     config?: WebSearchConfig;
   }[];
+  connections?: string[]; // IDs of source tiles to connect
 }
 
 /**
@@ -211,8 +211,6 @@ export async function createTile(params: CreateTileParams) {
       url: s.type === "url" ? s.url : null,
       name: s.name || null,
       type: s.type || "url",
-      source_reference_id:
-        s.type === "agent_report" ? s.sourceReferenceId : null,
       config:
         s.type === "web_search" && s.config
           ? (s.config as unknown as Json)
@@ -228,6 +226,24 @@ export async function createTile(params: CreateTileParams) {
       // Rollback
       await supabase.from("tiles").delete().eq("id", tile.id);
       return { error: "Failed to create tile sources" };
+    }
+  }
+
+  // Create connections if provided
+  if (params.connections && params.connections.length > 0) {
+    const connectionData = params.connections.map((sourceId) => ({
+      mosaic_id: params.mosaicId,
+      source_tile_id: sourceId,
+      target_tile_id: tile.id,
+    }));
+
+    const { error: connError } = await supabase
+      .from("tile_connections")
+      .insert(connectionData as never);
+
+    if (connError) {
+      console.error("Error creating tile connections:", connError);
+      // Non-fatal, but log it
     }
   }
 
@@ -411,10 +427,8 @@ interface AddTileSourceParams {
   type?: SourceType;
   url?: string;
   name?: string;
-  sourceReferenceId?: string;
   config?: WebSearchConfig;
   urlConfig?: UrlSourceConfig;
-  agentReportConfig?: AgentReportSourceConfig;
 }
 
 /**
@@ -447,17 +461,12 @@ export async function addTileSource(params: AddTileSourceParams) {
     return { error: "URL is required for URL source type" };
   }
 
-  if (sourceType === "agent_report" && !params.sourceReferenceId) {
-    return { error: "Reference tile is required for agent_report source type" };
-  }
-
   if (sourceType === "web_search" && !params.config?.query) {
     return { error: "Search query is required for web_search source type" };
   }
 
-  const configByType: Record<SourceType, unknown> = {
+  const configByType: Partial<Record<SourceType, unknown>> = {
     url: params.urlConfig,
-    agent_report: params.agentReportConfig,
     web_search: params.config,
   };
   const config = (configByType[sourceType] as Json) ?? {};
@@ -467,8 +476,6 @@ export async function addTileSource(params: AddTileSourceParams) {
     type: sourceType,
     url: sourceType === "url" ? params.url : null,
     name: params.name ?? null,
-    source_reference_id:
-      sourceType === "agent_report" ? params.sourceReferenceId : null,
     config,
   };
 

@@ -24,7 +24,11 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { formatRelativeTime } from "@/lib/utils/format";
-import type { FetchMode, TileType } from "@/types/database";
+import type {
+  FetchMode,
+  TileConnection,
+  TileType,
+} from "@/types/database";
 
 import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
 import type { PluginBaseProps, SourceTypeKey } from "../../types";
@@ -32,6 +36,9 @@ import { SOURCE_TYPE_CONFIG } from "../../types";
 import { PluginCard } from "../plugin-card";
 
 interface SourcesPluginProps extends PluginBaseProps {
+  tile: PluginBaseProps["tile"] & {
+    incoming_connections?: TileConnection[];
+  };
   state: TileDrawerState;
 }
 
@@ -46,10 +53,10 @@ function renderSourceTypeOptions(tileType: TileType): React.ReactNode {
   );
 
   const tileReportOption = (
-    <SelectItem key="agent_report" value="agent_report">
+    <SelectItem key="tile_connection" value="tile_connection">
       <div className="flex items-center gap-2">
         <Link2 className="h-4 w-4 text-teal-400" />
-        Tile Report
+        Tile Connection
       </div>
     </SelectItem>
   );
@@ -111,11 +118,15 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
     deletingSourceId,
     pluginState,
     updatePluginState,
+    handleDeleteConnection,
+    deletingConnectionId,
   } = state;
 
   const activeSourceCount =
-    tile.sources?.filter((s) => s.is_active).length || 0;
-  const totalSourceCount = tile.sources?.length || 0;
+    (tile.sources?.filter((s) => s.is_active).length || 0) +
+    (tile.incoming_connections?.length || 0);
+  const totalSourceCount =
+    (tile.sources?.length || 0) + (tile.incoming_connections?.length || 0);
 
   return (
     <PluginCard
@@ -196,7 +207,7 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
               </>
             )}
 
-            {sourceForm.type === "agent_report" && (
+            {sourceForm.type === "tile_connection" && (
               <>
                 <div className="space-y-2">
                   <Label>Source Tile</Label>
@@ -372,11 +383,11 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
             </p>
           ) : (
             <div className="space-y-2">
-              {tile.sources.map((source) => {
+              {/* External Sources */}
+              {tile.sources?.map((source) => {
                 const urlConfig = source.config as {
                   extract_depth?: string;
                   query?: string;
-                  extract_urls?: boolean;
                 } | null;
                 return (
                   <div
@@ -406,16 +417,6 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                         {source.type === "web_search" && (
                           <span>Query: {urlConfig?.query}</span>
                         )}
-                        {source.type === "agent_report" && (
-                          <span>
-                            Connected tile output
-                            {urlConfig?.extract_urls && (
-                              <span className="ml-1 text-teal-400">
-                                (URL extraction)
-                              </span>
-                            )}
-                          </span>
-                        )}
                       </p>
                       {source.last_scraped_at && (
                         <p className="text-xs text-muted-foreground mt-1">
@@ -439,6 +440,46 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                         disabled={deletingSourceId === source.id}
                       >
                         {deletingSourceId === source.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Tile Connections */}
+              {tile.incoming_connections?.map((conn) => {
+                const sourceTile = availableTiles.find(
+                  (t) => t.id === conn.source_tile_id,
+                );
+                const tileName = sourceTile?.name || "Connected Tile";
+
+                return (
+                  <div
+                    key={conn.id}
+                    className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3"
+                  >
+                    <Link2 className="h-5 w-5 shrink-0 text-teal-400" />
+
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{tileName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Connected tile output
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-red-400"
+                        onClick={() => handleDeleteConnection(conn.id)}
+                        disabled={deletingConnectionId === conn.id}
+                      >
+                        {deletingConnectionId === conn.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Trash2 className="h-4 w-4" />

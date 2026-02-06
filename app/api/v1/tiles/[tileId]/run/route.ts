@@ -7,7 +7,7 @@ import {
   DEFAULT_MAX_DEPTH,
   DEFAULT_TIMEOUT_MS,
 } from "@/lib/execution/context";
-import { logExecutionEvent } from "@/lib/rate-limit/limiter";
+import { logTileJobExecutionEvent } from "@/lib/rate-limit/limiter";
 import {
   fetchLinkedTileUrls,
   fetchRuntimeUrlsContent,
@@ -191,7 +191,7 @@ export async function POST(
       });
 
       // Log execution start
-      await logExecutionEvent(adminClient, {
+      await logTileJobExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
         tileId: tileId,
         eventType: "started",
@@ -406,7 +406,7 @@ export async function POST(
 
             sourceResults.push({
               sourceId: connection.id,
-              sourceType: "agent_report",
+              sourceType: "tile_connection",
               identifier: connectedTile.name,
               success: true,
               content,
@@ -610,7 +610,7 @@ export async function POST(
         .eq("id", job.id);
 
       // Log successful completion
-      await logExecutionEvent(adminClient, {
+      await logTileJobExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
         tileId: tileId,
         jobId: job.id,

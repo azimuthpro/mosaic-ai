@@ -11,10 +11,9 @@ export type JobStatus = "pending" | "processing" | "completed" | "failed";
 export type MemberRole = "owner" | "admin" | "member";
 export type InvitationStatus = "pending" | "accepted" | "expired" | "cancelled";
 export type LanguageCode = "en" | "pl" | "es" | "it" | "de";
-export type SourceType = "url" | "agent_report" | "web_search";
+export type SourceType = "url" | "web_search";
 export type FetchMode = "fast" | "memory";
 
-// New Tile types
 export type TileType = "url_reader" | "web_search" | "recursive" | "analyzer";
 export type TilePattern = "solid" | "stripes" | "dots" | "gradient";
 
@@ -30,7 +29,7 @@ export interface UrlSourceConfig {
   extract_depth?: "basic" | "advanced";
 }
 
-// Agent report source config with optional URL extraction
+// Tile report source config with optional URL extraction (legacy "Agent" naming preserved for compatibility)
 export interface AgentReportSourceConfig {
   extract_urls?: boolean; // Enable URL extraction from report
   extract_depth?: "basic" | "advanced"; // Depth for URL extraction
@@ -117,168 +116,11 @@ export interface Database {
           updated_at?: string;
         };
       };
-      // Legacy table - use tiles instead
-      agents: {
-        Row: {
-          id: string;
-          owner_id: string;
-          name: string;
-          description: string | null;
-          system_prompt: string;
-          output_format: OutputFormat;
-          language: LanguageCode;
-          schedule_cron: string | null;
-          is_active: boolean;
-          max_chain_depth: number;
-          execution_timeout_ms: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          owner_id: string;
-          name: string;
-          description?: string | null;
-          system_prompt: string;
-          output_format?: OutputFormat;
-          language?: LanguageCode;
-          schedule_cron?: string | null;
-          is_active?: boolean;
-          max_chain_depth?: number;
-          execution_timeout_ms?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          owner_id?: string;
-          name?: string;
-          description?: string | null;
-          system_prompt?: string;
-          output_format?: OutputFormat;
-          language?: LanguageCode;
-          schedule_cron?: string | null;
-          is_active?: boolean;
-          max_chain_depth?: number;
-          execution_timeout_ms?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      // Legacy table - use mosaic_members instead
-      agent_members: {
-        Row: {
-          id: string;
-          agent_id: string;
-          user_id: string;
-          role: MemberRole;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          agent_id: string;
-          user_id: string;
-          role?: MemberRole;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          agent_id?: string;
-          user_id?: string;
-          role?: MemberRole;
-          created_at?: string;
-        };
-      };
-      // Legacy table - use tile_sources instead
-      sources: {
-        Row: {
-          id: string;
-          agent_id: string;
-          url: string | null;
-          name: string | null;
-          is_active: boolean;
-          last_scraped_at: string | null;
-          created_at: string;
-          updated_at: string;
-          type: SourceType;
-          source_reference_id: string | null;
-          config: Json;
-        };
-        Insert: {
-          id?: string;
-          agent_id: string;
-          url?: string | null;
-          name?: string | null;
-          is_active?: boolean;
-          last_scraped_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          type?: SourceType;
-          source_reference_id?: string | null;
-          config?: Json;
-        };
-        Update: {
-          id?: string;
-          agent_id?: string;
-          url?: string | null;
-          name?: string | null;
-          is_active?: boolean;
-          last_scraped_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          type?: SourceType;
-          source_reference_id?: string | null;
-          config?: Json;
-        };
-      };
-      // Legacy table - use tile_jobs instead
-      jobs: {
-        Row: {
-          id: string;
-          agent_id: string;
-          status: JobStatus;
-          started_at: string | null;
-          completed_at: string | null;
-          error_message: string | null;
-          metadata: Json;
-          execution_id: string | null;
-          chain_depth: number;
-          parent_job_id: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          agent_id: string;
-          status?: JobStatus;
-          started_at?: string | null;
-          completed_at?: string | null;
-          error_message?: string | null;
-          metadata?: Json;
-          execution_id?: string | null;
-          chain_depth?: number;
-          parent_job_id?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          agent_id?: string;
-          status?: JobStatus;
-          started_at?: string | null;
-          completed_at?: string | null;
-          error_message?: string | null;
-          metadata?: Json;
-          execution_id?: string | null;
-          chain_depth?: number;
-          parent_job_id?: string | null;
-          created_at?: string;
-        };
-      };
-      // Legacy table - use tile_reports instead
-      reports: {
+      tile_job_results: {
         Row: {
           id: string;
           job_id: string;
-          agent_id: string;
+          tile_id: string;
           content: Json;
           format: OutputFormat;
           source_urls: string[];
@@ -287,7 +129,7 @@ export interface Database {
         Insert: {
           id?: string;
           job_id: string;
-          agent_id: string;
+          tile_id: string;
           content: Json;
           format?: OutputFormat;
           source_urls?: string[];
@@ -296,14 +138,13 @@ export interface Database {
         Update: {
           id?: string;
           job_id?: string;
-          agent_id?: string;
+          tile_id?: string;
           content?: Json;
           format?: OutputFormat;
           source_urls?: string[];
           created_at?: string;
         };
       };
-      // New Mosaic tables
       mosaics: {
         Row: {
           id: string;
@@ -474,6 +315,7 @@ export interface Database {
           mosaic_id: string;
           source_tile_id: string;
           target_tile_id: string;
+          config: Json;
           created_at: string;
         };
         Insert: {
@@ -481,6 +323,7 @@ export interface Database {
           mosaic_id: string;
           source_tile_id: string;
           target_tile_id: string;
+          config?: Json;
           created_at?: string;
         };
         Update: {
@@ -488,6 +331,7 @@ export interface Database {
           mosaic_id?: string;
           source_tile_id?: string;
           target_tile_id?: string;
+          config?: Json;
           created_at?: string;
         };
       };
@@ -500,7 +344,6 @@ export interface Database {
           is_active: boolean;
           last_scraped_at: string | null;
           type: SourceType;
-          source_reference_id: string | null;
           config: Json;
           created_at: string;
           updated_at: string;
@@ -513,7 +356,6 @@ export interface Database {
           is_active?: boolean;
           last_scraped_at?: string | null;
           type?: SourceType;
-          source_reference_id?: string | null;
           config?: Json;
           created_at?: string;
           updated_at?: string;
@@ -526,7 +368,6 @@ export interface Database {
           is_active?: boolean;
           last_scraped_at?: string | null;
           type?: SourceType;
-          source_reference_id?: string | null;
           config?: Json;
           created_at?: string;
           updated_at?: string;
@@ -573,75 +414,11 @@ export interface Database {
           created_at?: string;
         };
       };
-      tile_reports: {
-        Row: {
-          id: string;
-          job_id: string;
-          tile_id: string;
-          content: Json;
-          format: OutputFormat;
-          source_urls: string[];
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          job_id: string;
-          tile_id: string;
-          content: Json;
-          format?: OutputFormat;
-          source_urls?: string[];
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          job_id?: string;
-          tile_id?: string;
-          content?: Json;
-          format?: OutputFormat;
-          source_urls?: string[];
-          created_at?: string;
-        };
-      };
-      skills: {
-        Row: {
-          id: string;
-          user_id: string;
-          name: string;
-          description: string | null;
-          prompt: string;
-          category: SkillCategory;
-          is_public: boolean;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          name: string;
-          description?: string | null;
-          prompt: string;
-          category?: SkillCategory;
-          is_public?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          name?: string;
-          description?: string | null;
-          prompt?: string;
-          category?: SkillCategory;
-          is_public?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      execution_logs: {
+      tile_job_execution_logs: {
         Row: {
           id: string;
           execution_id: string;
-          tile_id: string | null;
+          tile_id: string;
           job_id: string | null;
           event_type: string;
           metadata: Json;
@@ -650,7 +427,7 @@ export interface Database {
         Insert: {
           id?: string;
           execution_id: string;
-          tile_id?: string | null;
+          tile_id: string;
           job_id?: string | null;
           event_type: string;
           metadata?: Json;
@@ -659,7 +436,7 @@ export interface Database {
         Update: {
           id?: string;
           execution_id?: string;
-          tile_id?: string | null;
+          tile_id?: string;
           job_id?: string | null;
           event_type?: string;
           metadata?: Json;
@@ -884,7 +661,7 @@ export interface Database {
         };
         Returns: Json;
       };
-      log_execution_event: {
+      log_tile_job_execution_event: {
         Args: {
           p_execution_id: string;
           p_tile_id: string;
@@ -923,31 +700,7 @@ export interface Database {
   };
 }
 
-// Legacy convenience types (kept for backwards compatibility)
-export type User = Database["public"]["Tables"]["users"]["Row"];
-export type Agent = Database["public"]["Tables"]["agents"]["Row"];
-export type AgentMember = Database["public"]["Tables"]["agent_members"]["Row"];
-export type Source = Database["public"]["Tables"]["sources"]["Row"];
-export type Job = Database["public"]["Tables"]["jobs"]["Row"];
-export type Report = Database["public"]["Tables"]["reports"]["Row"];
-export type Allowlist = Database["public"]["Tables"]["allowlist"]["Row"];
-export type Skill = Database["public"]["Tables"]["skills"]["Row"];
-
-// Legacy insert types
-export type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
-export type AgentInsert = Database["public"]["Tables"]["agents"]["Insert"];
-export type SourceInsert = Database["public"]["Tables"]["sources"]["Insert"];
-export type JobInsert = Database["public"]["Tables"]["jobs"]["Insert"];
-export type ReportInsert = Database["public"]["Tables"]["reports"]["Insert"];
-export type SkillInsert = Database["public"]["Tables"]["skills"]["Insert"];
-
-// Legacy update types
-export type AgentUpdate = Database["public"]["Tables"]["agents"]["Update"];
-export type SourceUpdate = Database["public"]["Tables"]["sources"]["Update"];
-export type JobUpdate = Database["public"]["Tables"]["jobs"]["Update"];
-export type SkillUpdate = Database["public"]["Tables"]["skills"]["Update"];
-
-// New Mosaic types
+// Mosaic types
 export type Mosaic = Database["public"]["Tables"]["mosaics"]["Row"];
 export type MosaicInsert = Database["public"]["Tables"]["mosaics"]["Insert"];
 export type MosaicUpdate = Database["public"]["Tables"]["mosaics"]["Update"];
@@ -971,7 +724,7 @@ export type MosaicInvitationInsert =
 export type MosaicInvitationUpdate =
   Database["public"]["Tables"]["mosaic_invitations"]["Update"];
 
-// New Tile types
+// Tile types
 export type Tile = Database["public"]["Tables"]["tiles"]["Row"];
 export type TileInsert = Database["public"]["Tables"]["tiles"]["Insert"];
 export type TileUpdate = Database["public"]["Tables"]["tiles"]["Update"];
@@ -994,23 +747,25 @@ export type TileJobInsert = Database["public"]["Tables"]["tile_jobs"]["Insert"];
 export type TileJobUpdate = Database["public"]["Tables"]["tile_jobs"]["Update"];
 
 // Job results (output content from tile executions)
-// Note: DB table is still named tile_reports for backwards compatibility
-export type TileJobResult = Database["public"]["Tables"]["tile_reports"]["Row"];
+export type TileJobResult =
+  Database["public"]["Tables"]["tile_job_results"]["Row"];
 export type TileJobResultInsert =
-  Database["public"]["Tables"]["tile_reports"]["Insert"];
+  Database["public"]["Tables"]["tile_job_results"]["Insert"];
 export type TileJobResultUpdate =
-  Database["public"]["Tables"]["tile_reports"]["Update"];
+  Database["public"]["Tables"]["tile_job_results"]["Update"];
 
-// Backwards compatible aliases
+/** @deprecated Use TileJobResult instead */
 export type TileReport = TileJobResult;
+/** @deprecated Use TileJobResultInsert instead */
 export type TileReportInsert = TileJobResultInsert;
+/** @deprecated Use TileJobResultUpdate instead */
 export type TileReportUpdate = TileJobResultUpdate;
 
 // Execution logs
 export type ExecutionLog =
-  Database["public"]["Tables"]["execution_logs"]["Row"];
+  Database["public"]["Tables"]["tile_job_execution_logs"]["Row"];
 export type ExecutionLogInsert =
-  Database["public"]["Tables"]["execution_logs"]["Insert"];
+  Database["public"]["Tables"]["tile_job_execution_logs"]["Insert"];
 export type UserRateLimit =
   Database["public"]["Tables"]["user_rate_limits"]["Row"];
 
@@ -1021,31 +776,7 @@ export type TileSkillInsert =
 export type TileSkillUpdate =
   Database["public"]["Tables"]["tile_skills"]["Update"];
 
-// Legacy extended types with relations
-export type AgentWithSources = Agent & {
-  sources: Source[];
-};
-
-export type AgentWithStats = Agent & {
-  sources: Source[];
-  total_jobs: number;
-  last_job: Job | null;
-};
-
-export type JobWithReport = Job & {
-  report: Report | null;
-};
-
-export type ReportWithAgent = Report & {
-  agent: Agent;
-  job: Job;
-};
-
-export type SourceWithReferencedAgent = Source & {
-  referenced_agent?: Agent | null;
-};
-
-// New extended types with relations
+// Extended types with relations
 export type MosaicWithTiles = Mosaic & {
   tiles: TileWithSources[];
 };
@@ -1081,8 +812,9 @@ export type TileJobResultWithTile = TileJobResult & {
   job: TileJob;
 };
 
-// Backwards compatible aliases
+/** @deprecated Use TileJobWithResult instead */
 export type TileJobWithReport = TileJobWithResult;
+/** @deprecated Use TileJobResultWithTile instead */
 export type TileReportWithTile = TileJobResultWithTile;
 
 export type TileSourceWithReferencedTile = TileSource & {
@@ -1143,8 +875,7 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
 };
 
 // Tile Webhooks
-export type TileWebhook =
-  Database["public"]["Tables"]["tile_webhooks"]["Row"];
+export type TileWebhook = Database["public"]["Tables"]["tile_webhooks"]["Row"];
 export type TileWebhookInsert =
   Database["public"]["Tables"]["tile_webhooks"]["Insert"];
 export type TileWebhookUpdate =

@@ -16,6 +16,7 @@ A **Mosaic** is a workspace container that organizes your intelligence gathering
 - **Settings**: Workspace-level configuration
 
 Mosaics enable:
+
 - Visual organization of related intelligence tasks
 - Team collaboration with role-based access
 - Unified execution of connected tiles
@@ -156,11 +157,11 @@ Connections define data flow between tiles in a mosaic.
 
 Each tile can have multiple sources that provide input data:
 
-| Source Type      | Description                                    | Required Config        |
-| :--------------- | :--------------------------------------------- | :--------------------- |
-| `url`            | Web page scraped via Firecrawl                 | `url`                  |
-| `agent_report`   | Latest report from a connected tile            | `source_reference_id`  |
-| `web_search`     | AI-powered search via Tavily                   | `query` in `config`    |
+| Source Type       | Description                         | Required Config                   |
+| :---------------- | :---------------------------------- | :-------------------------------- |
+| `url`             | Web page scraped via Firecrawl      | `url`                             |
+| `tile_connection` | Latest report from a connected tile | `source_tile_id` (in connections) |
+| `web_search`      | AI-powered search via Tavily        | `query` in `config`               |
 
 ---
 
@@ -168,11 +169,11 @@ Each tile can have multiple sources that provide input data:
 
 Mosaics support role-based access control:
 
-| Role       | Capabilities                                           |
-| :--------- | :----------------------------------------------------- |
-| `owner`    | Full control: delete mosaic, manage members, all tiles |
-| `admin`    | Manage tiles: create, edit, delete, run                |
-| `member`   | View only: see tiles and reports                       |
+| Role     | Capabilities                                           |
+| :------- | :----------------------------------------------------- |
+| `owner`  | Full control: delete mosaic, manage members, all tiles |
+| `admin`  | Manage tiles: create, edit, delete, run                |
+| `member` | View only: see tiles and reports                       |
 
 ---
 
@@ -241,6 +242,7 @@ Authorization: Bearer msk_...
 #### Response Formats
 
 **For `url_reader` requester:**
+
 ```json
 {
   "urls": ["https://extracted-url.com", ...],
@@ -250,6 +252,7 @@ Authorization: Bearer msk_...
 ```
 
 **For `analyzer` requester:**
+
 ```json
 {
   "content": "Report content as string",
@@ -261,6 +264,7 @@ Authorization: Bearer msk_...
 ```
 
 **Default response:**
+
 ```json
 {
   "job_id": "uuid",
@@ -287,29 +291,29 @@ Authorization: Bearer msk_...
 
 ### Tile Table
 
-| Column                | Type      | Description                              |
-| :-------------------- | :-------- | :--------------------------------------- |
-| `id`                  | UUID      | Primary key                              |
-| `mosaic_id`           | UUID      | Parent mosaic                            |
-| `name`                | VARCHAR   | Display name                             |
-| `tile_type`           | ENUM      | url_reader, web_search, recursive, analyzer |
-| `color`               | VARCHAR   | Hex color code                           |
-| `pattern`             | ENUM      | solid, stripes, dots, gradient           |
-| `grid_x`, `grid_y`    | INT       | Position on canvas                       |
-| `grid_width`, `grid_height` | INT  | Size on canvas                           |
-| `system_prompt`       | TEXT      | AI instructions                          |
-| `output_format`       | ENUM      | text, list, table, json                  |
-| `schedule_cron`       | VARCHAR   | Cron expression for scheduling           |
-| `is_active`           | BOOLEAN   | Enable/disable tile                      |
+| Column                      | Type    | Description                                 |
+| :-------------------------- | :------ | :------------------------------------------ |
+| `id`                        | UUID    | Primary key                                 |
+| `mosaic_id`                 | UUID    | Parent mosaic                               |
+| `name`                      | VARCHAR | Display name                                |
+| `tile_type`                 | ENUM    | url_reader, web_search, recursive, analyzer |
+| `color`                     | VARCHAR | Hex color code                              |
+| `pattern`                   | ENUM    | solid, stripes, dots, gradient              |
+| `grid_x`, `grid_y`          | INT     | Position on canvas                          |
+| `grid_width`, `grid_height` | INT     | Size on canvas                              |
+| `system_prompt`             | TEXT    | AI instructions                             |
+| `output_format`             | ENUM    | text, list, table, json                     |
+| `schedule_cron`             | VARCHAR | Cron expression for scheduling              |
+| `is_active`                 | BOOLEAN | Enable/disable tile                         |
 
 ### Tile Connections Table
 
-| Column            | Type      | Description                              |
-| :---------------- | :-------- | :--------------------------------------- |
-| `id`              | UUID      | Primary key                              |
-| `mosaic_id`       | UUID      | Parent mosaic                            |
-| `source_tile_id`  | UUID      | Tile providing output                    |
-| `target_tile_id`  | UUID      | Tile receiving input                     |
+| Column           | Type | Description           |
+| :--------------- | :--- | :-------------------- |
+| `id`             | UUID | Primary key           |
+| `mosaic_id`      | UUID | Parent mosaic         |
+| `source_tile_id` | UUID | Tile providing output |
+| `target_tile_id` | UUID | Tile receiving input  |
 
 ---
 
@@ -331,9 +335,9 @@ Legacy agent tables are preserved for backwards compatibility but marked as depr
 
 ## Future Tile Types (Roadmap)
 
-| Type           | Input          | Description                                   |
-| :------------- | :------------- | :-------------------------------------------- |
-| `file_upload`  | PDF, CSV, Text | Analyze uploaded documents                    |
-| `api_endpoint` | JSON/XML       | Fetch from external REST/GraphQL APIs         |
-| `rss_feed`     | XML Feed       | Monitor news and blogs                        |
-| `aggregator`   | Multiple tiles | Combine outputs from many tiles               |
+| Type           | Input          | Description                           |
+| :------------- | :------------- | :------------------------------------ |
+| `file_upload`  | PDF, CSV, Text | Analyze uploaded documents            |
+| `api_endpoint` | JSON/XML       | Fetch from external REST/GraphQL APIs |
+| `rss_feed`     | XML Feed       | Monitor news and blogs                |
+| `aggregator`   | Multiple tiles | Combine outputs from many tiles       |

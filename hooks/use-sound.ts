@@ -5,8 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { soundManager } from "@/lib/sounds/sound-manager";
 
 interface UseSoundReturn {
-  playEmptyClick: () => void;
-  playTileClick: () => void;
+  playClick: () => void;
+  playStop: () => void;
   isEnabled: boolean;
   setEnabled: (enabled: boolean) => void;
   isReady: boolean;
@@ -17,12 +17,9 @@ export function useSound(): UseSoundReturn {
   const [isEnabled, setIsEnabled] = useState(true);
 
   useEffect(() => {
-    // Initialize sound manager on first user interaction
     const initOnInteraction = () => {
-      soundManager.initialize().then(() => {
-        setIsReady(true);
-      });
-      // Remove listeners after first interaction
+      soundManager.initialize();
+      setIsReady(true);
       document.removeEventListener("click", initOnInteraction);
       document.removeEventListener("keydown", initOnInteraction);
       document.removeEventListener("touchstart", initOnInteraction);
@@ -39,15 +36,15 @@ export function useSound(): UseSoundReturn {
     };
   }, []);
 
-  const playEmptyClick = useCallback(() => {
+  const playClick = useCallback(() => {
     if (isEnabled) {
-      soundManager.playEmptyClick();
+      soundManager.playClick();
     }
   }, [isEnabled]);
 
-  const playTileClick = useCallback(() => {
+  const playStop = useCallback(() => {
     if (isEnabled) {
-      soundManager.playTileClick();
+      soundManager.playStop();
     }
   }, [isEnabled]);
 
@@ -57,8 +54,8 @@ export function useSound(): UseSoundReturn {
   }, []);
 
   return {
-    playEmptyClick,
-    playTileClick,
+    playClick,
+    playStop,
     isEnabled,
     setEnabled,
     isReady,

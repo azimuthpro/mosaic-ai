@@ -10,7 +10,7 @@ import {
 import {
   checkAndIncrementRateLimit,
   decrementConcurrentCount,
-  logExecutionEvent,
+  logTileJobExecutionEvent,
 } from "@/lib/rate-limit/limiter";
 import {
   fetchAllTileSourcesContent,
@@ -24,7 +24,7 @@ import type {
   TileJob,
   TileJobInsert,
   TileJobUpdate,
-  TileReportInsert,
+  TileJobResultInsert,
   TileSource,
 } from "@/types/database";
 
@@ -143,7 +143,7 @@ async function processTile(
 
   try {
     // Log execution start
-    await logExecutionEvent(adminClient, {
+    await logTileJobExecutionEvent(adminClient, {
       executionId: executionContext.executionId,
       tileId: tile.id,
       eventType: "started",
@@ -230,7 +230,7 @@ async function processTile(
       const sourceBreakdown = getTileSourceTypeBreakdown(sourceResults);
 
       // Create report
-      const reportInsert: TileReportInsert = {
+      const reportInsert: TileJobResultInsert = {
         job_id: job.id,
         tile_id: tile.id,
         content: analysis.content,
@@ -261,7 +261,7 @@ async function processTile(
         .eq("id", job.id);
 
       // Log successful completion
-      await logExecutionEvent(adminClient, {
+      await logTileJobExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
         tileId: tile.id,
         jobId: job.id,
@@ -302,7 +302,7 @@ async function processTile(
             | "depth_exceeded")
         : "failed";
 
-      await logExecutionEvent(adminClient, {
+      await logTileJobExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
         tileId: tile.id,
         jobId: job.id,
@@ -326,6 +326,35 @@ async function processTile(
       await decrementConcurrentCount(adminClient, userId);
     }
   }
+}
+
+const RETENTION_DAYS = {
+  executionLogs: 90,
+  webhookDeliveries: 30,
+} as const;
+
+function daysAgoISO(days: number): string {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+async function runDataRetentionCleanup(
+  adminClient: ReturnType<typeof createAdminClient>,
+) {
+  const [logsResult, deliveriesResult] = await Promise.allSettled([
+    adminClient
+      .from("tile_job_execution_logs")
+      .delete()
+      .lt("created_at", daysAgoISO(RETENTION_DAYS.executionLogs)),
+    adminClient
+      .from("tile_webhook_deliveries")
+      .delete()
+      .lt("created_at", daysAgoISO(RETENTION_DAYS.webhookDeliveries)),
+  ]);
+
+  return {
+    execution_logs: logsResult.status === "fulfilled" ? "ok" : "error",
+    webhook_deliveries: deliveriesResult.status === "fulfilled" ? "ok" : "error",
+  };
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -364,46 +393,48 @@ export async function GET(request: Request): Promise<Response> {
     const allTiles = (tiles || []) as TileWithSources[];
 
     // Filter tiles that should run at the current time based on their schedule and timezone
-    const typedTiles = allTiles.filter((tile) => {
+    const scheduledTiles = allTiles.filter((tile) => {
       if (!tile.schedule_cron) return false;
       const settings = tile.mosaics.settings as MosaicSettings | null;
       return shouldTileRunNow(tile.schedule_cron, settings?.timezone);
     });
 
-    if (typedTiles.length === 0) {
+    if (scheduledTiles.length === 0) {
+      const cleanup = await runDataRetentionCleanup(adminClient);
       return NextResponse.json({
         success: true,
         message: "No tiles scheduled to run at this time",
         processed: 0,
         totalWithSchedule: allTiles.length,
+        cleanup,
       });
     }
 
-    // Process all tiles
+    // Process all scheduled tiles
     const results = await Promise.allSettled(
-      typedTiles.map((tile) => processTile(adminClient, tile)),
+      scheduledTiles.map((tile) => processTile(adminClient, tile)),
     );
 
     // Extract results from Promise.allSettled
-    const processedResults: TileResult[] = results.map((result) => {
-      if (result.status === "fulfilled") {
-        return result.value;
-      }
-      return { tileId: "unknown", error: getErrorMessage(result.reason) };
-    });
+    const processedResults: TileResult[] = results.map((result) =>
+      result.status === "fulfilled"
+        ? result.value
+        : { tileId: "unknown", error: getErrorMessage(result.reason) },
+    );
 
-    const successful = processedResults.filter(
-      (r) => r.success === true,
-    ).length;
-    const failed = processedResults.filter((r) => r.error !== undefined).length;
+    const successful = processedResults.filter((r) => r.success).length;
+    const failed = processedResults.filter((r) => r.error).length;
+
+    const cleanup = await runDataRetentionCleanup(adminClient);
 
     return NextResponse.json({
       success: true,
-      processed: typedTiles.length,
+      processed: scheduledTiles.length,
       totalWithSchedule: allTiles.length,
       successful,
       failed,
       results: processedResults,
+      cleanup,
     });
   } catch (error) {
     console.error("Cron trigger error:", error);

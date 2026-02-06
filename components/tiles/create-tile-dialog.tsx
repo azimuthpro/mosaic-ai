@@ -158,8 +158,7 @@ export function CreateTileDialog({
     const sources: {
       url?: string;
       name?: string;
-      type?: "url" | "agent_report" | "web_search";
-      sourceReferenceId?: string;
+      type?: "url" | "web_search";
       config?: { query: string; search_depth?: "basic" | "advanced" };
     }[] = [];
 
@@ -183,10 +182,6 @@ export function CreateTileDialog({
           },
         });
         break;
-      case "recursive":
-      case "analyzer":
-        // For pipeline tiles, we create connections instead of sources
-        break;
     }
 
     const result = await createTile({
@@ -201,6 +196,10 @@ export function CreateTileDialog({
       systemPrompt: customInstructions || undefined,
       scheduleCron: getTriggerCron(trigger) || undefined,
       sources: sources.length > 0 ? sources : undefined,
+      connections:
+        selectedType === "recursive" || selectedType === "analyzer"
+          ? inputTileIds
+          : undefined,
       gridX,
       gridY,
     });
@@ -209,16 +208,6 @@ export function CreateTileDialog({
       setError(result.error);
       setIsLoading(false);
       return;
-    }
-
-    // Create tile connections for recursive/analyzer tiles
-    if (
-      (selectedType === "recursive" || selectedType === "analyzer") &&
-      result.tile
-    ) {
-      for (const sourceTileId of inputTileIds) {
-        await createTileConnection(mosaicId, sourceTileId, result.tile.id);
-      }
     }
 
     setOpen(false);

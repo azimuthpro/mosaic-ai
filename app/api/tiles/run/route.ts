@@ -11,7 +11,7 @@ import {
   assertRateLimitAllowed,
   checkAndIncrementRateLimit,
   decrementConcurrentCount,
-  logExecutionEvent,
+  logTileJobExecutionEvent,
   RateLimitError,
 } from "@/lib/rate-limit/limiter";
 import {
@@ -28,7 +28,7 @@ import type {
   TileJob,
   TileJobInsert,
   TileJobUpdate,
-  TileReportInsert,
+  TileJobResultInsert,
   TileSource,
 } from "@/types/database";
 
@@ -165,7 +165,7 @@ export async function POST(request: Request): Promise<Response> {
     });
 
     // Log execution start
-    await logExecutionEvent(adminClient, {
+    await logTileJobExecutionEvent(adminClient, {
       executionId: executionContext.executionId,
       tileId: tileId,
       eventType: "started",
@@ -288,7 +288,7 @@ export async function POST(request: Request): Promise<Response> {
       const sourceBreakdown = getTileSourceTypeBreakdown(sourceResults);
 
       // Create report
-      const reportInsert: TileReportInsert = {
+      const reportInsert: TileJobResultInsert = {
         job_id: job.id,
         tile_id: tileId,
         content: analysis.content,
@@ -325,7 +325,7 @@ export async function POST(request: Request): Promise<Response> {
         .eq("id", job.id);
 
       // Log successful completion
-      await logExecutionEvent(adminClient, {
+      await logTileJobExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
         tileId: tileId,
         jobId: job.id,
@@ -360,7 +360,7 @@ export async function POST(request: Request): Promise<Response> {
         .eq("id", job.id);
 
       // Log failure
-      await logExecutionEvent(adminClient, {
+      await logTileJobExecutionEvent(adminClient, {
         executionId: executionContext.executionId,
         tileId: tileId,
         jobId: job.id,

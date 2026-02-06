@@ -210,9 +210,9 @@ export function assertRateLimitAllowed(result: RateLimitResult): void {
 }
 
 /**
- * Logs an execution event to the execution_logs table.
+ * Logs an execution event to the tile_job_execution_logs table.
  */
-export async function logExecutionEvent(
+export async function logTileJobExecutionEvent(
   adminClient: SupabaseClient<Database>,
   params: {
     executionId: string;
@@ -230,13 +230,16 @@ export async function logExecutionEvent(
   },
 ): Promise<string | null> {
   const rpcClient = adminClient as unknown as RpcClient;
-  const { data, error } = await rpcClient.rpc<string>("log_execution_event", {
-    p_execution_id: params.executionId,
-    p_tile_id: params.tileId,
-    p_job_id: params.jobId || null,
-    p_event_type: params.eventType,
-    p_metadata: params.metadata || {},
-  });
+  const { data, error } = await rpcClient.rpc<string>(
+    "log_tile_job_execution_event",
+    {
+      p_execution_id: params.executionId,
+      p_tile_id: params.tileId,
+      p_job_id: params.jobId || null,
+      p_event_type: params.eventType,
+      p_metadata: params.metadata || {},
+    },
+  );
 
   if (error) {
     console.error("Failed to log execution event:", error);

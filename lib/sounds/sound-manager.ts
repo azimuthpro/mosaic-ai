@@ -1,34 +1,10 @@
 /**
- * Sound Manager - Web Audio API singleton for MPC-style pad sounds
+ * Sound Manager - Web Audio API singleton for synthesized UI sounds
  */
-
-type SoundType = "padEmpty" | "padTile" | "padRelease";
-
-interface SoundConfig {
-  url: string;
-  volume: number;
-}
-
-const SOUND_CONFIGS: Record<SoundType, SoundConfig> = {
-  padEmpty: {
-    url: "/sounds/pad-empty.mp3",
-    volume: 0.3,
-  },
-  padTile: {
-    url: "/sounds/pad-tile.mp3",
-    volume: 0.4,
-  },
-  padRelease: {
-    url: "/sounds/pad-release.mp3",
-    volume: 0.2,
-  },
-};
 
 class SoundManager {
   private static instance: SoundManager | null = null;
   private audioContext: AudioContext | null = null;
-  private buffers: Map<SoundType, AudioBuffer> = new Map();
-  private isInitialized = false;
   private isEnabled = true;
 
   private constructor() {}
@@ -40,59 +16,63 @@ class SoundManager {
     return SoundManager.instance;
   }
 
-  async initialize(): Promise<void> {
-    if (this.isInitialized || typeof window === "undefined") return;
-
-    try {
-      this.audioContext = new AudioContext();
-
-      // Preload all sounds
-      await Promise.all(
-        Object.entries(SOUND_CONFIGS).map(async ([key, config]) => {
-          try {
-            const response = await fetch(config.url);
-            if (!response.ok) {
-              console.warn(`Sound file not found: ${config.url}`);
-              return;
-            }
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer =
-              await this.audioContext!.decodeAudioData(arrayBuffer);
-            this.buffers.set(key as SoundType, audioBuffer);
-          } catch (error) {
-            console.warn(`Failed to load sound ${key}:`, error);
-          }
-        }),
-      );
-
-      this.isInitialized = true;
-    } catch (error) {
-      console.warn("Failed to initialize SoundManager:", error);
-    }
+  initialize(): void {
+    if (this.audioContext || typeof window === "undefined") return;
+    this.audioContext = new AudioContext();
   }
 
-  play(type: SoundType): void {
-    if (!this.isEnabled || !this.audioContext || !this.buffers.has(type))
-      return;
-
-    // Resume audio context if suspended (browser autoplay policy)
+  private ensureContext(): AudioContext | null {
+    if (!this.isEnabled || !this.audioContext) return null;
     if (this.audioContext.state === "suspended") {
       this.audioContext.resume();
     }
+    return this.audioContext;
+  }
 
-    const buffer = this.buffers.get(type)!;
-    const config = SOUND_CONFIGS[type];
+  /** Short percussive click for tile select, empty cell click, and run/start actions */
+  playClick(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
 
-    const source = this.audioContext.createBufferSource();
-    const gainNode = this.audioContext.createGain();
+    const t = ctx.currentTime;
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
 
-    source.buffer = buffer;
-    gainNode.gain.value = config.volume;
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(800, t);
+    oscillator.frequency.exponentialRampToValueAtTime(400, t + 0.06);
 
-    source.connect(gainNode);
-    gainNode.connect(this.audioContext.destination);
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.06);
 
-    source.start(0);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+
+    oscillator.start(t);
+    oscillator.stop(t + 0.06);
+  }
+
+  /** Distinct descending tone for stop/close actions */
+  playStop(): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+
+    const t = ctx.currentTime;
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    oscillator.type = "triangle";
+    oscillator.frequency.setValueAtTime(500, t);
+    oscillator.frequency.exponentialRampToValueAtTime(200, t + 0.1);
+
+    gain.gain.setValueAtTime(0.15, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+
+    oscillator.start(t);
+    oscillator.stop(t + 0.1);
   }
 
   setEnabled(enabled: boolean): void {
@@ -102,56 +82,6 @@ class SoundManager {
   isAudioEnabled(): boolean {
     return this.isEnabled;
   }
-
-  // Synthesize a simple MPC-style click if no audio files are loaded
-  synthesizeClick(pitch: number = 800, duration: number = 0.08): void {
-    if (!this.isEnabled || !this.audioContext) return;
-
-    if (this.audioContext.state === "suspended") {
-      this.audioContext.resume();
-    }
-
-    const oscillator = this.audioContext.createOscillator();
-    const gainNode = this.audioContext.createGain();
-
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(pitch, this.audioContext.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(
-      pitch * 0.5,
-      this.audioContext.currentTime + duration,
-    );
-
-    gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(
-      0.01,
-      this.audioContext.currentTime + duration,
-    );
-
-    oscillator.connect(gainNode);
-    gainNode.connect(this.audioContext.destination);
-
-    oscillator.start(this.audioContext.currentTime);
-    oscillator.stop(this.audioContext.currentTime + duration);
-  }
-
-  // Play empty pad click (higher pitch, shorter)
-  playEmptyClick(): void {
-    if (this.buffers.has("padEmpty")) {
-      this.play("padEmpty");
-    } else {
-      this.synthesizeClick(1000, 0.06);
-    }
-  }
-
-  // Play tile pad click (lower pitch, longer sustain)
-  playTileClick(): void {
-    if (this.buffers.has("padTile")) {
-      this.play("padTile");
-    } else {
-      this.synthesizeClick(600, 0.12);
-    }
-  }
 }
 
 export const soundManager = SoundManager.getInstance();
-export type { SoundType };

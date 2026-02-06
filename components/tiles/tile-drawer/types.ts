@@ -26,7 +26,11 @@ export const TILE_TYPE_LABELS: Record<TileType, string> = {
 export const SOURCE_TYPE_CONFIG = {
   url: { icon: "Globe", color: "text-cyan-400", label: "URL" },
   web_search: { icon: "Search", color: "text-pink-400", label: "Web Search" },
-  agent_report: { icon: "Link2", color: "text-teal-400", label: "Tile Report" },
+  tile_connection: {
+    icon: "Link2",
+    color: "text-teal-400",
+    label: "Tile Connection",
+  },
 } as const;
 
 export type SourceTypeKey = keyof typeof SOURCE_TYPE_CONFIG;
@@ -35,8 +39,8 @@ export type SourceTypeKey = keyof typeof SOURCE_TYPE_CONFIG;
 export const DEFAULT_SOURCE_TYPES: Record<TileType, SourceTypeKey> = {
   url_reader: "url",
   web_search: "web_search",
-  recursive: "agent_report",
-  analyzer: "agent_report",
+  recursive: "tile_connection",
+  analyzer: "tile_connection",
 };
 
 // Plugin collapsed state storage key

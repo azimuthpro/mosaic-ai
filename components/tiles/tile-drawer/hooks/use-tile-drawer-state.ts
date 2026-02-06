@@ -10,6 +10,8 @@ import {
 } from "@/lib/actions/tile-execution";
 import {
   addTileSource,
+  createTileConnection,
+  deleteTileConnection,
   deleteTileSource,
   getTilesForSourceSelection,
   toggleTileActive,
@@ -91,6 +93,9 @@ export function useTileDrawerState({
   const [isLoadingTiles, setIsLoadingTiles] = useState(false);
   const [isAddingSource, setIsAddingSource] = useState(false);
   const [deletingSourceId, setDeletingSourceId] = useState<string | null>(null);
+  const [deletingConnectionId, setDeletingConnectionId] = useState<
+    string | null
+  >(null);
   const [deletingResultId, setDeletingResultId] = useState<string | null>(null);
 
   // Plugin collapsed state (persisted in localStorage)
@@ -272,16 +277,30 @@ export function useTileDrawerState({
       alert("Please enter a search query");
       return;
     }
-    if (sourceForm.type === "agent_report" && !sourceForm.selectedTileId) {
+    if (sourceForm.type === "tile_connection" && !sourceForm.selectedTileId) {
       alert("Please select a tile");
       return;
     }
 
     setIsAddingSource(true);
     try {
+      if (sourceForm.type === "tile_connection") {
+        const result = await createTileConnection(
+          mosaicId,
+          sourceForm.selectedTileId,
+          tile.id,
+        );
+        if (result.error) {
+          alert(result.error);
+        } else {
+          resetSourceForm();
+        }
+        return;
+      }
+
       const params: Parameters<typeof addTileSource>[0] = {
         tileId: tile.id,
-        type: sourceForm.type,
+        type: sourceForm.type as "url" | "web_search",
       };
 
       if (sourceForm.name) {
@@ -293,14 +312,6 @@ export function useTileDrawerState({
         params.urlConfig = { extract_depth: sourceForm.extractDepth };
       } else if (sourceForm.type === "web_search") {
         params.config = { query: sourceForm.searchQuery };
-      } else if (sourceForm.type === "agent_report") {
-        params.sourceReferenceId = sourceForm.selectedTileId;
-        params.agentReportConfig = {
-          extract_urls: sourceForm.extractUrlsFromReport,
-          extract_depth: sourceForm.extractDepth,
-          max_urls: sourceForm.maxUrls,
-          fetch_mode: sourceForm.fetchMode,
-        };
       }
 
       const result = await addTileSource(params);
@@ -333,6 +344,24 @@ export function useTileDrawerState({
       alert("Failed to delete source");
     } finally {
       setDeletingSourceId(null);
+    }
+  }, []);
+
+  // Delete connection
+  const handleDeleteConnection = useCallback(async (connectionId: string) => {
+    if (!confirm("Are you sure you want to remove this connection?")) return;
+
+    setDeletingConnectionId(connectionId);
+    try {
+      const result = await deleteTileConnection(connectionId);
+      if (result.error) {
+        alert(result.error);
+      }
+    } catch (error) {
+      console.error("Failed to delete connection:", error);
+      alert("Failed to delete connection");
+    } finally {
+      setDeletingConnectionId(null);
     }
   }, []);
 
@@ -416,6 +445,8 @@ export function useTileDrawerState({
     isLoadingTiles,
     isAddingSource,
     deletingSourceId,
+    handleDeleteConnection,
+    deletingConnectionId,
 
     // API keys state
     apiKeys,

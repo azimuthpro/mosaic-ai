@@ -92,7 +92,7 @@ export async function getTileExecutionLogs(
   }
 
   const { data, error } = await supabase
-    .from("execution_logs")
+    .from("tile_job_execution_logs")
     .select("id, event_type, metadata, created_at")
     .eq("job_id", jobId)
     .order("created_at", { ascending: true });
@@ -134,7 +134,7 @@ export async function getTileAllExecutionLogs(
   const jobIds = (jobsData as { id: string }[]).map((j) => j.id);
 
   const { data, error } = await supabase
-    .from("execution_logs")
+    .from("tile_job_execution_logs")
     .select("id, event_type, metadata, created_at")
     .in("job_id", jobIds)
     .order("created_at", { ascending: false })

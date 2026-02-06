@@ -26,7 +26,7 @@ const TILE_SIZE = 140; // px - size of each grid cell
 const GRID_GAP = 8; // px - fuga/grout width
 
 export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
-  const { playEmptyClick, playTileClick } = useSound();
+  const { playClick, playStop } = useSound();
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [drawerTileId, setDrawerTileId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -71,7 +71,7 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
 
   function handleTileSelect(tile: TileWithSources): void {
     if (!draggingTileId) {
-      playTileClick();
+      playClick();
       setSelectedTileId(tile.id);
       setDrawerTileId(tile.id);
       setDrawerOpen(true);
@@ -79,14 +79,14 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   }
 
   function handleConfigure(tile: TileWithSources): void {
-    playTileClick();
+    playClick();
     setDrawerTileId(tile.id);
     setDrawerOpen(true);
   }
 
   function handleEmptyCellClick(gridX: number, gridY: number): void {
     if (draggingTileId) return;
-    playEmptyClick();
+    playClick();
     setCreateDialogPosition({ gridX, gridY });
     setCreateDialogOpen(true);
   }
@@ -94,6 +94,7 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   function handleDrawerOpenChange(open: boolean): void {
     setDrawerOpen(open);
     if (!open) {
+      playStop();
       setSelectedTileId(null);
     }
   }
