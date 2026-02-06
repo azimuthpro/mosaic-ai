@@ -21,6 +21,7 @@ DROP POLICY IF EXISTS "Service role can insert tile reports" ON tile_job_results
 DROP POLICY IF EXISTS "Users can view execution logs for their agents or tiles" ON execution_logs;
 
 -- Create new policy that only checks tiles (agents are being removed)
+DROP POLICY IF EXISTS "Users can view execution logs for their tiles" ON execution_logs;
 CREATE POLICY "Users can view execution logs for their tiles"
   ON execution_logs FOR SELECT
   USING (
@@ -35,6 +36,7 @@ CREATE POLICY "Users can view execution logs for their tiles"
 -- Also need to update the constraint that requires agent_id OR tile_id
 -- Since agents are being removed, we only need tile_id
 ALTER TABLE execution_logs DROP CONSTRAINT IF EXISTS execution_logs_requires_agent_or_tile;
+DELETE FROM execution_logs WHERE tile_id IS NULL;
 ALTER TABLE execution_logs ADD CONSTRAINT execution_logs_requires_tile CHECK (tile_id IS NOT NULL);
 
 -- Drop the agent_id column since agents table is being removed
@@ -98,28 +100,7 @@ DROP FUNCTION IF EXISTS log_execution_event(uuid, uuid, uuid, uuid, text, jsonb)
 -- ============================================================================
 
 -- Drop in order respecting foreign key dependencies
-
--- First drop policies
-DROP POLICY IF EXISTS "Users can view their own reports" ON reports;
-DROP POLICY IF EXISTS "Service role can insert reports" ON reports;
-DROP POLICY IF EXISTS "Users can view their own jobs" ON jobs;
-DROP POLICY IF EXISTS "Users can update their own jobs" ON jobs;
-DROP POLICY IF EXISTS "Service role can insert jobs" ON jobs;
-DROP POLICY IF EXISTS "Service role can update jobs" ON jobs;
-DROP POLICY IF EXISTS "Users can view their own sources" ON sources;
-DROP POLICY IF EXISTS "Users can insert their own sources" ON sources;
-DROP POLICY IF EXISTS "Users can update their own sources" ON sources;
-DROP POLICY IF EXISTS "Users can delete their own sources" ON sources;
-DROP POLICY IF EXISTS "Users can view agent members" ON agent_members;
-DROP POLICY IF EXISTS "Owners can manage agent members" ON agent_members;
-DROP POLICY IF EXISTS "Users can view their own agents" ON agents;
-DROP POLICY IF EXISTS "Users can view shared agents" ON agents;
-DROP POLICY IF EXISTS "Users can insert their own agents" ON agents;
-DROP POLICY IF EXISTS "Users can update their own agents" ON agents;
-DROP POLICY IF EXISTS "Users can delete their own agents" ON agents;
-DROP POLICY IF EXISTS "Users can manage their own skills" ON skills;
-
--- Drop tables (order matters due to foreign keys)
+-- CASCADE handles dropping policies, so no need to drop them separately
 DROP TABLE IF EXISTS reports CASCADE;
 DROP TABLE IF EXISTS jobs CASCADE;
 DROP TABLE IF EXISTS sources CASCADE;

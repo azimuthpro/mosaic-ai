@@ -641,7 +641,7 @@ export interface Database {
         Row: {
           id: string;
           execution_id: string;
-          agent_id: string | null;
+          tile_id: string | null;
           job_id: string | null;
           event_type: string;
           metadata: Json;
@@ -650,7 +650,7 @@ export interface Database {
         Insert: {
           id?: string;
           execution_id: string;
-          agent_id?: string | null;
+          tile_id?: string | null;
           job_id?: string | null;
           event_type: string;
           metadata?: Json;
@@ -659,7 +659,7 @@ export interface Database {
         Update: {
           id?: string;
           execution_id?: string;
-          agent_id?: string | null;
+          tile_id?: string | null;
           job_id?: string | null;
           event_type?: string;
           metadata?: Json;
@@ -768,6 +768,97 @@ export interface Database {
           created_at?: string;
         };
       };
+      tile_webhooks: {
+        Row: {
+          id: string;
+          tile_id: string;
+          name: string;
+          url: string;
+          events: string[];
+          auth_type: string;
+          auth_config: Json;
+          retry_count: number;
+          timeout_ms: number;
+          is_active: boolean;
+          last_triggered_at: string | null;
+          last_status: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tile_id: string;
+          name: string;
+          url: string;
+          events?: string[];
+          auth_type?: string;
+          auth_config?: Json;
+          retry_count?: number;
+          timeout_ms?: number;
+          is_active?: boolean;
+          last_triggered_at?: string | null;
+          last_status?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tile_id?: string;
+          name?: string;
+          url?: string;
+          events?: string[];
+          auth_type?: string;
+          auth_config?: Json;
+          retry_count?: number;
+          timeout_ms?: number;
+          is_active?: boolean;
+          last_triggered_at?: string | null;
+          last_status?: string | null;
+          created_at?: string;
+        };
+      };
+      tile_webhook_deliveries: {
+        Row: {
+          id: string;
+          webhook_id: string;
+          job_id: string | null;
+          event_type: string;
+          payload: Json;
+          status: string;
+          response_status: number | null;
+          response_body: string | null;
+          attempts: number;
+          error_message: string | null;
+          created_at: string;
+          delivered_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          webhook_id: string;
+          job_id?: string | null;
+          event_type: string;
+          payload: Json;
+          status?: string;
+          response_status?: number | null;
+          response_body?: string | null;
+          attempts?: number;
+          error_message?: string | null;
+          created_at?: string;
+          delivered_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          webhook_id?: string;
+          job_id?: string | null;
+          event_type?: string;
+          payload?: Json;
+          status?: string;
+          response_status?: number | null;
+          response_body?: string | null;
+          attempts?: number;
+          error_message?: string | null;
+          created_at?: string;
+          delivered_at?: string | null;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
@@ -796,7 +887,7 @@ export interface Database {
       log_execution_event: {
         Args: {
           p_execution_id: string;
-          p_agent_id: string;
+          p_tile_id: string;
           p_job_id: string | null;
           p_event_type: string;
           p_metadata?: Json;
@@ -1050,3 +1141,65 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
     description: "Process and analyze connected data",
   },
 };
+
+// Tile Webhooks
+export type TileWebhook =
+  Database["public"]["Tables"]["tile_webhooks"]["Row"];
+export type TileWebhookInsert =
+  Database["public"]["Tables"]["tile_webhooks"]["Insert"];
+export type TileWebhookUpdate =
+  Database["public"]["Tables"]["tile_webhooks"]["Update"];
+
+export type TileWebhookDelivery =
+  Database["public"]["Tables"]["tile_webhook_deliveries"]["Row"];
+export type TileWebhookDeliveryInsert =
+  Database["public"]["Tables"]["tile_webhook_deliveries"]["Insert"];
+export type TileWebhookDeliveryUpdate =
+  Database["public"]["Tables"]["tile_webhook_deliveries"]["Update"];
+
+// Webhook event types
+export type WebhookEventType = "job.started" | "job.completed" | "job.failed";
+export type WebhookAuthType = "none" | "bearer" | "basic" | "header";
+export type WebhookDeliveryStatus = "pending" | "success" | "failed";
+
+// Webhook auth config types
+export interface WebhookAuthConfigBearer {
+  token: string;
+}
+
+export interface WebhookAuthConfigBasic {
+  username: string;
+  password: string;
+}
+
+export interface WebhookAuthConfigHeader {
+  name: string;
+  value: string;
+}
+
+export type WebhookAuthConfig =
+  | Record<string, never>
+  | WebhookAuthConfigBearer
+  | WebhookAuthConfigBasic
+  | WebhookAuthConfigHeader;
+
+// Webhook payload structure
+export interface WebhookPayload {
+  event: WebhookEventType;
+  timestamp: string;
+  tile: {
+    id: string;
+    name: string;
+  };
+  job: {
+    id: string;
+    started_at: string | null;
+    completed_at: string | null;
+  };
+  result?: {
+    content: Json;
+    format: OutputFormat;
+    source_urls: string[];
+  };
+  error?: string;
+}

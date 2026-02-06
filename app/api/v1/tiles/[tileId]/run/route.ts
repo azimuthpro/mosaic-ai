@@ -1,3 +1,4 @@
+import { triggerTileWebhooks } from "@/lib/actions/webhooks";
 import { analyzeContent } from "@/lib/ai/gemini";
 import { authenticateApiRequest, verifyTileAccess } from "@/lib/api/auth";
 import { createSSEResponse, SSE_ERROR_CODES, SSEWriter } from "@/lib/api/sse";
@@ -237,6 +238,18 @@ export async function POST(
       // Send started event
       writer.sendStarted(job.id, tileId);
 
+      // Trigger job.started webhooks (fire and forget)
+      triggerTileWebhooks(tileId, "job.started", {
+        tile: { id: tileId, name: typedTile.name },
+        job: {
+          id: job.id,
+          started_at: jobInsert.started_at || null,
+          completed_at: null,
+        },
+      }).catch((err) =>
+        console.error("Failed to trigger started webhooks:", err),
+      );
+
       // For pipeline tiles, get all tiles in the mosaic for context
       let availableTiles: TileWithResult[] = [];
 
@@ -457,6 +470,19 @@ export async function POST(
           .update(failedUpdate as never)
           .eq("id", job.id);
 
+        // Trigger job.failed webhooks
+        triggerTileWebhooks(tileId, "job.failed", {
+          tile: { id: tileId, name: typedTile.name },
+          job: {
+            id: job.id,
+            started_at: jobInsert.started_at || null,
+            completed_at: failedUpdate.completed_at || null,
+          },
+          error: failedUpdate.error_message || "Fetch failed",
+        }).catch((err) =>
+          console.error("Failed to trigger failed webhooks:", err),
+        );
+
         writer.sendError(
           `No content could be fetched from sources: ${errorDetails}`,
           SSE_ERROR_CODES.FETCH_FAILED,
@@ -486,6 +512,19 @@ export async function POST(
           .from("tile_jobs")
           .update(failedUpdate as never)
           .eq("id", job.id);
+
+        // Trigger job.failed webhooks
+        triggerTileWebhooks(tileId, "job.failed", {
+          tile: { id: tileId, name: typedTile.name },
+          job: {
+            id: job.id,
+            started_at: jobInsert.started_at || null,
+            completed_at: failedUpdate.completed_at || null,
+          },
+          error: failedUpdate.error_message || "AI analysis failed",
+        }).catch((err) =>
+          console.error("Failed to trigger failed webhooks:", err),
+        );
 
         writer.sendError(
           analysis.error || "AI analysis failed",
@@ -526,6 +565,19 @@ export async function POST(
           .from("tile_jobs")
           .update(failedUpdate as never)
           .eq("id", job.id);
+
+        // Trigger job.failed webhooks
+        triggerTileWebhooks(tileId, "job.failed", {
+          tile: { id: tileId, name: typedTile.name },
+          job: {
+            id: job.id,
+            started_at: jobInsert.started_at || null,
+            completed_at: failedUpdate.completed_at || null,
+          },
+          error: "Failed to save result",
+        }).catch((err) =>
+          console.error("Failed to trigger failed webhooks:", err),
+        );
 
         writer.sendError(
           "Failed to save result",
@@ -579,6 +631,23 @@ export async function POST(
         source_urls: jobResult.source_urls,
         created_at: jobResult.created_at,
       });
+
+      // Trigger job.completed webhooks (fire and forget)
+      triggerTileWebhooks(tileId, "job.completed", {
+        tile: { id: tileId, name: typedTile.name },
+        job: {
+          id: job.id,
+          started_at: jobInsert.started_at || null,
+          completed_at: completedUpdate.completed_at || null,
+        },
+        result: {
+          content: jobResult.content,
+          format: jobResult.format,
+          source_urls: jobResult.source_urls,
+        },
+      }).catch((err) =>
+        console.error("Failed to trigger completed webhooks:", err),
+      );
 
       // Send done event
       writer.sendDone(job.id);
