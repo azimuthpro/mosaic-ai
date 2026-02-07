@@ -383,6 +383,10 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
                   onConfigure={handleConfigure}
                   selected={isSelected}
                   connectedTileIds={connectedTileIds}
+                  incomingConnectionCount={
+                    connections.filter((c) => c.target_tile_id === tile.id)
+                      .length
+                  }
                   compact
                   isDragging={isDragging}
                   isRunning={runningTileIds.has(tile.id)}

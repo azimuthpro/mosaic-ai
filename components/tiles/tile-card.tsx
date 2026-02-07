@@ -31,6 +31,7 @@ interface TileCardProps {
   onConfigure?: (tile: TileWithSources) => void;
   selected?: boolean;
   connectedTileIds?: string[];
+  incomingConnectionCount?: number;
   compact?: boolean;
   isDragging?: boolean;
   isRunning?: boolean;
@@ -84,6 +85,7 @@ export function TileCard({
   onConfigure,
   selected,
   connectedTileIds = [],
+  incomingConnectionCount = 0,
   compact = false,
   isDragging = false,
   isRunning = false,
@@ -93,23 +95,24 @@ export function TileCard({
 
   const Icon = TILE_ICONS[tile.tile_type];
   const isConnected = connectedTileIds.includes(tile.id);
+  const sourceCount = (tile.sources?.length || 0) + incomingConnectionCount;
 
-  const handleRun = (e: React.MouseEvent) => {
+  function handleRun(e: React.MouseEvent): void {
     e.stopPropagation();
     onRun?.(tile.id);
-  };
+  }
 
-  const handleDelete = async () => {
+  async function handleDelete(): Promise<void> {
     if (!confirm("Are you sure you want to delete this tile?")) {
       return;
     }
     setIsDeleting(true);
     await deleteTile(tile.id);
-  };
+  }
 
-  const handleToggleActive = async () => {
+  async function handleToggleActive(): Promise<void> {
     await toggleTileActive(tile.id);
-  };
+  }
 
   // Compact square tile for mosaic grid (MPC pad style)
   if (compact) {
@@ -131,18 +134,14 @@ export function TileCard({
         }
         onClick={() => onSelect?.(tile)}
       >
-        {/* Pattern background */}
         <div
           className="absolute inset-0 opacity-15"
           style={getPatternStyle(tile.pattern, tile.color)}
         />
 
-        {/* Content */}
         <div className="relative flex flex-1 flex-col p-2">
-          {/* Header row with LED indicator */}
           <div className="flex items-start justify-between gap-1">
             <div className="flex items-center gap-1.5">
-              {/* LED Indicator */}
               <div
                 className={cn(
                   "led-indicator",
@@ -158,9 +157,12 @@ export function TileCard({
               </div>
             </div>
 
-            {/* Actions */}
+            {/* Play button - visible on hover, always visible when running */}
             <div
-              className="flex items-center opacity-0 transition-opacity group-hover:opacity-100"
+              className={cn(
+                "transition-opacity",
+                isRunning ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+              )}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
@@ -168,7 +170,7 @@ export function TileCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 hover:bg-white/10"
+                className="h-6 w-6 text-white/50 hover:text-white hover:bg-white/10"
                 onClick={handleRun}
                 disabled={isRunning || !tile.is_active}
               >
@@ -178,40 +180,9 @@ export function TileCard({
                   <Play className="h-3 w-3" />
                 )}
               </Button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 hover:bg-white/10"
-                  >
-                    <MoreHorizontal className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-36">
-                  <DropdownMenuItem onClick={handleToggleActive}>
-                    {tile.is_active ? "Disable" : "Enable"}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onConfigure?.(tile)}>
-                    <Settings className="mr-2 h-3 w-3" />
-                    Configure
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                  >
-                    <Trash2 className="mr-2 h-3 w-3" />
-                    {isDeleting ? "..." : "Delete"}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
 
-          {/* Title */}
           <div className="mt-1 flex-1">
             <h3 className="line-clamp-2 text-xs font-semibold leading-tight text-white/90">
               {tile.name}
@@ -221,14 +192,13 @@ export function TileCard({
             </p>
           </div>
 
-          {/* Bottom badges */}
           <div className="mt-auto flex items-center gap-1 pt-1">
-            {tile.sources?.length > 0 && (
+            {sourceCount > 0 && (
               <Badge
                 variant="secondary"
                 className="h-4 px-1 text-[9px] font-normal bg-white/10 text-white/70"
               >
-                {tile.sources.length}
+                {sourceCount}
               </Badge>
             )}
             {tile.schedule_cron && (
@@ -252,7 +222,6 @@ export function TileCard({
           </div>
         </div>
 
-        {/* Color accent bar at bottom with glow */}
         <div
           className="h-1"
           style={{
@@ -282,13 +251,12 @@ export function TileCard({
       }
       onClick={() => onSelect?.(tile)}
     >
-      {/* Color bar */}
       <div
         className="h-2 rounded-t-lg"
         style={getPatternStyle(tile.pattern, tile.color)}
       />
 
-      <div className="flex flex-row items-start justify-between space-y-0 p-4 pb-2">
+      <div className="flex flex-row items-start justify-between p-4 pb-2">
         <div className="flex items-center gap-2">
           <div
             className="flex h-8 w-8 items-center justify-center rounded-lg"
@@ -361,7 +329,7 @@ export function TileCard({
 
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="text-xs">
-            {tile.sources?.length || 0} sources
+            {sourceCount} sources
           </Badge>
           {tile.schedule_cron && (
             <Badge variant="secondary" className="text-xs">

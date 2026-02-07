@@ -1,11 +1,29 @@
 "use client";
 
-import { FileText, History, Loader2, Trash2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  FileText,
+  History,
+  Loader2,
+  Maximize2,
+  Trash2,
+} from "lucide-react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { deleteTileJobResult } from "@/lib/actions/tile-execution";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  deleteTileJobResult,
+  type TileJobResultSummary,
+} from "@/lib/actions/tile-execution";
 import { formatRelativeTime } from "@/lib/utils/format";
 
 import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
@@ -16,7 +34,68 @@ interface HistoryPluginProps extends PluginBaseProps {
   state: TileDrawerState;
 }
 
-export function HistoryPlugin({ tile, disabled, state }: HistoryPluginProps) {
+function getContentString(result: TileJobResultSummary): string {
+  if (result.format === "text") {
+    const contentObj = result.content as { text?: string } | null;
+    if (contentObj?.text) return contentObj.text;
+  }
+  if (typeof result.content === "string") return result.content;
+  return JSON.stringify(result.content, null, 2);
+}
+
+function ResultContent({
+  result,
+  bordered,
+}: {
+  result: TileJobResultSummary;
+  bordered?: boolean;
+}) {
+  const contentStr = getContentString(result);
+  const wrapperClass = bordered
+    ? "rounded-lg border border-border bg-muted/30 p-3 max-h-[300px] overflow-y-auto select-text"
+    : "";
+
+  if (result.format === "json") {
+    return (
+      <div className={wrapperClass}>
+        <pre className="whitespace-pre-wrap break-words text-sm font-mono">
+          <code>{contentStr}</code>
+        </pre>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`prose prose-sm prose-invert max-w-none ${wrapperClass}`}>
+      <ReactMarkdown>{contentStr}</ReactMarkdown>
+    </div>
+  );
+}
+
+function SourceUrlList({ urls }: { urls: string[] }) {
+  if (urls.length === 0) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-border">
+      <p className="text-xs font-medium text-muted-foreground mb-2">Sources:</p>
+      <div className="space-y-1">
+        {urls.map((url, i) => (
+          <a
+            key={i}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-xs text-cyan-400 hover:underline break-all"
+          >
+            {url}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function HistoryPlugin({ disabled, state }: HistoryPluginProps) {
   const {
     jobResults,
     setJobResults,
@@ -28,6 +107,18 @@ export function HistoryPlugin({ tile, disabled, state }: HistoryPluginProps) {
     pluginState,
     updatePluginState,
   } = state;
+
+  const [fullscreenResult, setFullscreenResult] =
+    useState<TileJobResultSummary | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyAll = async () => {
+    if (!fullscreenResult) return;
+    const text = getContentString(fullscreenResult);
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleDeleteJobResult = async (resultId: string) => {
     if (!confirm("Are you sure you want to delete this job result?")) return;
@@ -78,13 +169,6 @@ export function HistoryPlugin({ tile, disabled, state }: HistoryPluginProps) {
         <div className="space-y-3">
           {jobResults.map((result) => {
             const isExpanded = expandedResultId === result.id;
-            const contentObj = result.content as { text?: string } | null;
-            const contentStr =
-              result.format === "text" && contentObj?.text
-                ? contentObj.text
-                : typeof result.content === "string"
-                  ? result.content
-                  : JSON.stringify(result.content, null, 2);
 
             return (
               <div
@@ -109,10 +193,23 @@ export function HistoryPlugin({ tile, disabled, state }: HistoryPluginProps) {
                       </p>
                     </div>
                   </button>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <Badge variant="outline" className="text-xs">
                       {isExpanded ? "Collapse" : "Expand"}
                     </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCopied(false);
+                        setFullscreenResult(result);
+                      }}
+                      title="View fullscreen"
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -134,37 +231,8 @@ export function HistoryPlugin({ tile, disabled, state }: HistoryPluginProps) {
 
                 {isExpanded && (
                   <div className="border-t border-border p-4">
-                    {result.format === "json" ? (
-                      <div className="rounded-lg border border-border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
-                        <pre className="whitespace-pre-wrap break-words text-sm font-mono">
-                          <code>{contentStr}</code>
-                        </pre>
-                      </div>
-                    ) : (
-                      <div className="prose prose-sm prose-invert max-w-none rounded-lg border border-border bg-muted/30 p-3 max-h-[300px] overflow-y-auto">
-                        <ReactMarkdown>{contentStr}</ReactMarkdown>
-                      </div>
-                    )}
-                    {result.source_urls && result.source_urls.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-border">
-                        <p className="text-xs font-medium text-muted-foreground mb-2">
-                          Sources:
-                        </p>
-                        <div className="space-y-1">
-                          {result.source_urls.map((url, i) => (
-                            <a
-                              key={i}
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block text-xs text-cyan-400 hover:underline truncate"
-                            >
-                              {url}
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <ResultContent result={result} bordered />
+                    <SourceUrlList urls={result.source_urls ?? []} />
                   </div>
                 )}
               </div>
@@ -172,6 +240,46 @@ export function HistoryPlugin({ tile, disabled, state }: HistoryPluginProps) {
           })}
         </div>
       )}
+      <Dialog
+        open={!!fullscreenResult}
+        onOpenChange={(open) => {
+          if (!open) setFullscreenResult(null);
+        }}
+      >
+        {fullscreenResult && (
+          <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
+            <DialogHeader className="flex flex-row items-center justify-between px-6 py-4 border-b border-border shrink-0">
+              <div className="flex items-center gap-3">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <DialogTitle className="text-sm font-medium">
+                  {formatRelativeTime(fullscreenResult.created_at)}
+                  <span className="ml-2 text-xs text-muted-foreground font-normal">
+                    {fullscreenResult.source_urls?.length ?? 0} sources ·{" "}
+                    {fullscreenResult.format}
+                  </span>
+                </DialogTitle>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyAll}
+                className="gap-1.5"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-400" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+                {copied ? "Copied" : "Copy all"}
+              </Button>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto p-6 select-text cursor-text">
+              <ResultContent result={fullscreenResult} />
+              <SourceUrlList urls={fullscreenResult.source_urls ?? []} />
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
     </PluginCard>
   );
 }

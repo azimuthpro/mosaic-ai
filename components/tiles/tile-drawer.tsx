@@ -5,11 +5,24 @@ import {
   ArrowRight,
   Braces,
   Loader2,
+  Pause,
   Play,
+  Power,
   Save,
+  Trash2,
+  X,
 } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Drawer,
   DrawerClose,
@@ -20,6 +33,7 @@ import {
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { deleteTile } from "@/lib/actions/tiles";
 import { formatRelativeTime } from "@/lib/utils/format";
 import type { TileWithSources } from "@/types/database";
 
@@ -36,6 +50,7 @@ interface TileDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRunTile?: (tileId: string) => Promise<void>;
+  onDeleteTile?: (tileId: string) => void;
 }
 
 export function TileDrawer({
@@ -44,8 +59,11 @@ export function TileDrawer({
   open,
   onOpenChange,
   onRunTile,
+  onDeleteTile,
 }: TileDrawerProps) {
   const state = useTileDrawerState({ tile, mosaicId, open });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleRun = async () => {
     if (!tile) return;
@@ -72,13 +90,34 @@ export function TileDrawer({
     }
   };
 
+  const handleDelete = async () => {
+    if (!tile) return;
+    setIsDeleting(true);
+    try {
+      const result = await deleteTile(tile.id);
+      if (result.error) {
+        alert(result.error);
+      } else {
+        setShowDeleteConfirm(false);
+        onOpenChange(false);
+        onDeleteTile?.(tile.id);
+      }
+    } catch {
+      alert("Failed to delete tile");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (!tile) return null;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh]">
         <DrawerHeader className="flex flex-row items-center justify-between border-b border-border px-6 pb-4">
-          <DrawerTitle className="sr-only">{tile.name || "Tile Settings"}</DrawerTitle>
+          <DrawerTitle className="sr-only">
+            {tile.name || "Tile Settings"}
+          </DrawerTitle>
           <div className="flex items-center gap-3">
             <div
               className="flex h-10 w-10 items-center justify-center rounded-lg"
@@ -90,16 +129,13 @@ export function TileDrawer({
               />
             </div>
             <div className="flex-1 min-w-0">
-              {/* Editable name */}
-              <div className="flex items-center gap-2">
-                <Input
-                  value={state.configState.name}
-                  onChange={(e) =>
-                    state.updateConfigField("name", e.target.value)
-                  }
-                  className="h-7 px-2 text-lg font-semibold border-transparent hover:border-border focus:border-primary bg-transparent"
-                />
-              </div>
+              <Input
+                value={state.configState.name}
+                onChange={(e) =>
+                  state.updateConfigField("name", e.target.value)
+                }
+                className="h-7 px-2 text-lg font-semibold border-transparent hover:border-border focus:border-primary bg-transparent"
+              />
               <DrawerDescription className="text-left">
                 {TILE_TYPE_LABELS[tile.tile_type]} · Last run:{" "}
                 {state.executionStatus?.lastJob
@@ -108,13 +144,25 @@ export function TileDrawer({
               </DrawerDescription>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant={state.configState.isActive ? "outline" : "secondary"}
+              size="sm"
+              onClick={state.handleToggleActive}
+              title={state.configState.isActive ? "Pause tile" : "Resume tile"}
+            >
+              {state.configState.isActive ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Power className="h-4 w-4" />
+              )}
+              {state.configState.isActive ? "Pause" : "Resume"}
+            </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={state.saveConfig}
               disabled={state.isSaving}
-              className="gap-2"
             >
               {state.isSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -128,7 +176,6 @@ export function TileDrawer({
               size="sm"
               onClick={handleRun}
               disabled={state.isRunning || !state.configState.isActive}
-              className="gap-2"
             >
               {state.isRunning ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -137,9 +184,19 @@ export function TileDrawer({
               )}
               Run
             </Button>
+            <div className="mx-1 h-5 w-px bg-border" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-muted-foreground hover:text-destructive"
+              title="Delete tile"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
             <DrawerClose asChild>
-              <Button variant="ghost" size="sm">
-                Close
+              <Button variant="ghost" size="sm" title="Close">
+                <X className="h-4 w-4" />
               </Button>
             </DrawerClose>
           </div>
@@ -206,6 +263,42 @@ export function TileDrawer({
           </div>
         </Tabs>
       </DrawerContent>
+
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete tile</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{tile.name}&rdquo;? This
+              will remove the tile, all its sources, connections, and execution
+              history. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Drawer>
   );
 }
