@@ -1,13 +1,16 @@
 "use client";
 
 import {
+  Check,
   Database,
   Globe,
   Link2,
   Loader2,
+  Pencil,
   Plus,
   Search,
   Trash2,
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -66,14 +69,8 @@ function renderSourceTypeOptions(tileType: TileType): React.ReactNode {
     </SelectItem>
   );
 
-  switch (tileType) {
-    case "url_reader":
-      return [urlOption, tileReportOption];
-    case "web_search":
-      return [webSearchOption, tileReportOption];
-    case "analyzer":
-      return tileReportOption;
-  }
+  // All tile types get all source type options
+  return [urlOption, webSearchOption, tileReportOption];
 }
 
 interface SourceIconProps {
@@ -115,7 +112,23 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
     updatePluginState,
     handleDeleteConnection,
     deletingConnectionId,
+    editingConnectionId,
+    editConnectionSourceTileId,
+    setEditConnectionSourceTileId,
+    isSavingConnection,
+    handleStartEditConnection,
+    handleCancelEditConnection,
+    handleSaveConnection,
+    editingSourceId,
+    editForm,
+    isSavingSource,
+    handleStartEditSource,
+    handleCancelEditSource,
+    updateEditField,
+    handleSaveSource,
   } = state;
+
+  const isAnyEditing = !!editingSourceId || !!editingConnectionId;
 
   const activeSourceCount =
     (tile.sources?.filter((s) => s.is_active).length || 0) +
@@ -261,7 +274,16 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                   </p>
                 </div>
 
-                {/* URL extraction options for url_reader tiles */}
+                {/* Connection behavior hint */}
+                <p className="text-xs text-muted-foreground rounded-md bg-muted/40 p-2">
+                  {tile.tile_type === "url_reader"
+                    ? "URLs will be extracted from the connected tile's report and fetched"
+                    : tile.tile_type === "web_search"
+                      ? "Keywords will be extracted from the connected tile's report and searched"
+                      : "Full report content from the connected tile will be used as input"}
+                </p>
+
+                {/* URL extraction options (for url_reader tiles) */}
                 {tile.tile_type === "url_reader" && (
                   <>
                     <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
@@ -372,7 +394,7 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
         {/* Existing Sources */}
         <div className="space-y-2">
           <Label>Current Sources ({totalSourceCount})</Label>
-          {!tile.sources || tile.sources.length === 0 ? (
+          {totalSourceCount === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
               No sources configured yet
             </p>
@@ -380,10 +402,128 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
             <div className="space-y-2">
               {/* External Sources */}
               {tile.sources?.map((source) => {
+                const isEditing = editingSourceId === source.id;
                 const urlConfig = source.config as {
                   extract_depth?: string;
                   query?: string;
                 } | null;
+
+                if (isEditing) {
+                  return (
+                    <div
+                      key={source.id}
+                      className="rounded-lg border border-cyan-500/40 bg-muted/20 p-3 space-y-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <SourceIcon
+                          type={source.type}
+                          className="h-5 w-5 shrink-0"
+                        />
+                        <span className="text-sm font-medium">
+                          Edit {SOURCE_TYPE_CONFIG[source.type].label}
+                        </span>
+                      </div>
+
+                      {source.type === "url" && (
+                        <>
+                          <div className="space-y-2">
+                            <Label>URL</Label>
+                            <Input
+                              value={editForm.url}
+                              onChange={(e) =>
+                                updateEditField("url", e.target.value)
+                              }
+                              placeholder="https://example.com/page"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Extract Depth</Label>
+                            <Select
+                              value={editForm.extractDepth}
+                              onValueChange={(v) =>
+                                updateEditField(
+                                  "extractDepth",
+                                  v as "basic" | "advanced",
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="basic">Basic</SelectItem>
+                                <SelectItem value="advanced">
+                                  Advanced (deeper extraction)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </>
+                      )}
+
+                      {source.type === "web_search" && (
+                        <div className="space-y-2">
+                          <Label>Search Query</Label>
+                          <Input
+                            value={editForm.searchQuery}
+                            onChange={(e) =>
+                              updateEditField("searchQuery", e.target.value)
+                            }
+                            placeholder="Enter search query..."
+                          />
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label>Name (optional)</Label>
+                        <Input
+                          value={editForm.name}
+                          onChange={(e) =>
+                            updateEditField("name", e.target.value)
+                          }
+                          placeholder="Friendly name for this source"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
+                        <Label className="text-sm">Active</Label>
+                        <Switch
+                          checked={editForm.isActive}
+                          onCheckedChange={(v) =>
+                            updateEditField("isActive", v)
+                          }
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={handleCancelEditSource}
+                          disabled={isSavingSource}
+                        >
+                          <X className="mr-1 h-4 w-4" />
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          onClick={handleSaveSource}
+                          disabled={isSavingSource}
+                        >
+                          {isSavingSource ? (
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="mr-1 h-4 w-4" />
+                          )}
+                          Save
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={source.id}
@@ -395,9 +535,17 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                     />
 
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        {getSourceDisplayName(source)}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">
+                          {getSourceDisplayName(source)}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] shrink-0 ${SOURCE_TYPE_CONFIG[source.type].color}`}
+                        >
+                          {SOURCE_TYPE_CONFIG[source.type].label}
+                        </Badge>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {source.type === "url" && (
                           <span className="truncate block">
@@ -430,9 +578,20 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-cyan-400"
+                        onClick={() => handleStartEditSource(source)}
+                        disabled={isAnyEditing}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-red-400"
                         onClick={() => handleDeleteSource(source.id)}
-                        disabled={deletingSourceId === source.id}
+                        disabled={
+                          deletingSourceId === source.id || isAnyEditing
+                        }
                       >
                         {deletingSourceId === source.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -451,6 +610,78 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                   (t) => t.id === conn.source_tile_id,
                 );
                 const tileName = sourceTile?.name || "Connected Tile";
+                const isEditingConn = editingConnectionId === conn.id;
+
+                if (isEditingConn) {
+                  return (
+                    <div
+                      key={conn.id}
+                      className="rounded-lg border border-cyan-500/40 bg-muted/20 p-3 space-y-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Link2 className="h-5 w-5 shrink-0 text-teal-400" />
+                        <span className="text-sm font-medium">
+                          Edit Tile Connection
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Source Tile</Label>
+                        <Select
+                          value={editConnectionSourceTileId}
+                          onValueChange={setEditConnectionSourceTileId}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a tile..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {isLoadingTiles ? (
+                              <div className="flex items-center justify-center py-2">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </div>
+                            ) : availableTiles.length === 0 ? (
+                              <div className="py-2 px-2 text-sm text-muted-foreground">
+                                No other tiles available
+                              </div>
+                            ) : (
+                              availableTiles.map((t) => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  {t.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={handleCancelEditConnection}
+                          disabled={isSavingConnection}
+                        >
+                          <X className="mr-1 h-4 w-4" />
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          onClick={handleSaveConnection}
+                          disabled={isSavingConnection}
+                        >
+                          {isSavingConnection ? (
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="mr-1 h-4 w-4" />
+                          )}
+                          Save
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
                   <div
@@ -460,7 +691,15 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                     <Link2 className="h-5 w-5 shrink-0 text-teal-400" />
 
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{tileName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{tileName}</p>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] shrink-0 text-teal-400"
+                        >
+                          Tile Connection
+                        </Badge>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         Connected tile output
                       </p>
@@ -470,9 +709,25 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-cyan-400"
+                        onClick={() =>
+                          handleStartEditConnection(
+                            conn.id,
+                            conn.source_tile_id,
+                          )
+                        }
+                        disabled={isAnyEditing}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-red-400"
                         onClick={() => handleDeleteConnection(conn.id)}
-                        disabled={deletingConnectionId === conn.id}
+                        disabled={
+                          deletingConnectionId === conn.id || isAnyEditing
+                        }
                       >
                         {deletingConnectionId === conn.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -484,6 +739,25 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Auto-run trigger */}
+          {(tile.incoming_connections?.length ?? 0) > 0 && (
+            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3 mt-2">
+              <div>
+                <Label className="text-sm">Auto-run on source update</Label>
+                <p className="text-xs text-muted-foreground">
+                  Automatically run when a connected source tile completes
+                </p>
+              </div>
+              <Switch
+                checked={state.configState.triggerOnSourceUpdate}
+                onCheckedChange={() =>
+                  state.handleToggleTriggerOnSourceUpdate()
+                }
+                disabled={state.isSaving || disabled}
+              />
             </div>
           )}
         </div>

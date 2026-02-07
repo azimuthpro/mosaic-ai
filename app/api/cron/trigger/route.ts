@@ -20,6 +20,7 @@ import {
   type TileSourceContent,
 } from "@/lib/sources/tile-content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
 import type {
   MosaicSettings,
   Tile,
@@ -301,6 +302,16 @@ async function processTile(
           durationMs: Date.now() - executionContext.startTime,
         },
       });
+
+      // Trigger downstream tiles (fire and forget)
+      triggerDownstreamTiles(adminClient, {
+        completedTileId: tile.id,
+        completedJobId: job.id,
+        mosaicId: tile.mosaic_id,
+        userId,
+      }).catch((err) =>
+        console.error("Failed to trigger downstream tiles:", err),
+      );
 
       return {
         tileId: tile.id,

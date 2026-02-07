@@ -33,6 +33,8 @@ interface TileCardProps {
   connectedTileIds?: string[];
   compact?: boolean;
   isDragging?: boolean;
+  isRunning?: boolean;
+  onRun?: (tileId: string) => void;
 }
 
 const TILE_ICONS: Record<TileType, React.ElementType> = {
@@ -84,31 +86,17 @@ export function TileCard({
   connectedTileIds = [],
   compact = false,
   isDragging = false,
+  isRunning = false,
+  onRun,
 }: TileCardProps) {
-  const [isRunning, setIsRunning] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const Icon = TILE_ICONS[tile.tile_type];
   const isConnected = connectedTileIds.includes(tile.id);
 
-  const handleRun = async (e: React.MouseEvent) => {
+  const handleRun = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsRunning(true);
-    try {
-      const response = await fetch("/api/tiles/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tileId: tile.id }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        alert(data.error || "Failed to run tile");
-      }
-    } catch {
-      alert("Failed to run tile");
-    } finally {
-      setIsRunning(false);
-    }
+    onRun?.(tile.id);
   };
 
   const handleDelete = async () => {

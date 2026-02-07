@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   getTileExecutionStatus,
@@ -16,6 +16,8 @@ import {
   getTilesForSourceSelection,
   toggleTileActive,
   updateTile,
+  updateTileConnection,
+  updateTileSource,
 } from "@/lib/actions/tiles";
 import type { TileWithSources } from "@/types/database";
 
@@ -26,6 +28,7 @@ import {
   type DrawerSection,
   PLUGIN_STATE_STORAGE_KEY,
   type PluginCollapsedState,
+  type SourceEditFormState,
   type SourceFormState,
   type TileConfigState,
 } from "../types";
@@ -59,6 +62,7 @@ export function useTileDrawerState({
     instructions: "",
     isActive: true,
     scheduleCron: null,
+    triggerOnSourceUpdate: false,
     outputFormat: "text",
     outputSchema: "",
   });
@@ -97,6 +101,25 @@ export function useTileDrawerState({
     string | null
   >(null);
   const [deletingResultId, setDeletingResultId] = useState<string | null>(null);
+
+  // Source editing state
+  const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<SourceEditFormState>({
+    url: "",
+    name: "",
+    searchQuery: "",
+    extractDepth: "basic",
+    isActive: true,
+  });
+  const [isSavingSource, setIsSavingSource] = useState(false);
+
+  // Connection editing state
+  const [editingConnectionId, setEditingConnectionId] = useState<string | null>(
+    null,
+  );
+  const [editConnectionSourceTileId, setEditConnectionSourceTileId] =
+    useState<string>("");
+  const [isSavingConnection, setIsSavingConnection] = useState(false);
 
   // Increment to re-fetch execution status and job results without resetting forms
   const [dataVersion, setDataVersion] = useState(0);
@@ -147,14 +170,32 @@ export function useTileDrawerState({
     }
   }, [tile, open, dataVersion]);
 
-  // Reset form state when a different tile is opened
+  // Poll execution status while running
+  useEffect(() => {
+    if (!tile || !open || !isRunning) return;
+    const interval = setInterval(async () => {
+      const status = await getTileExecutionStatus(tile.id);
+      if (status) setExecutionStatus(status);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [tile, open, isRunning]);
+
+  // Track which tile the form was last initialized for
+  const initializedTileIdRef = useRef<string | null>(null);
+
+  // Reset form state only when a different tile is opened or drawer reopens
   useEffect(() => {
     if (tile && open) {
+      // Skip reset if form was already initialized for this tile
+      if (initializedTileIdRef.current === tile.id) return;
+      initializedTileIdRef.current = tile.id;
+
       setConfigState({
         name: tile.name,
         instructions: tile.system_prompt || "",
         isActive: tile.is_active,
         scheduleCron: tile.schedule_cron,
+        triggerOnSourceUpdate: tile.trigger_on_source_update ?? false,
         outputFormat: tile.output_format || "text",
         outputSchema: tile.output_schema || "",
       });
@@ -170,8 +211,19 @@ export function useTileDrawerState({
         maxUrls: 10,
         fetchMode: "fast",
       });
+
+      // Reset edit state when switching tiles
+      setEditingSourceId(null);
+      setEditingConnectionId(null);
     }
   }, [tile, open]);
+
+  // Clear initialized ref when drawer closes so next open resets the form
+  useEffect(() => {
+    if (!open) {
+      initializedTileIdRef.current = null;
+    }
+  }, [open]);
 
   // Load API keys when input section is selected
   useEffect(() => {
@@ -251,6 +303,7 @@ export function useTileDrawerState({
         name: configState.name,
         systemPrompt: configState.instructions,
         scheduleCron: configState.scheduleCron ?? undefined,
+        triggerOnSourceUpdate: configState.triggerOnSourceUpdate,
         outputFormat: configState.outputFormat,
         outputSchema:
           configState.outputFormat === "json"
@@ -271,6 +324,14 @@ export function useTileDrawerState({
     updateConfigField("isActive", newActive);
     await toggleTileActive(tile.id);
   }, [tile, configState.isActive, updateConfigField]);
+
+  // Toggle trigger-on-source-update (immediately persists to DB)
+  const handleToggleTriggerOnSourceUpdate = useCallback(async () => {
+    if (!tile) return;
+    const newValue = !configState.triggerOnSourceUpdate;
+    updateConfigField("triggerOnSourceUpdate", newValue);
+    await updateTile(tile.id, { triggerOnSourceUpdate: newValue });
+  }, [tile, configState.triggerOnSourceUpdate, updateConfigField]);
 
   // Add source
   const handleAddSource = useCallback(async () => {
@@ -372,6 +433,125 @@ export function useTileDrawerState({
     }
   }, []);
 
+  // Source editing handlers
+  const handleStartEditSource = useCallback(
+    (source: {
+      id: string;
+      url: string | null;
+      name: string | null;
+      type: string;
+      config: unknown;
+      is_active: boolean;
+    }) => {
+      const config = source.config as {
+        extract_depth?: string;
+        query?: string;
+      } | null;
+      setEditingSourceId(source.id);
+      setEditForm({
+        url: source.url || "",
+        name: source.name || "",
+        searchQuery: config?.query || "",
+        extractDepth:
+          (config?.extract_depth as "basic" | "advanced") || "basic",
+        isActive: source.is_active,
+      });
+    },
+    [],
+  );
+
+  const handleCancelEditSource = useCallback(() => {
+    setEditingSourceId(null);
+  }, []);
+
+  const updateEditField = useCallback(
+    <K extends keyof SourceEditFormState>(
+      field: K,
+      value: SourceEditFormState[K],
+    ) => {
+      setEditForm((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
+
+  const handleSaveSource = useCallback(async () => {
+    if (!editingSourceId || !tile) return;
+
+    const source = tile.sources.find((s) => s.id === editingSourceId);
+    if (!source) return;
+
+    if (source.type === "url" && !editForm.url.trim()) {
+      alert("URL cannot be empty");
+      return;
+    }
+    if (source.type === "web_search" && !editForm.searchQuery.trim()) {
+      alert("Search query cannot be empty");
+      return;
+    }
+
+    setIsSavingSource(true);
+    try {
+      const params: Parameters<typeof updateTileSource>[1] = {
+        name: editForm.name || null,
+        is_active: editForm.isActive,
+      };
+
+      if (source.type === "url") {
+        params.url = editForm.url;
+        params.config = { extract_depth: editForm.extractDepth };
+      } else if (source.type === "web_search") {
+        params.config = { query: editForm.searchQuery };
+      }
+
+      const result = await updateTileSource(editingSourceId, params);
+      if (result.error) {
+        alert(result.error);
+      } else {
+        setEditingSourceId(null);
+      }
+    } catch (error) {
+      console.error("Failed to update source:", error);
+      alert("Failed to update source");
+    } finally {
+      setIsSavingSource(false);
+    }
+  }, [editingSourceId, editForm, tile]);
+
+  // Connection editing handlers
+  const handleStartEditConnection = useCallback(
+    (connectionId: string, currentSourceTileId: string) => {
+      setEditingConnectionId(connectionId);
+      setEditConnectionSourceTileId(currentSourceTileId);
+    },
+    [],
+  );
+
+  const handleCancelEditConnection = useCallback(() => {
+    setEditingConnectionId(null);
+  }, []);
+
+  const handleSaveConnection = useCallback(async () => {
+    if (!editingConnectionId || !editConnectionSourceTileId) return;
+
+    setIsSavingConnection(true);
+    try {
+      const result = await updateTileConnection(
+        editingConnectionId,
+        editConnectionSourceTileId,
+      );
+      if (result.error) {
+        alert(result.error);
+      } else {
+        setEditingConnectionId(null);
+      }
+    } catch (error) {
+      console.error("Failed to update connection:", error);
+      alert("Failed to update connection");
+    } finally {
+      setIsSavingConnection(false);
+    }
+  }, [editingConnectionId, editConnectionSourceTileId]);
+
   // API key handlers
   const handleCreateKey = useCallback(async () => {
     if (!newKeyName.trim()) return;
@@ -441,6 +621,7 @@ export function useTileDrawerState({
     updateConfigField,
     saveConfig,
     handleToggleActive,
+    handleToggleTriggerOnSourceUpdate,
 
     // Source state
     sourceForm,
@@ -454,6 +635,20 @@ export function useTileDrawerState({
     deletingSourceId,
     handleDeleteConnection,
     deletingConnectionId,
+    editingConnectionId,
+    editConnectionSourceTileId,
+    setEditConnectionSourceTileId,
+    isSavingConnection,
+    handleStartEditConnection,
+    handleCancelEditConnection,
+    handleSaveConnection,
+    editingSourceId,
+    editForm,
+    isSavingSource,
+    handleStartEditSource,
+    handleCancelEditSource,
+    updateEditField,
+    handleSaveSource,
 
     // API keys state
     apiKeys,

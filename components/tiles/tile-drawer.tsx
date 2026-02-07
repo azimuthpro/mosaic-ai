@@ -35,7 +35,7 @@ interface TileDrawerProps {
   mosaicId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRunTile?: (tileId: string) => void;
+  onRunTile?: (tileId: string) => Promise<void>;
 }
 
 export function TileDrawer({
@@ -52,7 +52,7 @@ export function TileDrawer({
     state.setIsRunning(true);
     try {
       if (onRunTile) {
-        onRunTile(tile.id);
+        await onRunTile(tile.id);
       } else {
         const response = await fetch("/api/tiles/run", {
           method: "POST",

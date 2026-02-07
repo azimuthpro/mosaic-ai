@@ -257,6 +257,7 @@ export interface Database {
           language: LanguageCode;
           schedule_cron: string | null;
           is_active: boolean;
+          trigger_on_source_update: boolean;
           max_chain_depth: number;
           execution_timeout_ms: number;
           created_at: string;
@@ -280,6 +281,7 @@ export interface Database {
           language?: LanguageCode;
           schedule_cron?: string | null;
           is_active?: boolean;
+          trigger_on_source_update?: boolean;
           max_chain_depth?: number;
           execution_timeout_ms?: number;
           created_at?: string;
@@ -303,6 +305,7 @@ export interface Database {
           language?: LanguageCode;
           schedule_cron?: string | null;
           is_active?: boolean;
+          trigger_on_source_update?: boolean;
           max_chain_depth?: number;
           execution_timeout_ms?: number;
           created_at?: string;

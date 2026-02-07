@@ -55,7 +55,7 @@ export interface TileDrawerProps {
   mosaicId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRunTile?: (tileId: string) => void;
+  onRunTile?: (tileId: string) => Promise<void>;
 }
 
 // API Key interface
@@ -81,12 +81,22 @@ export interface SourceFormState {
   fetchMode: FetchMode;
 }
 
+// Source edit form state (for editing existing sources)
+export interface SourceEditFormState {
+  url: string;
+  name: string;
+  searchQuery: string;
+  extractDepth: "basic" | "advanced";
+  isActive: boolean;
+}
+
 // Tile config form state
 export interface TileConfigState {
   name: string;
   instructions: string;
   isActive: boolean;
   scheduleCron: string | null;
+  triggerOnSourceUpdate: boolean;
   outputFormat: OutputFormat;
   outputSchema: string;
 }

@@ -15,6 +15,7 @@ import type {
   TilePattern,
   TileSource,
   TileSourceInsert,
+  TileSourceUpdate,
   TileType,
   TileUpdate,
   UrlSourceConfig,
@@ -129,6 +130,7 @@ interface CreateTileParams {
   outputSchema?: string;
   language?: LanguageCode;
   scheduleCron?: string;
+  triggerOnSourceUpdate?: boolean;
   sources?: {
     url?: string;
     name?: string;
@@ -286,6 +288,8 @@ export async function updateTile(
   if (params.language !== undefined) updateData.language = params.language;
   if (params.scheduleCron !== undefined)
     updateData.schedule_cron = params.scheduleCron || null;
+  if (params.triggerOnSourceUpdate !== undefined)
+    updateData.trigger_on_source_update = params.triggerOnSourceUpdate;
 
   const { data: tileData, error } = await supabase
     .from("tiles")
@@ -549,6 +553,82 @@ export async function deleteTileSource(sourceId: string) {
   return { success: true };
 }
 
+/**
+ * Update a tile source
+ */
+export async function updateTileSource(
+  sourceId: string,
+  params: {
+    url?: string;
+    name?: string | null;
+    is_active?: boolean;
+    config?: Record<string, unknown>;
+  },
+) {
+  const supabase = await createClient();
+  const user = await getUser();
+
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  // Get source to find mosaic for revalidation and validate type
+  const { data: sourceData } = await supabase
+    .from("tile_sources")
+    .select(
+      `
+      id,
+      type,
+      tiles!tile_sources_tile_id_fkey (mosaic_id)
+    `,
+    )
+    .eq("id", sourceId)
+    .single();
+
+  type SourceWithTile = {
+    id: string;
+    type: SourceType;
+    tiles: { mosaic_id: string };
+  };
+  const source = sourceData as SourceWithTile | null;
+  if (!source) {
+    return { error: "Source not found" };
+  }
+
+  // Validate based on source type
+  if (source.type === "url" && params.url !== undefined && !params.url.trim()) {
+    return { error: "URL cannot be empty" };
+  }
+
+  if (
+    source.type === "web_search" &&
+    params.config?.query !== undefined &&
+    !(params.config.query as string).trim()
+  ) {
+    return { error: "Search query cannot be empty" };
+  }
+
+  const updateData: TileSourceUpdate = {};
+  if (params.url !== undefined) updateData.url = params.url;
+  if (params.name !== undefined) updateData.name = params.name;
+  if (params.is_active !== undefined) updateData.is_active = params.is_active;
+  if (params.config !== undefined)
+    updateData.config = params.config as unknown as Json;
+
+  const { error } = await supabase
+    .from("tile_sources")
+    .update(updateData as never)
+    .eq("id", sourceId);
+
+  if (error) {
+    console.error("Error updating tile source:", error);
+    return { error: "Failed to update source" };
+  }
+
+  revalidatePath(`/mosaics/${source.tiles.mosaic_id}`);
+  return { success: true };
+}
+
 // ============================================================================
 // Tile Connections
 // ============================================================================
@@ -625,6 +705,68 @@ export async function createTileConnection(
   }
 
   revalidatePath(`/mosaics/${mosaicId}`);
+  return { success: true };
+}
+
+/**
+ * Update a tile connection (change source tile)
+ */
+export async function updateTileConnection(
+  connectionId: string,
+  newSourceTileId: string,
+) {
+  const supabase = await createClient();
+  const user = await getUser();
+
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  // Get existing connection
+  const { data: connectionData } = await supabase
+    .from("tile_connections")
+    .select("mosaic_id, target_tile_id")
+    .eq("id", connectionId)
+    .single();
+
+  const connection = connectionData as {
+    mosaic_id: string;
+    target_tile_id: string;
+  } | null;
+  if (!connection) {
+    return { error: "Connection not found" };
+  }
+
+  // Check for circular dependency with new source
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: hasCycle } = await (supabase.rpc as any)(
+    "check_tile_circular_dependency",
+    {
+      p_source_tile_id: newSourceTileId,
+      p_target_tile_id: connection.target_tile_id,
+    },
+  );
+
+  if (hasCycle) {
+    return {
+      error: "Cannot update connection: would create a circular dependency",
+    };
+  }
+
+  const { error } = await supabase
+    .from("tile_connections")
+    .update({ source_tile_id: newSourceTileId } as never)
+    .eq("id", connectionId);
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "Connection to that tile already exists" };
+    }
+    console.error("Error updating tile connection:", error);
+    return { error: "Failed to update connection" };
+  }
+
+  revalidatePath(`/mosaics/${connection.mosaic_id}`);
   return { success: true };
 }
 

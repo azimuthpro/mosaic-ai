@@ -1,12 +1,13 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CreateTileDialog } from "@/components/tiles/create-tile-dialog";
 import { TileCard } from "@/components/tiles/tile-card";
 import { TileDrawer } from "@/components/tiles/tile-drawer";
 import { useSound } from "@/hooks/use-sound";
+import { getTileExecutionStatus } from "@/lib/actions/tile-execution";
 import { updateTilePosition } from "@/lib/actions/tiles";
 import type {
   MosaicWithTiles,
@@ -30,6 +31,7 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [drawerTileId, setDrawerTileId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [runningTileIds, setRunningTileIds] = useState<Set<string>>(new Set());
   const [draggingTileId, setDraggingTileId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{
     left: number;
@@ -63,11 +65,16 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   );
 
   // Derive drawerTile from tiles array - automatically stays in sync after revalidation
-  const drawerTile = useMemo(
-    () =>
-      drawerTileId ? (tiles.find((t) => t.id === drawerTileId) ?? null) : null,
-    [tiles, drawerTileId],
-  );
+  // Enrich with incoming connections so the drawer can display them
+  const drawerTile = useMemo(() => {
+    if (!drawerTileId) return null;
+    const tile = tiles.find((t) => t.id === drawerTileId);
+    if (!tile) return null;
+    const incoming_connections = connections.filter(
+      (c) => c.target_tile_id === drawerTileId,
+    );
+    return { ...tile, incoming_connections };
+  }, [tiles, drawerTileId, connections]);
 
   function handleTileSelect(tile: TileWithSources): void {
     if (!draggingTileId) {
@@ -98,6 +105,77 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
       setSelectedTileId(null);
     }
   }
+
+  const handleRunTile = useCallback(
+    async (tileId: string) => {
+      setRunningTileIds((prev) => new Set(prev).add(tileId));
+
+      // Pre-compute downstream tiles that will auto-trigger after this tile completes
+      const downstreamIds = connections
+        .filter((c) => c.source_tile_id === tileId)
+        .map((c) => c.target_tile_id);
+      const autoTriggerIds = tiles
+        .filter(
+          (t) =>
+            downstreamIds.includes(t.id) &&
+            t.trigger_on_source_update &&
+            t.is_active,
+        )
+        .map((t) => t.id);
+
+      try {
+        const response = await fetch("/api/tiles/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tileId }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          alert(data.error || "Failed to run tile");
+        }
+      } catch {
+        alert("Failed to run tile");
+      } finally {
+        // Remove this tile and mark downstream auto-trigger tiles in a single update
+        setRunningTileIds((prev) => {
+          const next = new Set(prev);
+          next.delete(tileId);
+          for (const id of autoTriggerIds) {
+            next.add(id);
+          }
+          return next;
+        });
+      }
+    },
+    [connections, tiles],
+  );
+
+  // Poll running tiles to detect when they finish
+  useEffect(() => {
+    if (runningTileIds.size === 0) return;
+    const interval = setInterval(async () => {
+      const tileIds = Array.from(runningTileIds);
+      const statuses = await Promise.all(
+        tileIds.map((id) => getTileExecutionStatus(id)),
+      );
+
+      const finishedIds = tileIds.filter((_, i) => {
+        const status = statuses[i];
+        return !status?.lastJob || status.lastJob.status !== "processing";
+      });
+
+      if (finishedIds.length > 0) {
+        setRunningTileIds((prev) => {
+          const next = new Set(prev);
+          for (const id of finishedIds) {
+            next.delete(id);
+          }
+          return next;
+        });
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [runningTileIds]);
 
   function handleCreateDialogOpenChange(open: boolean): void {
     setCreateDialogOpen(open);
@@ -137,25 +215,22 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
     [tiles],
   );
 
-  // Drag handlers
-  const handleDragStart = (
+  function handleDragStart(
     e: React.MouseEvent | React.TouchEvent,
     tile: TileWithSources,
-  ) => {
+  ): void {
     e.preventDefault();
     if (!canvasRef.current) return;
 
-    // Store canvas rect for the duration of the drag
     canvasRectRef.current = canvasRef.current.getBoundingClientRect();
 
-    // Store the actual tile position (not offset from mouse)
     const tileLeft = tile.grid_x * (TILE_SIZE + GRID_GAP);
     const tileTop = tile.grid_y * (TILE_SIZE + GRID_GAP);
 
     setDraggingTileId(tile.id);
     setDragOffset({ left: tileLeft, top: tileTop });
     setPreviewPosition({ gridX: tile.grid_x, gridY: tile.grid_y });
-  };
+  }
 
   const handleDragMove = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
@@ -310,6 +385,8 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
                   connectedTileIds={connectedTileIds}
                   compact
                   isDragging={isDragging}
+                  isRunning={runningTileIds.has(tile.id)}
+                  onRun={handleRunTile}
                 />
               </div>
             );
@@ -347,6 +424,7 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
         mosaicId={mosaic.id}
         open={drawerOpen}
         onOpenChange={handleDrawerOpenChange}
+        onRunTile={handleRunTile}
       />
     </div>
   );

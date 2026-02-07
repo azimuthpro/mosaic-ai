@@ -17,6 +17,7 @@ import {
   type TileSourceContent,
 } from "@/lib/sources/tile-content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
 import type {
   Tile,
   TileConnection,
@@ -567,6 +568,16 @@ export async function POST(
         },
       }).catch((err) =>
         console.error("Failed to trigger completed webhooks:", err),
+      );
+
+      // Trigger downstream tiles (fire and forget)
+      triggerDownstreamTiles(adminClient, {
+        completedTileId: tileId,
+        completedJobId: job.id,
+        mosaicId: mosaicId,
+        userId: authResult.apiKey?.created_by || "api-key",
+      }).catch((err) =>
+        console.error("Failed to trigger downstream tiles:", err),
       );
 
       // Send done event
