@@ -20,12 +20,13 @@ export function UserPendingInvitations({
   invitations,
 }: UserPendingInvitationsProps) {
   const router = useRouter();
-  const [processingId, setProcessingId] = useState<string | null>(null);
-  const [action, setAction] = useState<"accept" | "decline" | null>(null);
+  const [processing, setProcessing] = useState<{
+    id: string;
+    action: "accept" | "decline";
+  } | null>(null);
 
   async function handleAccept(invitation: PendingInvitation): Promise<void> {
-    setProcessingId(invitation.id);
-    setAction("accept");
+    setProcessing({ id: invitation.id, action: "accept" });
 
     const result = await acceptMosaicInvitation(invitation.token);
 
@@ -35,13 +36,11 @@ export function UserPendingInvitations({
       router.refresh();
     }
 
-    setProcessingId(null);
-    setAction(null);
+    setProcessing(null);
   }
 
   async function handleDecline(invitationId: string): Promise<void> {
-    setProcessingId(invitationId);
-    setAction("decline");
+    setProcessing({ id: invitationId, action: "decline" });
 
     const result = await declineMosaicInvitation(invitationId);
     if (result.error) {
@@ -49,8 +48,7 @@ export function UserPendingInvitations({
     }
 
     router.refresh();
-    setProcessingId(null);
-    setAction(null);
+    setProcessing(null);
   }
 
   function formatExpiryDate(expiresAt: string): string {
@@ -112,9 +110,10 @@ export function UserPendingInvitations({
                 size="sm"
                 className="gap-1 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
                 onClick={() => handleDecline(invitation.id)}
-                disabled={processingId === invitation.id}
+                disabled={processing?.id === invitation.id}
               >
-                {processingId === invitation.id && action === "decline" ? (
+                {processing?.id === invitation.id &&
+                processing.action === "decline" ? (
                   "Declining..."
                 ) : (
                   <>
@@ -127,9 +126,10 @@ export function UserPendingInvitations({
                 size="sm"
                 className="gap-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950"
                 onClick={() => handleAccept(invitation)}
-                disabled={processingId === invitation.id}
+                disabled={processing?.id === invitation.id}
               >
-                {processingId === invitation.id && action === "accept" ? (
+                {processing?.id === invitation.id &&
+                processing.action === "accept" ? (
                   "Joining..."
                 ) : (
                   <>

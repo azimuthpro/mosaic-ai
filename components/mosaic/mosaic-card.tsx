@@ -29,7 +29,7 @@ interface MosaicCardProps {
 export function MosaicCard({ mosaic }: MosaicCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = async () => {
+  async function handleDelete(): Promise<void> {
     if (
       !confirm(
         "Are you sure you want to delete this mosaic? All tiles and data will be lost.",
@@ -39,7 +39,7 @@ export function MosaicCard({ mosaic }: MosaicCardProps) {
     }
     setIsDeleting(true);
     await deleteMosaic(mosaic.id);
-  };
+  }
 
   return (
     <Card className="group relative hover:shadow-md transition-shadow">

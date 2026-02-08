@@ -30,7 +30,7 @@ export function PendingInvitations({
     onInvitationCancelled?.();
   }
 
-  function formatExpiryDate(expiresAt: string) {
+  function formatExpiryDate(expiresAt: string): string {
     const expiry = new Date(expiresAt);
     const now = new Date();
     const diffMs = expiry.getTime() - now.getTime();

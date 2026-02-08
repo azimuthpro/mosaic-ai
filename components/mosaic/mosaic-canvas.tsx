@@ -20,11 +20,10 @@ interface MosaicCanvasProps {
   connections: TileConnection[];
 }
 
-// Grid configuration
 const GRID_COLS = 4;
 const GRID_ROWS = 4;
-const TILE_SIZE = 140; // px - size of each grid cell
-const GRID_GAP = 8; // px - fuga/grout width
+const TILE_SIZE = 140;
+const GRID_GAP = 8;
 
 export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   const { playClick, playStop } = useSound();
@@ -49,7 +48,6 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const canvasRectRef = useRef<DOMRect | null>(null);
 
-  // Get tiles connected to the selected tile
   const connectedTileIds = useMemo(() => {
     if (!selectedTileId) return [];
     return connections.flatMap((c) => {
@@ -64,8 +62,7 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
     [mosaic.tiles],
   );
 
-  // Derive drawerTile from tiles array - automatically stays in sync after revalidation
-  // Enrich with incoming connections so the drawer can display them
+  // Enrich drawer tile with incoming connections for display
   const drawerTile = useMemo(() => {
     if (!drawerTileId) return null;
     const tile = tiles.find((t) => t.id === drawerTileId);
@@ -184,7 +181,6 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
     }
   }
 
-  // Calculate grid position from mouse coordinates
   const getGridPosition = useCallback((clientX: number, clientY: number) => {
     const rect = canvasRectRef.current;
     if (!rect) return null;
@@ -204,7 +200,6 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
     };
   }, []);
 
-  // Check if position is occupied by another tile
   const isPositionOccupied = useCallback(
     (gridX: number, gridY: number, excludeTileId?: string) => {
       return tiles.some(
@@ -253,18 +248,20 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
     [draggingTileId, getGridPosition],
   );
 
+  function resetDragState(): void {
+    setDraggingTileId(null);
+    setDragOffset(null);
+    setPreviewPosition(null);
+    canvasRectRef.current = null;
+  }
+
   const handleDragEnd = useCallback(async () => {
     if (!draggingTileId || !previewPosition) {
-      setDraggingTileId(null);
-      setDragOffset(null);
-      setPreviewPosition(null);
-      canvasRectRef.current = null;
+      resetDragState();
       return;
     }
 
     const { gridX, gridY } = previewPosition;
-
-    // Only update if position changed and not occupied
     const tile = tiles.find((t) => t.id === draggingTileId);
     if (
       tile &&
@@ -274,17 +271,12 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
       await updateTilePosition(draggingTileId, gridX, gridY);
     }
 
-    setDraggingTileId(null);
-    setDragOffset(null);
-    setPreviewPosition(null);
-    canvasRectRef.current = null;
+    resetDragState();
   }, [draggingTileId, previewPosition, tiles, isPositionOccupied]);
 
-  // Calculate canvas dimensions
   const canvasWidth = GRID_COLS * TILE_SIZE + (GRID_COLS - 1) * GRID_GAP;
   const canvasHeight = GRID_ROWS * TILE_SIZE + (GRID_ROWS - 1) * GRID_GAP;
 
-  // Generate grid background pattern
   const gridBackgroundStyle: React.CSSProperties = {
     width: canvasWidth,
     height: canvasHeight,

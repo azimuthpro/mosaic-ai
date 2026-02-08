@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Common timezones grouped by region
 const TIMEZONE_GROUPS = {
   "North America": [
     { value: "America/New_York", label: "Eastern Time (ET)" },
@@ -66,7 +65,6 @@ const TIMEZONE_GROUPS = {
   ],
 };
 
-// Flatten all timezones for search
 const ALL_TIMEZONES = Object.entries(TIMEZONE_GROUPS).flatMap(
   ([region, zones]) => zones.map((z) => ({ ...z, region })),
 );
@@ -95,6 +93,54 @@ function getCurrentTime(timezone: string): string {
   } catch {
     return "";
   }
+}
+
+function TimezoneItem({
+  tz,
+}: {
+  tz: { value: string; label: string };
+}): React.ReactNode {
+  return (
+    <SelectItem key={tz.value} value={tz.value}>
+      <div className="flex items-center justify-between w-full gap-4">
+        <span>{tz.label}</span>
+        <span className="text-xs text-muted-foreground">
+          {getCurrentOffset(tz.value)}
+        </span>
+      </div>
+    </SelectItem>
+  );
+}
+
+function TimezoneList({
+  filteredTimezones,
+}: {
+  filteredTimezones: typeof ALL_TIMEZONES | null;
+}): React.ReactNode {
+  if (filteredTimezones && filteredTimezones.length === 0) {
+    return (
+      <div className="py-6 text-center text-sm text-muted-foreground">
+        No timezones found
+      </div>
+    );
+  }
+
+  if (filteredTimezones) {
+    return filteredTimezones.map((tz) => (
+      <TimezoneItem key={tz.value} tz={tz} />
+    ));
+  }
+
+  return Object.entries(TIMEZONE_GROUPS).map(([region, zones]) => (
+    <div key={region}>
+      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground sticky top-12 bg-popover">
+        {region}
+      </div>
+      {zones.map((tz) => (
+        <TimezoneItem key={tz.value} tz={tz} />
+      ))}
+    </div>
+  ));
 }
 
 interface TimezoneSelectorProps {
@@ -159,48 +205,10 @@ export function TimezoneSelector({
             />
           </div>
 
-          {filteredTimezones ? (
-            // Show search results
-            filteredTimezones.length > 0 ? (
-              filteredTimezones.map((tz) => (
-                <SelectItem key={tz.value} value={tz.value}>
-                  <div className="flex items-center justify-between w-full gap-4">
-                    <span>{tz.label}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {getCurrentOffset(tz.value)}
-                    </span>
-                  </div>
-                </SelectItem>
-              ))
-            ) : (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                No timezones found
-              </div>
-            )
-          ) : (
-            // Show grouped timezones
-            Object.entries(TIMEZONE_GROUPS).map(([region, zones]) => (
-              <div key={region}>
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground sticky top-12 bg-popover">
-                  {region}
-                </div>
-                {zones.map((tz) => (
-                  <SelectItem key={tz.value} value={tz.value}>
-                    <div className="flex items-center justify-between w-full gap-4">
-                      <span>{tz.label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {getCurrentOffset(tz.value)}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </div>
-            ))
-          )}
+          <TimezoneList filteredTimezones={filteredTimezones} />
         </SelectContent>
       </Select>
 
-      {/* Quick select for user's local timezone */}
       <div className="flex items-center gap-2">
         <Button
           type="button"
@@ -228,7 +236,6 @@ export function TimezoneSelector({
   );
 }
 
-// Export helper to get default timezone
 export function getDefaultTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
