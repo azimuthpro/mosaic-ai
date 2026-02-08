@@ -8,6 +8,7 @@ import {
   Loader2,
   Maximize2,
   Trash2,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -188,7 +189,7 @@ export function HistoryPlugin({ disabled, state }: HistoryPluginProps) {
                         {formatRelativeTime(result.created_at)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {result.source_urls?.length || 0} sources ·{" "}
+                        {result.source_urls?.length ?? 0} sources ·{" "}
                         {result.format}
                       </p>
                     </div>
@@ -247,7 +248,10 @@ export function HistoryPlugin({ disabled, state }: HistoryPluginProps) {
         }}
       >
         {fullscreenResult && (
-          <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
+          <DialogContent
+            className="max-w-4xl h-[85vh] flex flex-col p-0"
+            hideClose
+          >
             <DialogHeader className="flex flex-row items-center justify-between px-6 py-4 border-b border-border shrink-0">
               <div className="flex items-center gap-3">
                 <FileText className="h-4 w-4 text-muted-foreground" />
@@ -259,19 +263,30 @@ export function HistoryPlugin({ disabled, state }: HistoryPluginProps) {
                   </span>
                 </DialogTitle>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCopyAll}
-                className="gap-1.5"
-              >
-                {copied ? (
-                  <Check className="h-4 w-4 text-green-400" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-                {copied ? "Copied" : "Copy all"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyAll}
+                  className="gap-1.5"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 text-green-400" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                  {copied ? "Copied" : "Copy all"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => setFullscreenResult(null)}
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </Button>
+              </div>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto p-6 select-text cursor-text">
               <ResultContent result={fullscreenResult} />
