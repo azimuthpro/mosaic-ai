@@ -30,7 +30,7 @@ export function InputSection({
 
       {/* Plugins */}
       <div className="space-y-3">
-        <ApiTriggerPlugin
+        <SourcesPlugin
           tile={tile}
           mosaicId={mosaicId}
           state={state}
@@ -44,7 +44,7 @@ export function InputSection({
           disabled={disabled}
         />
 
-        <SourcesPlugin
+        <ApiTriggerPlugin
           tile={tile}
           mosaicId={mosaicId}
           state={state}

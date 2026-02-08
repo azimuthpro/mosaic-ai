@@ -22,7 +22,6 @@ export function OutputSection({
 }: OutputSectionProps) {
   return (
     <div className="space-y-4">
-      {/* Section header with accent */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <div className="h-2 w-2 rounded-full bg-green-500" />
         <span>
@@ -30,8 +29,14 @@ export function OutputSection({
         </span>
       </div>
 
-      {/* Plugins */}
       <div className="space-y-3">
+        <HistoryPlugin
+          tile={tile}
+          mosaicId={mosaicId}
+          state={state}
+          disabled={disabled}
+        />
+
         <FormatPlugin
           tile={tile}
           mosaicId={mosaicId}
@@ -40,13 +45,6 @@ export function OutputSection({
         />
 
         <WebhooksPlugin
-          tile={tile}
-          mosaicId={mosaicId}
-          state={state}
-          disabled={disabled}
-        />
-
-        <HistoryPlugin
           tile={tile}
           mosaicId={mosaicId}
           state={state}

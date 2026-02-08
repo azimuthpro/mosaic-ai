@@ -13,21 +13,9 @@ interface SchedulerPluginProps extends PluginBaseProps {
   state: TileDrawerState;
 }
 
-export function SchedulerPlugin({
-  tile,
-  disabled,
-  state,
-}: SchedulerPluginProps) {
-  const {
-    configState,
-    updateConfigField,
-    isSaving,
-    pluginState,
-    updatePluginState,
-  } = state;
-
+export function SchedulerPlugin({ disabled, state }: SchedulerPluginProps) {
+  const { configState, updateConfigField, isSaving, pluginState, updatePluginState } = state;
   const scheduleLabel = getScheduleLabel(configState.scheduleCron);
-  const isActive = configState.isActive;
 
   return (
     <PluginCard
@@ -43,13 +31,6 @@ export function SchedulerPlugin({
       badge={{
         text: scheduleLabel,
         variant: scheduleLabel === "Manual" ? "outline" : "secondary",
-      }}
-      toggleEnabled
-      isEnabled={isActive}
-      onToggleEnabled={() => {
-        updateConfigField("isActive", !isActive);
-        // Also trigger server update
-        state.handleToggleActive();
       }}
       disabled={disabled}
     >
