@@ -35,12 +35,14 @@ const ACCENT_COLORS: Record<SectionType, string> = {
   input: "bg-cyan-500",
   processing: "bg-purple-500",
   output: "bg-green-500",
+  status: "bg-amber-500",
 };
 
 const ACCENT_HOVER_COLORS: Record<SectionType, string> = {
   input: "group-hover:bg-cyan-400",
   processing: "group-hover:bg-purple-400",
   output: "group-hover:bg-green-400",
+  status: "group-hover:bg-amber-400",
 };
 
 export function PluginCard({

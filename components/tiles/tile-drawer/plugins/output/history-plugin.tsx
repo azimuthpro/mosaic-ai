@@ -30,18 +30,10 @@ import { formatRelativeTime } from "@/lib/utils/format";
 import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
 import type { PluginBaseProps } from "../../types";
 import { PluginCard } from "../plugin-card";
+import { getContentString } from "../utils";
 
 interface HistoryPluginProps extends PluginBaseProps {
   state: TileDrawerState;
-}
-
-function getContentString(result: TileJobResultSummary): string {
-  if (result.format === "text") {
-    const contentObj = result.content as { text?: string } | null;
-    if (contentObj?.text) return contentObj.text;
-  }
-  if (typeof result.content === "string") return result.content;
-  return JSON.stringify(result.content, null, 2);
 }
 
 function ResultContent({

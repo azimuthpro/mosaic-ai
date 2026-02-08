@@ -10,6 +10,7 @@ export const SECTION_COLORS = {
   input: "cyan",
   processing: "purple",
   output: "green",
+  status: "amber",
 } as const;
 
 export type SectionType = keyof typeof SECTION_COLORS;

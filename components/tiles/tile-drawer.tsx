@@ -211,9 +211,9 @@ export function TileDrawer({
             <TabsList className="h-12 w-full justify-start gap-1 bg-transparent p-0">
               <TabsTrigger
                 value="status"
-                className="flex items-center gap-2 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                className="flex items-center gap-2 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-amber-500 data-[state=active]:bg-transparent"
               >
-                <Activity className="h-4 w-4" />
+                <Activity className="h-4 w-4 text-amber-400" />
                 Status
               </TabsTrigger>
               <TabsTrigger

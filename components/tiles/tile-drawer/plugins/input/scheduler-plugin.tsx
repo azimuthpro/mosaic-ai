@@ -7,30 +7,10 @@ import { AdvancedScheduler } from "@/components/tiles/advanced-scheduler";
 import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
 import type { PluginBaseProps } from "../../types";
 import { PluginCard } from "../plugin-card";
+import { getScheduleLabel } from "../utils";
 
 interface SchedulerPluginProps extends PluginBaseProps {
   state: TileDrawerState;
-}
-
-function getScheduleLabel(cron: string | null): string {
-  if (!cron) return "Manual";
-
-  // Parse common presets
-  if (cron === "0 * * * *") return "Hourly";
-  if (cron === "0 9 * * *") return "Daily";
-  if (cron === "0 9 * * 1") return "Weekly";
-
-  // Parse custom cron
-  const parts = cron.split(" ");
-  if (parts.length !== 5) return "Custom";
-
-  const [, hoursPart, , , daysPart] = parts;
-  const hours = hoursPart === "*" ? [] : hoursPart.split(",");
-  const isCustom =
-    hours.length > 1 || (daysPart !== "*" && daysPart !== "1,2,3,4,5,6,0");
-
-  if (isCustom) return "Custom";
-  return "Custom";
 }
 
 export function SchedulerPlugin({
