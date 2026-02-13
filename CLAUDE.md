@@ -58,7 +58,8 @@ npm run lint     # Run ESLint
 6. Combined content sent to LLM with tile's system prompt
 7. Structured result stored in Supabase
 8. Webhooks triggered on job events (started, completed, failed)
-9. Data optionally appended to user's Google Sheet
+9. If downstream tiles have `trigger_on_source_update` enabled, they automatically execute (cascading)
+10. Data optionally appended to user's Google Sheet
 
 ### Database Schema (Supabase)
 

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-02-13
+
+### Added
+- Cascading tile execution: downstream tiles with `trigger_on_source_update` automatically run when source tiles complete
+- Canvas animation for downstream tiles during cascading execution via polling
+- Fullscreen instructions editor for tiles
+- Fullscreen job result viewer with copy-all button
+- Drawer header actions: pause/resume and delete buttons with confirmation dialog
+- Inline source and connection editing from tile drawer
+- Text selection support in result content (inline and fullscreen)
+
+### Changed
+- Tile drawer status tab rewritten with PluginCard pattern
+- Drawer plugins reordered; removed pause toggle (moved to header actions)
+- Mosaic components simplified and consolidated
+- Tile cards simplified: removed dropdown menu, show connection count instead
+- Email templates updated for dark theme
+
+### Fixed
+- Magic link OTP now verified client-side for improved auth flow
+- Keyword extraction handles wrapped content correctly
+
 ## [1.2.0] - 2026-02-07
 
 ### Added
