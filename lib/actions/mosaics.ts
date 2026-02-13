@@ -21,6 +21,14 @@ import type {
   TileWithSources,
 } from "@/types/database";
 
+/**
+ * Get the current authenticated user's ID
+ */
+export async function getCurrentUserId(): Promise<string | null> {
+  const user = await getUser();
+  return user?.id ?? null;
+}
+
 export type MosaicWithTiles = Mosaic & { tiles: TileWithSources[] };
 export type MosaicWithStats = Mosaic & {
   tiles: TileWithSources[];
@@ -288,12 +296,17 @@ export async function updateMosaic(id: string, formData: FormData) {
   const isActive = formData.get("isActive") === "true";
   const timezone = formData.get("timezone") as string | null;
 
+  // Check if user is owner or admin
+  const role = await getUserMosaicRole(id);
+  if (role !== "owner" && role !== "admin") {
+    return { error: "Not authorized to update this mosaic" };
+  }
+
   // Get current settings to merge with new timezone
   const { data: currentMosaicData } = await supabase
     .from("mosaics")
     .select("settings")
     .eq("id", id)
-    .eq("owner_id", user.id)
     .single();
 
   const currentMosaic = currentMosaicData as {
@@ -312,11 +325,13 @@ export async function updateMosaic(id: string, formData: FormData) {
     settings: newSettings as { [key: string]: string | undefined },
   };
 
-  const { error } = await supabase
+  // Use admin client to bypass RLS (which only allows owner_id = auth.uid())
+  // Authorization is already verified by getUserMosaicRole check above
+  const adminClient = createAdminClient();
+  const { error } = await adminClient
     .from("mosaics")
     .update(updateData as never)
-    .eq("id", id)
-    .eq("owner_id", user.id);
+    .eq("id", id);
 
   if (error) {
     console.error("Error updating mosaic:", error);
@@ -370,13 +385,42 @@ export async function getMosaicMembers(
     return [];
   }
 
-  const { data: members, error } = await supabase
+  // Verify user has access (is owner or member) via regular client
+  const { data: mosaicData } = await supabase
+    .from("mosaics")
+    .select("owner_id")
+    .eq("id", mosaicId)
+    .single();
+
+  const isOwner =
+    mosaicData && (mosaicData as { owner_id: string }).owner_id === user.id;
+
+  if (!isOwner) {
+    const { data: membership } = await supabase
+      .from("mosaic_members")
+      .select("id")
+      .eq("mosaic_id", mosaicId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!membership) {
+      return [];
+    }
+  }
+
+  // Use admin client to bypass RLS and fetch all members
+  const adminClient = createAdminClient();
+  const { data: members, error } = await adminClient
     .from("mosaic_members")
     .select("*")
     .eq("mosaic_id", mosaicId);
 
   if (error || !members?.length) {
-    if (error) console.error("Error fetching mosaic members:", error);
+    console.error("getMosaicMembers: query returned empty or error", {
+      error,
+      count: members?.length,
+      mosaicId,
+    });
     return [];
   }
 
@@ -517,8 +561,17 @@ export async function removeMosaicMember(memberId: string) {
     .single();
 
   const member = memberData as MemberWithMosaic | null;
-  if (!member || member.mosaics.owner_id !== user.id) {
+  if (!member) {
     return { error: "Not authorized to remove this member" };
+  }
+
+  // Allow owner or admin to remove members
+  const isOwner = member.mosaics.owner_id === user.id;
+  if (!isOwner) {
+    const role = await getUserMosaicRole(member.mosaic_id);
+    if (role !== "admin") {
+      return { error: "Not authorized to remove this member" };
+    }
   }
 
   const { error } = await supabase
@@ -585,21 +638,46 @@ export async function getMosaicOwner(
     return null;
   }
 
-  const { data: mosaic, error } = await supabase
+  // Try regular client first (works when user has RLS access as owner or member)
+  const { data: mosaicData } = await supabase
     .from("mosaics")
     .select("owner_id")
     .eq("id", mosaicId)
     .single();
 
-  if (error || !mosaic) {
-    if (error) console.error("Error fetching mosaic:", error);
+  if (mosaicData) {
+    const ownerId = (mosaicData as { owner_id: string }).owner_id;
+    const userMap = await fetchUserDataByIds([ownerId]);
+    return userMap.get(ownerId) || null;
+  }
+
+  // RLS blocked the query -- verify membership before using admin client
+  const { data: membership } = await supabase
+    .from("mosaic_members")
+    .select("id")
+    .eq("mosaic_id", mosaicId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!membership) {
     return null;
   }
 
-  const mosaicData = mosaic as { owner_id: string };
-  const userMap = await fetchUserDataByIds([mosaicData.owner_id]);
+  const adminClient = createAdminClient();
+  const { data: adminMosaic, error } = await adminClient
+    .from("mosaics")
+    .select("owner_id")
+    .eq("id", mosaicId)
+    .single();
 
-  return userMap.get(mosaicData.owner_id) || null;
+  if (error || !adminMosaic) {
+    if (error) console.error("Error fetching mosaic owner:", error);
+    return null;
+  }
+
+  const ownerId = (adminMosaic as { owner_id: string }).owner_id;
+  const userMap = await fetchUserDataByIds([ownerId]);
+  return userMap.get(ownerId) || null;
 }
 
 /**
@@ -611,108 +689,114 @@ export async function inviteToMosaic(
   email: string,
   role: Exclude<MemberRole, "owner"> = "member",
 ): Promise<{ success: boolean; error?: string; invited?: boolean }> {
-  const supabase = await createClient();
-  const adminClient = createAdminClient();
-  const user = await getUser();
+  try {
+    const supabase = await createClient();
+    const adminClient = createAdminClient();
+    const user = await getUser();
 
-  if (!user) {
-    return { success: false, error: "Not authenticated" };
-  }
-
-  // Verify ownership
-  const { data: mosaicData } = await supabase
-    .from("mosaics")
-    .select("id, name")
-    .eq("id", mosaicId)
-    .eq("owner_id", user.id)
-    .single();
-
-  const mosaic = mosaicData as { id: string; name: string } | null;
-  if (!mosaic) {
-    return { success: false, error: "Mosaic not found or not owned by you" };
-  }
-
-  const normalizedEmail = email.toLowerCase().trim();
-
-  // Check if user already exists
-  const { data: existingUserData } = await adminClient
-    .from("users")
-    .select("id")
-    .eq("email", normalizedEmail)
-    .single();
-
-  if (existingUserData) {
-    const existingUserId = (existingUserData as { id: string }).id;
-    const result = await addMosaicMember(mosaicId, existingUserId, role);
-    if (result.error) {
-      return { success: false, error: result.error };
+    if (!user) {
+      return { success: false, error: "Not authenticated" };
     }
-    return { success: true, invited: false };
-  }
 
-  // Clean up old cancelled/expired invitations
-  await adminClient
-    .from("mosaic_invitations")
-    .delete()
-    .eq("mosaic_id", mosaicId)
-    .eq("email", normalizedEmail)
-    .in("status", ["cancelled", "expired"]);
+    // Verify ownership
+    const { data: mosaicData } = await supabase
+      .from("mosaics")
+      .select("id, name")
+      .eq("id", mosaicId)
+      .eq("owner_id", user.id)
+      .single();
 
-  // Check for existing pending invitation
-  const { data: existingInvitation } = await adminClient
-    .from("mosaic_invitations")
-    .select("id")
-    .eq("mosaic_id", mosaicId)
-    .eq("email", normalizedEmail)
-    .eq("status", "pending")
-    .single();
+    const mosaic = mosaicData as { id: string; name: string } | null;
+    if (!mosaic) {
+      return { success: false, error: "Mosaic not found or not owned by you" };
+    }
 
-  if (existingInvitation) {
-    return {
-      success: false,
-      error: "An invitation is already pending for this email",
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if user already exists
+    const { data: existingUserData } = await adminClient
+      .from("users")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .single();
+
+    if (existingUserData) {
+      const existingUserId = (existingUserData as { id: string }).id;
+      const result = await addMosaicMember(mosaicId, existingUserId, role);
+      if (result.error) {
+        return { success: false, error: result.error };
+      }
+      return { success: true, invited: false };
+    }
+
+    // Clean up old cancelled/expired invitations
+    await adminClient
+      .from("mosaic_invitations")
+      .delete()
+      .eq("mosaic_id", mosaicId)
+      .eq("email", normalizedEmail)
+      .in("status", ["cancelled", "expired"]);
+
+    // Check for existing pending invitation
+    const { data: existingInvitation } = await adminClient
+      .from("mosaic_invitations")
+      .select("id")
+      .eq("mosaic_id", mosaicId)
+      .eq("email", normalizedEmail)
+      .eq("status", "pending")
+      .single();
+
+    if (existingInvitation) {
+      return {
+        success: false,
+        error: "An invitation is already pending for this email",
+      };
+    }
+
+    // Create the invitation
+    const invitationInsert: MosaicInvitationInsert = {
+      mosaic_id: mosaicId,
+      email: normalizedEmail,
+      role,
+      invited_by: user.id,
     };
+
+    const { data: invitation, error: insertError } = await adminClient
+      .from("mosaic_invitations")
+      .insert(invitationInsert as never)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Error creating invitation:", insertError);
+      return { success: false, error: "Failed to create invitation" };
+    }
+
+    // Get inviter name for email
+    const inviterMap = await fetchUserDataByIds([user.id]);
+    const inviter = inviterMap.get(user.id);
+    const inviterName = inviter?.full_name || inviter?.email || "Someone";
+
+    // Send invitation email (log error but don't fail the invitation)
+    const emailResult = await sendInvitationEmail({
+      recipientEmail: normalizedEmail,
+      workspaceName: mosaic.name,
+      inviterName,
+      role,
+      invitationToken: (invitation as MosaicInvitation).token,
+    });
+
+    if (!emailResult.success) {
+      console.error("Failed to send invitation email:", emailResult.error);
+    }
+
+    revalidatePath(`/mosaics/${mosaicId}`);
+    revalidatePath(`/mosaics/${mosaicId}/settings`);
+    return { success: true, invited: true };
+  } catch (err) {
+    console.error("inviteToMosaic unexpected error:", err);
+    return { success: false, error: "An unexpected error occurred" };
   }
-
-  // Create the invitation
-  const invitationInsert: MosaicInvitationInsert = {
-    mosaic_id: mosaicId,
-    email: normalizedEmail,
-    role,
-    invited_by: user.id,
-  };
-
-  const { data: invitation, error: insertError } = await adminClient
-    .from("mosaic_invitations")
-    .insert(invitationInsert as never)
-    .select()
-    .single();
-
-  if (insertError) {
-    console.error("Error creating invitation:", insertError);
-    return { success: false, error: "Failed to create invitation" };
-  }
-
-  // Get inviter name for email
-  const inviterMap = await fetchUserDataByIds([user.id]);
-  const inviter = inviterMap.get(user.id);
-  const inviterName = inviter?.full_name || inviter?.email || "Someone";
-
-  // Send invitation email (log error but don't fail the invitation)
-  const emailResult = await sendInvitationEmail({
-    recipientEmail: normalizedEmail,
-    workspaceName: mosaic.name,
-    inviterName,
-    role,
-    invitationToken: (invitation as MosaicInvitation).token,
-  });
-
-  if (!emailResult.success) {
-    console.error("Failed to send invitation email:", emailResult.error);
-  }
-
-  revalidatePath(`/mosaics/${mosaicId}`);
-  return { success: true, invited: true };
 }
 
 /**
@@ -721,89 +805,103 @@ export async function inviteToMosaic(
 export async function getMosaicInvitations(
   mosaicId: string,
 ): Promise<MosaicInvitation[]> {
-  const supabase = await createClient();
-  const user = await getUser();
+  try {
+    const supabase = await createClient();
+    const user = await getUser();
 
-  if (!user) {
+    if (!user) {
+      return [];
+    }
+
+    // Verify ownership
+    const { data: mosaic } = await supabase
+      .from("mosaics")
+      .select("id")
+      .eq("id", mosaicId)
+      .eq("owner_id", user.id)
+      .single();
+
+    if (!mosaic) {
+      return [];
+    }
+
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
+      .from("mosaic_invitations")
+      .select("*")
+      .eq("mosaic_id", mosaicId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching invitations:", error);
+      return [];
+    }
+
+    return (data as MosaicInvitation[]) || [];
+  } catch (err) {
+    console.error("getMosaicInvitations unexpected error:", err);
     return [];
   }
-
-  // Verify ownership
-  const { data: mosaic } = await supabase
-    .from("mosaics")
-    .select("id")
-    .eq("id", mosaicId)
-    .eq("owner_id", user.id)
-    .single();
-
-  if (!mosaic) {
-    return [];
-  }
-
-  const adminClient = createAdminClient();
-  const { data, error } = await adminClient
-    .from("mosaic_invitations")
-    .select("*")
-    .eq("mosaic_id", mosaicId)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching invitations:", error);
-    return [];
-  }
-
-  return (data as MosaicInvitation[]) || [];
 }
 
 /**
  * Cancel a mosaic invitation (owner only)
  */
 export async function cancelMosaicInvitation(invitationId: string) {
-  const supabase = await createClient();
-  const adminClient = createAdminClient();
-  const user = await getUser();
+  try {
+    const supabase = await createClient();
+    const adminClient = createAdminClient();
+    const user = await getUser();
 
-  if (!user) {
-    return { error: "Not authenticated" };
+    if (!user) {
+      return { error: "Not authenticated" };
+    }
+
+    // Get invitation
+    const { data: invitationData } = await adminClient
+      .from("mosaic_invitations")
+      .select("id, mosaic_id")
+      .eq("id", invitationId)
+      .single();
+
+    const invitation = invitationData as {
+      id: string;
+      mosaic_id: string;
+    } | null;
+    if (!invitation) {
+      return { error: "Invitation not found" };
+    }
+
+    // Verify ownership
+    const { data: mosaic } = await supabase
+      .from("mosaics")
+      .select("id")
+      .eq("id", invitation.mosaic_id)
+      .eq("owner_id", user.id)
+      .single();
+
+    if (!mosaic) {
+      return { error: "Not authorized to cancel this invitation" };
+    }
+
+    const { error } = await adminClient
+      .from("mosaic_invitations")
+      .update({ status: "cancelled" } as never)
+      .eq("id", invitationId);
+
+    if (error) {
+      console.error("Error cancelling invitation:", error);
+      return { error: "Failed to cancel invitation" };
+    }
+
+    revalidatePath(`/mosaics/${invitation.mosaic_id}`);
+    revalidatePath(`/mosaics/${invitation.mosaic_id}/settings`);
+    return { success: true };
+  } catch (err) {
+    console.error("cancelMosaicInvitation unexpected error:", err);
+    return { error: "An unexpected error occurred" };
   }
-
-  // Get invitation
-  const { data: invitationData } = await adminClient
-    .from("mosaic_invitations")
-    .select("id, mosaic_id")
-    .eq("id", invitationId)
-    .single();
-
-  const invitation = invitationData as { id: string; mosaic_id: string } | null;
-  if (!invitation) {
-    return { error: "Invitation not found" };
-  }
-
-  // Verify ownership
-  const { data: mosaic } = await supabase
-    .from("mosaics")
-    .select("id")
-    .eq("id", invitation.mosaic_id)
-    .eq("owner_id", user.id)
-    .single();
-
-  if (!mosaic) {
-    return { error: "Not authorized to cancel this invitation" };
-  }
-
-  const { error } = await adminClient
-    .from("mosaic_invitations")
-    .update({ status: "cancelled" } as never)
-    .eq("id", invitationId);
-
-  if (error) {
-    console.error("Error cancelling invitation:", error);
-    return { error: "Failed to cancel invitation" };
-  }
-
-  revalidatePath(`/mosaics/${invitation.mosaic_id}`);
-  return { success: true };
 }
 
 /**

@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2, Users } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { MemberList } from "@/components/mosaic/member-list";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,12 +27,29 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  getCurrentUserId,
+  getMosaicMembers,
+  getMosaicOwner,
+  getUserMosaicRole,
+} from "@/lib/actions/mosaics";
+import {
   deleteTile,
   getTile,
   type TileWithConnections,
   toggleTileActive,
   updateTile,
 } from "@/lib/actions/tiles";
+import type { MemberRole, MosaicMember } from "@/types/database";
+
+interface MemberWithUser extends MosaicMember {
+  user: { email: string; full_name: string | null };
+}
+
+interface OwnerInfo {
+  id: string;
+  email: string;
+  full_name: string | null;
+}
 
 const SCHEDULE_OPTIONS = [
   { value: "none", label: "No schedule (manual only)" },
@@ -47,20 +65,39 @@ export default function TileSettingsPage() {
   const tileId = params.tileId as string;
 
   const [tile, setTile] = useState<TileWithConnections | null>(null);
+  const [owner, setOwner] = useState<OwnerInfo | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [members, setMembers] = useState<MemberWithUser[]>([]);
+  const [userRole, setUserRole] = useState<MemberRole | "owner" | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  const canManageMembers = userRole === "owner" || userRole === "admin";
+
+  async function loadData() {
+    const [tileData, ownerData, userId, membersData, role] =
+      await Promise.all([
+        getTile(tileId),
+        getMosaicOwner(mosaicId),
+        getCurrentUserId(),
+        getMosaicMembers(mosaicId),
+        getUserMosaicRole(mosaicId),
+      ]);
+    setTile(tileData);
+    setOwner(ownerData);
+    setCurrentUserId(userId);
+    setMembers(membersData);
+    setUserRole(role);
+    setIsLoading(false);
+  }
+
   useEffect(() => {
-    async function loadTile() {
-      const data = await getTile(tileId);
-      setTile(data);
-      setIsLoading(false);
-    }
-    loadTile();
-  }, [tileId]);
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tileId, mosaicId]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -254,6 +291,30 @@ export default function TileSettingsPage() {
           </CardContent>
         </Card>
       </form>
+
+      {/* Members Section */}
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Members
+            </CardTitle>
+            <CardDescription>
+              People who have access to this mosaic
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <MemberList
+            owner={owner}
+            currentUserId={currentUserId}
+            members={members}
+            canManageMembers={canManageMembers}
+            onMemberChange={loadData}
+          />
+        </CardContent>
+      </Card>
 
       <Separator />
 

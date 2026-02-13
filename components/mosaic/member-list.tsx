@@ -29,16 +29,18 @@ interface OwnerInfo {
 }
 
 interface MemberListProps {
-  owner: OwnerInfo;
+  owner?: OwnerInfo | null;
+  currentUserId?: string | null;
   members: MemberWithUser[];
-  isOwner: boolean;
+  canManageMembers: boolean;
   onMemberChange?: () => void;
 }
 
 export function MemberList({
   owner,
+  currentUserId,
   members,
-  isOwner,
+  canManageMembers,
   onMemberChange,
 }: MemberListProps) {
   const [loadingMemberId, setLoadingMemberId] = useState<string | null>(null);
@@ -92,20 +94,27 @@ export function MemberList({
   return (
     <div className="space-y-2">
       {/* Owner */}
-      <div className="flex items-center justify-between rounded-lg border p-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-            <Crown className="h-5 w-5 text-primary" />
+      {owner && (
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+              <Crown className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="font-medium">
+                {owner.full_name || owner.email}
+                {currentUserId === owner.id && (
+                  <span className="ml-1 text-muted-foreground">(you)</span>
+                )}
+              </p>
+              {owner.full_name && (
+                <p className="text-sm text-muted-foreground">{owner.email}</p>
+              )}
+            </div>
           </div>
-          <div>
-            <p className="font-medium">{owner.full_name || owner.email}</p>
-            {owner.full_name && (
-              <p className="text-sm text-muted-foreground">{owner.email}</p>
-            )}
-          </div>
+          <div className="flex items-center gap-2">{getRoleBadge("owner")}</div>
         </div>
-        {getRoleBadge("owner")}
-      </div>
+      )}
 
       {/* Members */}
       {members.map((member) => (
@@ -124,6 +133,9 @@ export function MemberList({
             <div>
               <p className="font-medium">
                 {member.user.full_name || member.user.email}
+                {currentUserId === member.user_id && (
+                  <span className="ml-1 text-muted-foreground">(you)</span>
+                )}
               </p>
               {member.user.full_name && (
                 <p className="text-sm text-muted-foreground">
@@ -134,7 +146,7 @@ export function MemberList({
           </div>
           <div className="flex items-center gap-2">
             {getRoleBadge(member.role)}
-            {isOwner && (
+            {canManageMembers && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

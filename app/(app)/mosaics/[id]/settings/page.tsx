@@ -27,6 +27,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   deleteMosaic,
+  getCurrentUserId,
   getMosaic,
   getMosaicAdmins,
   getMosaicInvitations,
@@ -64,6 +65,7 @@ export default function MosaicSettingsPage() {
 
   const [mosaic, setMosaic] = useState<MosaicWithTiles | null>(null);
   const [owner, setOwner] = useState<OwnerInfo | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [members, setMembers] = useState<MemberWithUser[]>([]);
   const [invitations, setInvitations] = useState<MosaicInvitation[]>([]);
   const [admins, setAdmins] = useState<AdminWithUser[]>([]);
@@ -75,11 +77,13 @@ export default function MosaicSettingsPage() {
   const [timezone, setTimezone] = useState<string>(getDefaultTimezone());
 
   const isOwner = userRole === "owner";
+  const canEdit = isOwner || userRole === "admin";
 
   async function loadData() {
     const [
       mosaicData,
       ownerData,
+      userId,
       membersData,
       invitationsData,
       adminsData,
@@ -87,6 +91,7 @@ export default function MosaicSettingsPage() {
     ] = await Promise.all([
       getMosaic(mosaicId),
       getMosaicOwner(mosaicId),
+      getCurrentUserId(),
       getMosaicMembers(mosaicId),
       getMosaicInvitations(mosaicId),
       getMosaicAdmins(mosaicId),
@@ -95,11 +100,11 @@ export default function MosaicSettingsPage() {
 
     setMosaic(mosaicData);
     setOwner(ownerData);
+    setCurrentUserId(userId);
     setMembers(membersData);
     setInvitations(invitationsData);
     setAdmins(adminsData);
     setUserRole(role);
-    // Set timezone from mosaic settings
     if (mosaicData) {
       const settings = mosaicData.settings as MosaicSettings | null;
       setTimezone(settings?.timezone || getDefaultTimezone());
@@ -165,14 +170,7 @@ export default function MosaicSettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-2xl font-bold">Mosaic Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your mosaic configuration
-        </p>
-      </div>
-
+    <div className="space-y-6 max-w-2xl p-6">
       <form onSubmit={handleSubmit}>
         <Card>
           <CardHeader>
@@ -193,7 +191,7 @@ export default function MosaicSettingsPage() {
                 name="name"
                 defaultValue={mosaic.name}
                 required
-                disabled={isSaving || !isOwner}
+                disabled={isSaving || !canEdit}
               />
             </div>
 
@@ -203,8 +201,8 @@ export default function MosaicSettingsPage() {
                 id="description"
                 name="description"
                 defaultValue={mosaic.description || ""}
-                rows={3}
-                disabled={isSaving || !isOwner}
+                rows={1}
+                disabled={isSaving || !canEdit}
               />
             </div>
 
@@ -220,7 +218,7 @@ export default function MosaicSettingsPage() {
                 name="isActive"
                 defaultChecked={mosaic.is_active}
                 value="true"
-                disabled={isSaving || !isOwner}
+                disabled={isSaving || !canEdit}
               />
             </div>
 
@@ -229,10 +227,10 @@ export default function MosaicSettingsPage() {
             <TimezoneSelector
               value={timezone}
               onChange={setTimezone}
-              disabled={isSaving || !isOwner}
+              disabled={isSaving || !canEdit}
             />
 
-            {isOwner && (
+            {canEdit && (
               <div className="flex justify-end">
                 <Button type="submit" disabled={isSaving}>
                   {isSaving && (
@@ -245,8 +243,6 @@ export default function MosaicSettingsPage() {
           </CardContent>
         </Card>
       </form>
-
-      <Separator />
 
       {/* Members Section */}
       <Card>
@@ -270,14 +266,13 @@ export default function MosaicSettingsPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {owner && (
-            <MemberList
-              owner={owner}
-              members={members}
-              isOwner={isOwner}
-              onMemberChange={handleMemberChange}
-            />
-          )}
+          <MemberList
+            owner={owner}
+            currentUserId={currentUserId}
+            members={members}
+            canManageMembers={canEdit}
+            onMemberChange={handleMemberChange}
+          />
 
           {isOwner && invitations.length > 0 && (
             <>
@@ -312,32 +307,28 @@ export default function MosaicSettingsPage() {
       </Card>
 
       {isOwner && (
-        <>
-          <Separator />
-
-          <Card className="border-destructive">
-            <CardHeader>
-              <CardTitle className="text-destructive">Danger Zone</CardTitle>
-              <CardDescription>
-                Permanently delete this mosaic and all its tiles
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="mr-2 h-4 w-4" />
-                )}
-                Delete Mosaic
-              </Button>
-            </CardContent>
-          </Card>
-        </>
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Danger Zone</CardTitle>
+            <CardDescription>
+              Permanently delete this mosaic and all its tiles
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Delete Mosaic
+            </Button>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
