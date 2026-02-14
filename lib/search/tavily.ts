@@ -232,6 +232,92 @@ export async function extractMultipleUrls(
   }
 }
 
+/**
+ * Extracts content from multiple URLs using Tavily Extract API,
+ * returning individual per-URL results (unlike extractMultipleUrls which combines them).
+ */
+export async function extractMultipleUrlsIndividual(
+  urls: string[],
+  options: TavilyExtractOptions = {},
+): Promise<
+  { url: string; success: boolean; content?: string; error?: string }[]
+> {
+  const apiKey = process.env.TAVILY_API_KEY;
+
+  if (!apiKey) {
+    return urls.map((url) => ({
+      url,
+      success: false,
+      error: "TAVILY_API_KEY environment variable is not set",
+    }));
+  }
+
+  if (urls.length === 0) {
+    return [];
+  }
+
+  const { extractDepth = "basic" } = options;
+
+  try {
+    const response = await fetch("https://api.tavily.com/extract", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        api_key: apiKey,
+        urls,
+        extract_depth: extractDepth,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return urls.map((url) => ({
+        url,
+        success: false,
+        error: `Tavily Extract API error: ${response.status} - ${errorText}`,
+      }));
+    }
+
+    const data: TavilyExtractApiResponse = await response.json();
+    const failedUrlSet = new Set(data.failed_urls || []);
+
+    // Build a map of successful results by URL
+    const resultMap = new Map<string, string>();
+    for (const r of data.results) {
+      if (r.raw_content) {
+        resultMap.set(r.url, r.raw_content);
+      }
+    }
+
+    return urls.map((url) => {
+      if (failedUrlSet.has(url)) {
+        return {
+          url,
+          success: false,
+          error: `Failed to extract content from URL: ${url}`,
+        };
+      }
+      const content = resultMap.get(url);
+      if (!content) {
+        return { url, success: false, error: "No content extracted from URL" };
+      }
+      return { url, success: true, content };
+    });
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Unknown error during extraction";
+    return urls.map((url) => ({
+      url,
+      success: false,
+      error: errorMessage,
+    }));
+  }
+}
+
 // ============================================================================
 // Search Result Formatting
 // ============================================================================

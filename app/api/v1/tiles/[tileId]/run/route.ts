@@ -2,6 +2,7 @@ import { triggerTileWebhooks } from "@/lib/actions/webhooks";
 import { analyzeContent } from "@/lib/ai/gemini";
 import { authenticateApiRequest, verifyTileAccess } from "@/lib/api/auth";
 import { createSSEResponse, SSE_ERROR_CODES, SSEWriter } from "@/lib/api/sse";
+import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
 import {
   createExecutionContext,
   DEFAULT_MAX_DEPTH,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/execution/context";
 import { logTileJobExecutionEvent } from "@/lib/rate-limit/limiter";
 import {
+  countActiveUrlSources,
   fetchConnectionContent,
   fetchRuntimeUrlsContent,
   fetchTileSourceContent,
@@ -72,6 +74,15 @@ export async function POST(
         }
       } catch {
         // No body or invalid JSON is fine, we'll use configured sources
+      }
+
+      if (runtimeUrls.length > MAX_URLS_PER_TILE) {
+        writer.sendError(
+          `Too many URLs. Maximum ${MAX_URLS_PER_TILE} URLs allowed per request.`,
+          SSE_ERROR_CODES.TOO_MANY_URLS,
+        );
+        writer.close();
+        return;
       }
 
       // Authenticate using API key
@@ -343,6 +354,7 @@ export async function POST(
           connections,
           adminClient,
           executionContext,
+          countActiveUrlSources(typedTile.tile_sources ?? []),
         );
         sourceResults.push(...connectionResults);
 

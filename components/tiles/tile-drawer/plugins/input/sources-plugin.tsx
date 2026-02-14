@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
 import { formatRelativeTime } from "@/lib/utils/format";
 import type { FetchMode, TileConnection, TileType } from "@/types/database";
 
@@ -98,6 +99,17 @@ function getSourceDisplayName(source: {
   return source.name || source.url || config?.query || "Unnamed source";
 }
 
+function getConnectionBehaviorHint(tileType: TileType): string {
+  switch (tileType) {
+    case "url_reader":
+      return "URLs will be extracted from the connected tile's report and fetched";
+    case "web_search":
+      return "Keywords will be extracted from the connected tile's report and searched";
+    default:
+      return "Full report content from the connected tile will be used as input";
+  }
+}
+
 export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
   const {
     sourceForm,
@@ -129,6 +141,10 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
   } = state;
 
   const isAnyEditing = !!editingSourceId || !!editingConnectionId;
+
+  const urlSourceCount =
+    tile.sources?.filter((s) => s.type === "url").length || 0;
+  const isUrlLimitReached = urlSourceCount >= MAX_URLS_PER_TILE;
 
   const activeSourceCount =
     (tile.sources?.filter((s) => s.is_active).length || 0) +
@@ -276,11 +292,7 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
 
                 {/* Connection behavior hint */}
                 <p className="text-xs text-muted-foreground rounded-md bg-muted/40 p-2">
-                  {tile.tile_type === "url_reader"
-                    ? "URLs will be extracted from the connected tile's report and fetched"
-                    : tile.tile_type === "web_search"
-                      ? "Keywords will be extracted from the connected tile's report and searched"
-                      : "Full report content from the connected tile will be used as input"}
+                  {getConnectionBehaviorHint(tile.tile_type)}
                 </p>
 
                 {/* URL extraction options (for url_reader tiles) */}
@@ -332,13 +344,13 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                           <Input
                             type="number"
                             min={1}
-                            max={50}
+                            max={MAX_URLS_PER_TILE}
                             value={sourceForm.maxUrls}
                             onChange={(e) =>
                               updateSourceField(
                                 "maxUrls",
                                 Math.min(
-                                  50,
+                                  MAX_URLS_PER_TILE,
                                   Math.max(1, parseInt(e.target.value) || 10),
                                 ),
                               )
@@ -376,7 +388,10 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
 
             <Button
               onClick={handleAddSource}
-              disabled={isAddingSource}
+              disabled={
+                isAddingSource ||
+                (sourceForm.type === "url" && isUrlLimitReached)
+              }
               className="w-full"
             >
               {isAddingSource ? (
@@ -386,6 +401,11 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
               )}
               Add Source
             </Button>
+            {sourceForm.type === "url" && isUrlLimitReached && (
+              <p className="text-xs text-amber-400">
+                URL limit reached ({MAX_URLS_PER_TILE} max per tile)
+              </p>
+            )}
           </div>
         </div>
 

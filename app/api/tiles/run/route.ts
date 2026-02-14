@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { analyzeContent } from "@/lib/ai/gemini";
+import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
 import {
   createExecutionContext,
   DEFAULT_MAX_DEPTH,
@@ -15,6 +16,7 @@ import {
   RateLimitError,
 } from "@/lib/rate-limit/limiter";
 import {
+  countActiveUrlSources,
   fetchAllTileSourcesContent,
   fetchConnectionContent,
   fetchRuntimeUrlsContent,
@@ -67,6 +69,15 @@ export async function POST(request: Request): Promise<Response> {
 
     // Validate runtime URLs if provided
     const runtimeUrls: string[] = Array.isArray(urls) ? urls : [];
+
+    if (runtimeUrls.length > MAX_URLS_PER_TILE) {
+      return NextResponse.json(
+        {
+          error: `Too many URLs. Maximum ${MAX_URLS_PER_TILE} URLs allowed per request.`,
+        },
+        { status: 400 },
+      );
+    }
 
     // Check rate limits before proceeding
     const rateLimitResult = await checkAndIncrementRateLimit(
@@ -239,6 +250,7 @@ export async function POST(request: Request): Promise<Response> {
             connections,
             adminClient,
             executionContext,
+            countActiveUrlSources(typedTile.tile_sources),
           );
           sourceResults.push(...connectionResults);
         }

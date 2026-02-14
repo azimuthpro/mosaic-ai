@@ -13,6 +13,7 @@ import {
   logTileJobExecutionEvent,
 } from "@/lib/rate-limit/limiter";
 import {
+  countActiveUrlSources,
   fetchAllTileSourcesContent,
   fetchConnectionContent,
   getTileSourceIdentifiers,
@@ -229,6 +230,7 @@ async function processTile(
           connections,
           adminClient,
           executionContext,
+          countActiveUrlSources(tile.tile_sources ?? []),
         );
         sourceResults.push(...connectionResults);
       }

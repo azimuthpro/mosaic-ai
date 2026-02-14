@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { MAX_URLS_PER_TILE, URL_BATCH_SIZE } from "@/lib/constants/tiles";
 import type { ExecutionContext } from "@/lib/execution/context";
 import {
+  extractMultipleUrlsIndividual,
   extractUrl,
   formatSearchResultsAsMarkdown,
   searchWeb,
@@ -412,51 +414,6 @@ function enforceTotalContentLimit(
 }
 
 /**
- * Fetches a single URL and returns a TileSourceContent result.
- */
-async function fetchSingleUrl(
-  url: string,
-  sourceId: string,
-): Promise<TileSourceContent> {
-  const urlValidation = await validateUrlWithDnsCheck(url);
-  if (!urlValidation.isValid) {
-    return {
-      sourceId,
-      sourceType: "url",
-      identifier: url,
-      success: false,
-      error: `URL validation failed: ${urlValidation.error}`,
-    };
-  }
-
-  const result = await extractUrl(url, { extractDepth: "basic" });
-
-  if (result.success && result.content) {
-    const { content, truncated, originalSize } = truncateContent(
-      result.content,
-    );
-    return {
-      sourceId,
-      sourceType: "url",
-      identifier: url,
-      success: true,
-      content,
-      title: url,
-      contentTruncated: truncated,
-      originalSize: truncated ? originalSize : undefined,
-    };
-  }
-
-  return {
-    sourceId,
-    sourceType: "url",
-    identifier: url,
-    success: false,
-    error: result.error,
-  };
-}
-
-/**
  * Fetches content from all tile sources with concurrency limiting.
  * Enforces total content size limit across all sources.
  */
@@ -539,23 +496,80 @@ export function getTileSourceTypeBreakdown(results: TileSourceContent[]): {
 
 /**
  * Fetches content from runtime URLs (provided via API request).
- * Validates each URL and uses Tavily Extract with concurrency limiting.
+ * Enforces MAX_URLS_PER_TILE limit, validates URLs for SSRF,
+ * then uses Tavily batch Extract API for efficiency.
  */
 export async function fetchRuntimeUrlsContent(
   urls: string[],
   context?: ExecutionContext,
 ): Promise<TileSourceContent[]> {
+  // Enforce URL limit
+  const limitedUrls = urls.slice(0, MAX_URLS_PER_TILE);
+
+  // Validate all URLs first (SSRF check)
+  const validationResults = await Promise.all(
+    limitedUrls.map(async (url, index) => ({
+      url,
+      index,
+      validation: await validateUrlWithDnsCheck(url),
+    })),
+  );
+
   const results: TileSourceContent[] = [];
+  const validUrls: { url: string; index: number }[] = [];
+
+  for (const { url, index, validation } of validationResults) {
+    if (!validation.isValid) {
+      results.push({
+        sourceId: `runtime-${index}`,
+        sourceType: "url",
+        identifier: url,
+        success: false,
+        error: `URL validation failed: ${validation.error}`,
+      });
+    } else {
+      validUrls.push({ url, index });
+    }
+  }
+
+  // Batch extract valid URLs
   let totalContentSize = 0;
 
-  for (let i = 0; i < urls.length; i += CONCURRENCY_LIMIT) {
+  for (let i = 0; i < validUrls.length; i += URL_BATCH_SIZE) {
     checkTimeout(context);
 
-    const batch = urls.slice(i, i + CONCURRENCY_LIMIT);
-    const batchResults = await Promise.all(
-      batch.map((url, batchIndex) =>
-        fetchSingleUrl(url, `runtime-${i + batchIndex}`),
-      ),
+    const batch = validUrls.slice(i, i + URL_BATCH_SIZE);
+    const batchUrls = batch.map((v) => v.url);
+    const batchExtractResults = await extractMultipleUrlsIndividual(batchUrls);
+
+    const batchResults: TileSourceContent[] = batchExtractResults.map(
+      (extractResult, batchIndex) => {
+        const originalIndex = batch[batchIndex].index;
+
+        if (extractResult.success && extractResult.content) {
+          const { content, truncated, originalSize } = truncateContent(
+            extractResult.content,
+          );
+          return {
+            sourceId: `runtime-${originalIndex}`,
+            sourceType: "url" as const,
+            identifier: extractResult.url,
+            success: true,
+            content,
+            title: extractResult.url,
+            contentTruncated: truncated,
+            originalSize: truncated ? originalSize : undefined,
+          };
+        }
+
+        return {
+          sourceId: `runtime-${originalIndex}`,
+          sourceType: "url" as const,
+          identifier: extractResult.url,
+          success: false,
+          error: extractResult.error,
+        };
+      },
     );
 
     totalContentSize = enforceTotalContentLimit(batchResults, totalContentSize);
@@ -608,6 +622,16 @@ export async function searchKeywordsContent(
 type TileTypeForConnections = "url_reader" | "web_search" | "analyzer";
 
 /**
+ * Counts the number of active URL-type sources on a tile.
+ * Used to calculate how many URL slots remain before hitting MAX_URLS_PER_TILE.
+ */
+export function countActiveUrlSources(
+  sources: { type: string; is_active: boolean }[],
+): number {
+  return sources.filter((s) => s.type === "url" && s.is_active).length;
+}
+
+/**
  * Fetches content from tile connections based on the tile type.
  * - url_reader: extracts URLs from connected reports and fetches them
  * - web_search: extracts keywords from connected reports and searches them
@@ -621,6 +645,7 @@ export async function fetchConnectionContent(
   connections: { id: string; source_tile_id: string }[],
   adminClient: SupabaseClient<Database>,
   context?: ExecutionContext,
+  directUrlSourceCount?: number,
 ): Promise<TileSourceContent[]> {
   if (connections.length === 0) {
     return [];
@@ -630,7 +655,14 @@ export async function fetchConnectionContent(
     case "url_reader": {
       const linkedUrls = await fetchLinkedTileUrls(tileId, adminClient);
       if (linkedUrls.length === 0) return [];
-      return fetchRuntimeUrlsContent(linkedUrls, context);
+
+      // Account for direct URL sources already consumed
+      const usedSlots = directUrlSourceCount ?? 0;
+      const remainingSlots = Math.max(0, MAX_URLS_PER_TILE - usedSlots);
+      const urlsToFetch = linkedUrls.slice(0, remainingSlots);
+      if (urlsToFetch.length === 0) return [];
+
+      return fetchRuntimeUrlsContent(urlsToFetch, context);
     }
     case "web_search": {
       const linkedKeywords = await fetchLinkedTileKeywords(tileId, adminClient);
@@ -704,17 +736,19 @@ async function extractFromConnectedTileReports(
 
 /**
  * Fetches URLs from connected tiles' reports.
- * Returns a deduplicated list of URLs extracted from all connected tiles.
+ * Returns a deduplicated list of URLs extracted from all connected tiles,
+ * limited to MAX_URLS_PER_TILE.
  */
-export function fetchLinkedTileUrls(
+export async function fetchLinkedTileUrls(
   tileId: string,
   adminClient: SupabaseClient<Database>,
 ): Promise<string[]> {
-  return extractFromConnectedTileReports(
+  const urls = await extractFromConnectedTileReports(
     tileId,
     adminClient,
     extractUrlsFromContent,
   );
+  return urls.slice(0, MAX_URLS_PER_TILE);
 }
 
 /**

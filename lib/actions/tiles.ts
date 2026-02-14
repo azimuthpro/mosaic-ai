@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
+import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
 import { createClient, getUser } from "@/lib/supabase/server";
 import type {
-  AgentReportSourceConfig,
   Json,
   LanguageCode,
   OutputFormat,
@@ -458,6 +458,26 @@ export async function addTileSource(params: AddTileSourceParams) {
   const tile = tileData as { id: string; mosaic_id: string } | null;
   if (!tile) {
     return { error: "Tile not found" };
+  }
+
+  // Enforce URL limit for URL sources
+  if (sourceType === "url") {
+    const { count, error: countError } = await supabase
+      .from("tile_sources")
+      .select("*", { count: "exact", head: true })
+      .eq("tile_id", params.tileId)
+      .eq("type", "url");
+
+    if (countError) {
+      console.error("Error counting URL sources:", countError);
+      return { error: "Failed to check source count" };
+    }
+
+    if ((count ?? 0) >= MAX_URLS_PER_TILE) {
+      return {
+        error: `Maximum of ${MAX_URLS_PER_TILE} URL sources per tile reached`,
+      };
+    }
   }
 
   // Validate based on source type
