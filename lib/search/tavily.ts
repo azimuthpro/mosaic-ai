@@ -318,6 +318,36 @@ export async function extractMultipleUrlsIndividual(
   }
 }
 
+/**
+ * Validates a URL and extracts metadata using Tavily Extract API.
+ * Used for real-time validation in the URL source dialog.
+ */
+export async function validateUrlWithMetadata(url: string): Promise<{
+  isValid: boolean;
+  isAccessible: boolean;
+  pageTitle?: string;
+  error?: string;
+}> {
+  const result = await extractUrl(url, { extractDepth: "basic" });
+
+  if (!result.success) {
+    return {
+      isValid: true, // URL format is valid (SSRF check passed)
+      isAccessible: false,
+      error: result.error,
+    };
+  }
+
+  // Extract title from markdown content (first # heading)
+  const titleMatch = result.content?.match(/^#\s+(.+)$/m);
+
+  return {
+    isValid: true,
+    isAccessible: true,
+    pageTitle: titleMatch?.[1],
+  };
+}
+
 // ============================================================================
 // Search Result Formatting
 // ============================================================================
