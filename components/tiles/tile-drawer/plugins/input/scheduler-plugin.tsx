@@ -14,7 +14,13 @@ interface SchedulerPluginProps extends PluginBaseProps {
 }
 
 export function SchedulerPlugin({ disabled, state }: SchedulerPluginProps) {
-  const { configState, updateConfigField, isSaving, pluginState, updatePluginState } = state;
+  const {
+    configState,
+    updateConfigField,
+    isSaving,
+    pluginState,
+    updatePluginState,
+  } = state;
   const scheduleLabel = getScheduleLabel(configState.scheduleCron);
 
   return (

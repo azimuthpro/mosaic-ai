@@ -78,14 +78,13 @@ export default function TileSettingsPage() {
   const canManageMembers = userRole === "owner" || userRole === "admin";
 
   async function loadData() {
-    const [tileData, ownerData, userId, membersData, role] =
-      await Promise.all([
-        getTile(tileId),
-        getMosaicOwner(mosaicId),
-        getCurrentUserId(),
-        getMosaicMembers(mosaicId),
-        getUserMosaicRole(mosaicId),
-      ]);
+    const [tileData, ownerData, userId, membersData, role] = await Promise.all([
+      getTile(tileId),
+      getMosaicOwner(mosaicId),
+      getCurrentUserId(),
+      getMosaicMembers(mosaicId),
+      getUserMosaicRole(mosaicId),
+    ]);
     setTile(tileData);
     setOwner(ownerData);
     setCurrentUserId(userId);

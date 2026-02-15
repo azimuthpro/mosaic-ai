@@ -110,8 +110,14 @@ async function processDownstreamTile(
   tile: Tile & { tile_sources: TileSource[] },
   params: Required<TriggerDownstreamParams>,
 ): Promise<void> {
-  const { completedTileId, completedJobId, mosaicId, userId, depth, visitedTileIds } =
-    params;
+  const {
+    completedTileId,
+    completedJobId,
+    mosaicId,
+    userId,
+    depth,
+    visitedTileIds,
+  } = params;
 
   // Cycle detection: skip if we've already processed this tile in this chain
   if (visitedTileIds.has(tile.id)) {
@@ -145,7 +151,7 @@ async function processDownstreamTile(
     return;
   }
 
-  let rateLimitIncremented = true;
+  const rateLimitIncremented = true;
 
   try {
     const executionContext = createExecutionContext({

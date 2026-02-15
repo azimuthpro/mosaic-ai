@@ -1,6 +1,12 @@
 "use client";
 
-import { AlertTriangle, CheckCircle, Loader2, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle,
+  Loader2,
+  RefreshCw,
+  XCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -79,6 +85,7 @@ export function AddUrlSourceDialog({
   const [hasManuallyEditedName, setHasManuallyEditedName] = useState(false);
   const [validationState, setValidationState] =
     useState<ValidationState>(INITIAL_VALIDATION);
+  const [isManuallyValidating, setIsManuallyValidating] = useState(false);
 
   // Reset form when dialog opens or mode/source changes
   useEffect(() => {
@@ -149,6 +156,51 @@ export function AddUrlSourceDialog({
 
     return () => clearTimeout(timeoutId);
   }, [url, hasManuallyEditedName]);
+
+  // Manual validation retry
+  async function handleManualValidation(): Promise<void> {
+    const formattedUrl = formatUrl(url);
+    if (!formattedUrl) return;
+
+    setIsManuallyValidating(true);
+    setValidationState((prev) => ({
+      ...prev,
+      isValidating: true,
+      error: null,
+    }));
+
+    try {
+      const response = await fetch("/api/v1/sources/validate-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: formattedUrl }),
+      });
+
+      const result = await response.json();
+
+      setValidationState({
+        isValidating: false,
+        isValid: result.isValid,
+        isAccessible: result.isAccessible ?? null,
+        error: result.error || null,
+        pageTitle: result.pageTitle || null,
+      });
+
+      if (result.pageTitle && !hasManuallyEditedName) {
+        setName(result.pageTitle);
+      }
+    } catch {
+      setValidationState({
+        isValidating: false,
+        isValid: false,
+        isAccessible: null,
+        error: "Failed to validate URL",
+        pageTitle: null,
+      });
+    } finally {
+      setIsManuallyValidating(false);
+    }
+  }
 
   async function handleSubmit(
     e: React.SubmitEvent<HTMLFormElement>,
@@ -244,7 +296,11 @@ export function AddUrlSourceDialog({
               />
               {url.trim() !== "" && (
                 <div className="pt-1">
-                  <ValidationStatus state={validationState} />
+                  <ValidationStatus
+                    state={validationState}
+                    onRecheck={handleManualValidation}
+                    isRechecking={isManuallyValidating}
+                  />
                 </div>
               )}
             </div>
@@ -350,10 +406,14 @@ export function AddUrlSourceDialog({
 
 interface ValidationStatusProps {
   state: ValidationState;
+  onRecheck?: () => void;
+  isRechecking?: boolean;
 }
 
 function ValidationStatus({
   state,
+  onRecheck,
+  isRechecking,
 }: ValidationStatusProps): React.JSX.Element | null {
   if (state.isValidating) {
     return (
@@ -375,9 +435,24 @@ function ValidationStatus({
     }
     if (state.isAccessible === false) {
       return (
-        <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
-          <AlertTriangle className="h-4 w-4" />
-          URL is valid but may be inaccessible (will try anyway)
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="h-4 w-4" />
+            URL is valid but may be inaccessible (will try anyway)
+          </div>
+          {onRecheck && (
+            <button
+              type="button"
+              onClick={onRecheck}
+              disabled={isRechecking}
+              className="flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`h-3 w-3 ${isRechecking ? "animate-spin" : ""}`}
+              />
+              {isRechecking ? "Re-checking..." : "Re-check accessibility"}
+            </button>
+          )}
         </div>
       );
     }
