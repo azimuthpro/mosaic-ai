@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 
+import { AddUrlSourceDialog } from "@/components/tiles/add-url-source-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +43,8 @@ interface SourcesPluginProps extends PluginBaseProps {
   state: TileDrawerState;
 }
 
-function renderSourceTypeOptions(tileType: TileType): React.ReactNode {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function renderSourceTypeOptions(_tileType: TileType): React.ReactNode {
   const urlOption = (
     <SelectItem key="url" value="url">
       <div className="flex items-center gap-2">
@@ -185,7 +187,7 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue className="text-left" />
                 </SelectTrigger>
                 <SelectContent>
                   {renderSourceTypeOptions(tile.tile_type)}
@@ -194,41 +196,26 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
             </div>
 
             {sourceForm.type === "url" && (
-              <>
-                <div className="space-y-2">
-                  <Label>URL</Label>
-                  <Input
-                    value={sourceForm.url}
-                    onChange={(e) => updateSourceField("url", e.target.value)}
-                    placeholder="https://example.com/page"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Extract Depth</Label>
-                  <Select
-                    value={sourceForm.extractDepth}
-                    onValueChange={(v) =>
-                      updateSourceField(
-                        "extractDepth",
-                        v as "basic" | "advanced",
-                      )
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="basic">Basic</SelectItem>
-                      <SelectItem value="advanced">
-                        Advanced (deeper extraction)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Advanced extracts more content but uses more credits
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  URL sources are validated for accessibility and format before
+                  being added.
+                </p>
+                <Button
+                  onClick={() => state.openAddUrlDialog()}
+                  disabled={isUrlLimitReached}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add URL Source
+                </Button>
+                {isUrlLimitReached && (
+                  <p className="text-xs text-amber-400">
+                    URL limit reached ({MAX_URLS_PER_TILE} max per tile)
                   </p>
-                </div>
-              </>
+                )}
+              </div>
             )}
 
             {sourceForm.type === "tile_connection" && (
@@ -242,7 +229,10 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a tile..." />
+                      <SelectValue
+                        placeholder="Select a tile..."
+                        className="text-left"
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {isLoadingTiles ? (
@@ -274,7 +264,7 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue className="text-left" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="fast">Fast (latest only)</SelectItem>
@@ -329,7 +319,7 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                             }
                           >
                             <SelectTrigger>
-                              <SelectValue />
+                              <SelectValue className="text-left" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="basic">Basic</SelectItem>
@@ -377,34 +367,30 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label>Name (optional)</Label>
-              <Input
-                value={sourceForm.name}
-                onChange={(e) => updateSourceField("name", e.target.value)}
-                placeholder="Friendly name for this source"
-              />
-            </div>
+            {sourceForm.type !== "url" && (
+              <>
+                <div className="space-y-2">
+                  <Label>Name (optional)</Label>
+                  <Input
+                    value={sourceForm.name}
+                    onChange={(e) => updateSourceField("name", e.target.value)}
+                    placeholder="Friendly name for this source"
+                  />
+                </div>
 
-            <Button
-              onClick={handleAddSource}
-              disabled={
-                isAddingSource ||
-                (sourceForm.type === "url" && isUrlLimitReached)
-              }
-              className="w-full"
-            >
-              {isAddingSource ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="mr-2 h-4 w-4" />
-              )}
-              Add Source
-            </Button>
-            {sourceForm.type === "url" && isUrlLimitReached && (
-              <p className="text-xs text-amber-400">
-                URL limit reached ({MAX_URLS_PER_TILE} max per tile)
-              </p>
+                <Button
+                  onClick={handleAddSource}
+                  disabled={isAddingSource}
+                  className="w-full"
+                >
+                  {isAddingSource ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="mr-2 h-4 w-4" />
+                  )}
+                  Add Source
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -428,7 +414,7 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                   query?: string;
                 } | null;
 
-                if (isEditing) {
+                if (isEditing && source.type === "web_search") {
                   return (
                     <div
                       key={source.id}
@@ -444,55 +430,16 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                         </span>
                       </div>
 
-                      {source.type === "url" && (
-                        <>
-                          <div className="space-y-2">
-                            <Label>URL</Label>
-                            <Input
-                              value={editForm.url}
-                              onChange={(e) =>
-                                updateEditField("url", e.target.value)
-                              }
-                              placeholder="https://example.com/page"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Extract Depth</Label>
-                            <Select
-                              value={editForm.extractDepth}
-                              onValueChange={(v) =>
-                                updateEditField(
-                                  "extractDepth",
-                                  v as "basic" | "advanced",
-                                )
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="basic">Basic</SelectItem>
-                                <SelectItem value="advanced">
-                                  Advanced (deeper extraction)
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </>
-                      )}
-
-                      {source.type === "web_search" && (
-                        <div className="space-y-2">
-                          <Label>Search Query</Label>
-                          <Input
-                            value={editForm.searchQuery}
-                            onChange={(e) =>
-                              updateEditField("searchQuery", e.target.value)
-                            }
-                            placeholder="Enter search query..."
-                          />
-                        </div>
-                      )}
+                      <div className="space-y-2">
+                        <Label>Search Query</Label>
+                        <Input
+                          value={editForm.searchQuery}
+                          onChange={(e) =>
+                            updateEditField("searchQuery", e.target.value)
+                          }
+                          placeholder="Enter search query..."
+                        />
+                      </div>
 
                       <div className="space-y-2">
                         <Label>Name (optional)</Label>
@@ -599,7 +546,11 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-cyan-400"
-                        onClick={() => handleStartEditSource(source)}
+                        onClick={() =>
+                          source.type === "url"
+                            ? state.openEditUrlDialog(source)
+                            : handleStartEditSource(source)
+                        }
                         disabled={isAnyEditing}
                       >
                         <Pencil className="h-4 w-4" />
@@ -652,7 +603,10 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                           onValueChange={setEditConnectionSourceTileId}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a tile..." />
+                            <SelectValue
+                              placeholder="Select a tile..."
+                              className="text-left"
+                            />
                           </SelectTrigger>
                           <SelectContent>
                             {isLoadingTiles ? (
@@ -782,6 +736,16 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
           )}
         </div>
       </div>
+
+      {/* URL Source Modal */}
+      <AddUrlSourceDialog
+        tile={tile}
+        mode={state.editingUrlSource ? "edit" : "add"}
+        existingSource={state.editingUrlSource || undefined}
+        open={state.isUrlDialogOpen}
+        onOpenChange={state.setIsUrlDialogOpen}
+        onSuccess={state.handleUrlSourceSaved}
+      />
     </PluginCard>
   );
 }

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- URL source modal with real-time validation and accessibility checking
+- Automatic page title extraction from URLs during validation
+- URL source limit counter (40 per tile) displayed in modal
+- SSRF protection with backend validation for URL sources
+
+### Changed
+- URL sources now added via dedicated modal instead of inline form
+- Select components aligned to left for better readability
+
+### Improved
+- URL source dialog code simplified and optimized (421 → 398 lines)
+- Extracted reusable validation status component
+- Fixed React 19 FormEvent deprecation warning
+
 ## [1.3.0] - 2026-02-13
 
 ### Added

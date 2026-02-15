@@ -485,6 +485,16 @@ export async function addTileSource(params: AddTileSourceParams) {
     return { error: "URL is required for URL source type" };
   }
 
+  // Validate URL for SSRF protection (backend safety layer)
+  if (sourceType === "url" && params.url) {
+    const { validateUrlWithDnsCheck } =
+      await import("@/lib/validation/url-validator");
+    const urlValidation = await validateUrlWithDnsCheck(params.url);
+    if (!urlValidation.isValid) {
+      return { error: urlValidation.error || "Invalid URL" };
+    }
+  }
+
   if (sourceType === "web_search" && !params.config?.query) {
     return { error: "Search query is required for web_search source type" };
   }
@@ -618,6 +628,16 @@ export async function updateTileSource(
   // Validate based on source type
   if (source.type === "url" && params.url !== undefined && !params.url.trim()) {
     return { error: "URL cannot be empty" };
+  }
+
+  // Validate URL for SSRF protection (backend safety layer)
+  if (source.type === "url" && params.url) {
+    const { validateUrlWithDnsCheck } =
+      await import("@/lib/validation/url-validator");
+    const urlValidation = await validateUrlWithDnsCheck(params.url);
+    if (!urlValidation.isValid) {
+      return { error: urlValidation.error || "Invalid URL" };
+    }
   }
 
   if (

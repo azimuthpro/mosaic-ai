@@ -113,6 +113,12 @@ export function useTileDrawerState({
   });
   const [isSavingSource, setIsSavingSource] = useState(false);
 
+  // URL source modal state
+  const [isUrlDialogOpen, setIsUrlDialogOpen] = useState(false);
+  const [editingUrlSource, setEditingUrlSource] = useState<
+    TileWithSources["sources"][0] | null
+  >(null);
+
   // Connection editing state
   const [editingConnectionId, setEditingConnectionId] = useState<string | null>(
     null,
@@ -395,7 +401,7 @@ export function useTileDrawerState({
     } finally {
       setIsAddingSource(false);
     }
-  }, [tile, sourceForm, resetSourceForm]);
+  }, [tile, sourceForm, resetSourceForm, mosaicId]);
 
   // Delete source
   const handleDeleteSource = useCallback(async (sourceId: string) => {
@@ -552,6 +558,26 @@ export function useTileDrawerState({
     }
   }, [editingConnectionId, editConnectionSourceTileId]);
 
+  // URL source modal handlers
+  const openAddUrlDialog = useCallback(() => {
+    setIsUrlDialogOpen(true);
+    setEditingUrlSource(null);
+  }, []);
+
+  const openEditUrlDialog = useCallback(
+    (source: TileWithSources["sources"][0]) => {
+      setIsUrlDialogOpen(true);
+      setEditingUrlSource(source);
+    },
+    [],
+  );
+
+  const handleUrlSourceSaved = useCallback(() => {
+    setIsUrlDialogOpen(false);
+    setEditingUrlSource(null);
+    refreshData();
+  }, [refreshData]);
+
   // API key handlers
   const handleCreateKey = useCallback(async () => {
     if (!newKeyName.trim()) return;
@@ -649,6 +675,15 @@ export function useTileDrawerState({
     handleCancelEditSource,
     updateEditField,
     handleSaveSource,
+
+    // URL source modal state
+    isUrlDialogOpen,
+    setIsUrlDialogOpen,
+    editingUrlSource,
+    openAddUrlDialog,
+    openEditUrlDialog,
+    handleUrlSourceSaved,
+    mosaicId,
 
     // API keys state
     apiKeys,
