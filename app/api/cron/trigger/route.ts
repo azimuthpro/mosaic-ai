@@ -21,6 +21,11 @@ import {
   type TileSourceContent,
 } from "@/lib/sources/tile-content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  formatSupabaseError,
+  getErrorMessage,
+  supabaseErrorMetadata,
+} from "@/lib/supabase/errors";
 import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
 import type {
   MosaicSettings,
@@ -111,10 +116,6 @@ type TileResult = {
   rateLimited?: boolean;
 };
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown error";
-}
-
 async function processTile(
   adminClient: ReturnType<typeof createAdminClient>,
   tile: TileWithSources,
@@ -194,7 +195,22 @@ async function processTile(
     const job = jobData as TileJob | null;
 
     if (jobError || !job) {
-      throw new Error("Failed to create job");
+      console.error(
+        `[cron/trigger] Failed to create job for tile ${tile.id}:`,
+        formatSupabaseError(jobError),
+      );
+      await logTileJobExecutionEvent(adminClient, {
+        executionId: executionContext.executionId,
+        tileId: tile.id,
+        eventType: "failed",
+        metadata: {
+          phase: "job_creation",
+          trigger: "cron",
+          error: jobError?.message || "No job data returned",
+          ...supabaseErrorMetadata(jobError),
+        },
+      });
+      throw new Error(`Failed to create job: ${jobError?.message || "No job data returned"}`);
     }
 
     try {
@@ -312,7 +328,7 @@ async function processTile(
         mosaicId: tile.mosaic_id,
         userId,
       }).catch((err) =>
-        console.error("Failed to trigger downstream tiles:", err),
+        console.error(`[cron/trigger] Failed to trigger downstream tiles (tile=${tile.id}, job=${job.id}, mosaic=${tile.mosaic_id}):`, err),
       );
 
       return {

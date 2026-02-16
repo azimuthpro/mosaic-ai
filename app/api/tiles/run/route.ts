@@ -25,6 +25,11 @@ import {
   type TileSourceContent,
 } from "@/lib/sources/tile-content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  formatSupabaseError,
+  getErrorMessage,
+  supabaseErrorMetadata,
+} from "@/lib/supabase/errors";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
 import type {
@@ -36,13 +41,6 @@ import type {
   TileJobUpdate,
   TileSource,
 } from "@/types/database";
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return "Unknown error";
-}
 
 export async function POST(request: Request): Promise<Response> {
   const adminClient = createAdminClient();
@@ -204,8 +202,22 @@ export async function POST(request: Request): Promise<Response> {
     const job = jobData as TileJob | null;
 
     if (jobError || !job) {
+      console.error(
+        `[tiles/run] Failed to create job for tile ${tileId}:`,
+        formatSupabaseError(jobError),
+      );
+      await logTileJobExecutionEvent(adminClient, {
+        executionId: executionContext.executionId,
+        tileId: tileId,
+        eventType: "failed",
+        metadata: {
+          phase: "job_creation",
+          error: jobError?.message || "No job data returned",
+          ...supabaseErrorMetadata(jobError),
+        },
+      });
       return NextResponse.json(
-        { error: "Failed to create job" },
+        { error: "Failed to create job", details: jobError?.message },
         { status: 500 },
       );
     }
@@ -369,7 +381,7 @@ export async function POST(request: Request): Promise<Response> {
         mosaicId: typedTile.mosaic_id,
         userId: user.id,
       }).catch((err) =>
-        console.error("Failed to trigger downstream tiles:", err),
+        console.error(`[tiles/run] Failed to trigger downstream tiles (tile=${tileId}, job=${job.id}, mosaic=${typedTile.mosaic_id}):`, err),
       );
 
       return NextResponse.json({

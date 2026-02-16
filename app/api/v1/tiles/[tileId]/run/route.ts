@@ -19,6 +19,10 @@ import {
   type TileSourceContent,
 } from "@/lib/sources/tile-content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  formatSupabaseError,
+  supabaseErrorMetadata,
+} from "@/lib/supabase/errors";
 import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
 import type {
   Tile,
@@ -210,8 +214,23 @@ export async function POST(
         .single();
 
       if (jobError || !jobData) {
+        console.error(
+          `[v1/tiles/run] Failed to create job for tile ${tileId}:`,
+          formatSupabaseError(jobError),
+        );
+        await logTileJobExecutionEvent(adminClient, {
+          executionId: executionContext.executionId,
+          tileId: tileId,
+          eventType: "failed",
+          metadata: {
+            phase: "job_creation",
+            triggeredBy: "api",
+            error: jobError?.message || "No job data returned",
+            ...supabaseErrorMetadata(jobError),
+          },
+        });
         writer.sendError(
-          "Failed to create job",
+          `Failed to create job: ${jobError?.message || "Unknown error"}`,
           SSE_ERROR_CODES.INTERNAL_ERROR,
         );
         writer.close();
@@ -589,7 +608,7 @@ export async function POST(
         mosaicId: mosaicId,
         userId: authResult.apiKey?.created_by || "api-key",
       }).catch((err) =>
-        console.error("Failed to trigger downstream tiles:", err),
+        console.error(`[v1/tiles/run] Failed to trigger downstream tiles (tile=${tileId}, job=${job.id}, mosaic=${mosaicId}):`, err),
       );
 
       // Send done event

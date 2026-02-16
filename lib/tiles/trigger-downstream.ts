@@ -17,6 +17,10 @@ import {
   type TileSourceContent,
 } from "@/lib/sources/tile-content-fetcher";
 import type { createAdminClient } from "@/lib/supabase/admin";
+import {
+  formatSupabaseError,
+  supabaseErrorMetadata,
+} from "@/lib/supabase/errors";
 import type {
   Tile,
   TileConnection,
@@ -61,6 +65,18 @@ export async function triggerDownstreamTiles(
     console.warn(
       `[trigger-downstream] Max cascade depth (${MAX_CASCADE_DEPTH}) reached for tile ${completedTileId}`,
     );
+    await logTileJobExecutionEvent(adminClient, {
+      executionId: crypto.randomUUID(),
+      tileId: completedTileId,
+      eventType: "depth_exceeded",
+      metadata: {
+        trigger: "source_update",
+        cascadeDepth: depth,
+        maxCascadeDepth: MAX_CASCADE_DEPTH,
+        completedJobId,
+        mosaicId,
+      },
+    });
     return;
   }
 
@@ -122,8 +138,20 @@ async function processDownstreamTile(
   // Cycle detection: skip if we've already processed this tile in this chain
   if (visitedTileIds.has(tile.id)) {
     console.warn(
-      `[trigger-downstream] Cycle detected: tile ${tile.id} already visited`,
+      `[trigger-downstream] Cycle detected: tile ${tile.id} already visited in chain [${[...visitedTileIds].join(" → ")}]`,
     );
+    await logTileJobExecutionEvent(adminClient, {
+      executionId: crypto.randomUUID(),
+      tileId: tile.id,
+      eventType: "cycle_detected",
+      metadata: {
+        trigger: "source_update",
+        visitedTileIds: [...visitedTileIds],
+        cascadeDepth: depth,
+        triggeredByTileId: completedTileId,
+        triggeredByJobId: completedJobId,
+      },
+    });
     return;
   }
 
@@ -136,8 +164,9 @@ async function processDownstreamTile(
     .limit(1);
 
   if (existingJobs && existingJobs.length > 0) {
+    const existingJobId = (existingJobs[0] as { id: string }).id;
     console.log(
-      `[trigger-downstream] Tile ${tile.id} already processing, skipping`,
+      `[trigger-downstream] Tile ${tile.id} already processing (job ${existingJobId}), skipping`,
     );
     return;
   }
@@ -148,6 +177,22 @@ async function processDownstreamTile(
     console.warn(
       `[trigger-downstream] Rate limited for tile ${tile.id}: ${rateLimitResult.reason}`,
     );
+    await logTileJobExecutionEvent(adminClient, {
+      executionId: crypto.randomUUID(),
+      tileId: tile.id,
+      eventType: "rate_limited",
+      metadata: {
+        trigger: "source_update",
+        reason: rateLimitResult.reason,
+        currentCount: rateLimitResult.currentCount,
+        maxPerHour: rateLimitResult.maxPerHour,
+        concurrentExecutions: rateLimitResult.concurrentExecutions,
+        maxConcurrent: rateLimitResult.maxConcurrent,
+        triggeredByTileId: completedTileId,
+        triggeredByJobId: completedJobId,
+        cascadeDepth: depth,
+      },
+    });
     return;
   }
 
@@ -200,8 +245,22 @@ async function processDownstreamTile(
 
     if (jobError || !jobData) {
       console.error(
-        `[trigger-downstream] Failed to create job for tile ${tile.id}`,
+        `[trigger-downstream] Failed to create job for tile ${tile.id}:`,
+        formatSupabaseError(jobError),
       );
+      await logTileJobExecutionEvent(adminClient, {
+        executionId: executionContext.executionId,
+        tileId: tile.id,
+        eventType: "failed",
+        metadata: {
+          phase: "job_creation",
+          trigger: "source_update",
+          error: jobError?.message || "No job data returned",
+          ...supabaseErrorMetadata(jobError),
+          cascadeDepth: depth + 1,
+          triggeredByTileId: completedTileId,
+        },
+      });
       return;
     }
 
@@ -358,12 +417,14 @@ async function processDownstreamTile(
         metadata: {
           trigger: "source_update",
           error: errorMessage,
+          errorName: error instanceof Error ? error.name : undefined,
+          errorStack: error instanceof Error ? error.stack : undefined,
           durationMs: Date.now() - executionContext.startTime,
         },
       });
 
       console.error(
-        `[trigger-downstream] Failed to process tile ${tile.id}:`,
+        `[trigger-downstream] Failed to process tile ${tile.id} (job=${job.id}, execution=${executionContext.executionId}):`,
         errorMessage,
       );
     }
