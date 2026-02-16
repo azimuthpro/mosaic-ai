@@ -16,6 +16,8 @@ import type {
   MosaicMemberInsert,
   MosaicSettings,
   MosaicUpdate,
+  MosaicWithStats,
+  MosaicWithTiles,
   Tile,
   TileSource,
   TileWithSources,
@@ -28,13 +30,6 @@ export async function getCurrentUserId(): Promise<string | null> {
   const user = await getUser();
   return user?.id ?? null;
 }
-
-export type MosaicWithTiles = Mosaic & { tiles: TileWithSources[] };
-export type MosaicWithStats = Mosaic & {
-  tiles: TileWithSources[];
-  tile_count: number;
-  member_count: number;
-};
 
 type TileQueryResult = Tile & {
   tile_sources: TileSource[] | null;
@@ -88,6 +83,19 @@ function transformTileWithSources(tile: TileQueryResult): TileWithSources {
 }
 
 /**
+ * Transform a mosaic query result into a MosaicWithStats.
+ * Member count includes the owner (+1) since mosaic_members only tracks non-owners.
+ */
+function transformMosaicWithStats(m: MosaicQueryResult): MosaicWithStats {
+  return {
+    ...m,
+    tiles: (m.tiles || []).map(transformTileWithSources),
+    tile_count: m.tiles?.length || 0,
+    member_count: (m.mosaic_members?.length || 0) + 1,
+  } as MosaicWithStats;
+}
+
+/**
  * Get all mosaics owned by the current user
  */
 export async function getMosaics(): Promise<MosaicWithStats[]> {
@@ -115,12 +123,7 @@ export async function getMosaics(): Promise<MosaicWithStats[]> {
     return [];
   }
 
-  return ((data as MosaicQueryResult[]) || []).map((m) => ({
-    ...m,
-    tiles: (m.tiles || []).map(transformTileWithSources),
-    tile_count: m.tiles?.length || 0,
-    member_count: m.mosaic_members?.length || 0,
-  })) as MosaicWithStats[];
+  return ((data as MosaicQueryResult[]) || []).map(transformMosaicWithStats);
 }
 
 /**
@@ -166,12 +169,7 @@ export async function getSharedMosaics(): Promise<MosaicWithStats[]> {
     return [];
   }
 
-  return ((data as MosaicQueryResult[]) || []).map((m) => ({
-    ...m,
-    tiles: (m.tiles || []).map(transformTileWithSources),
-    tile_count: m.tiles?.length || 0,
-    member_count: m.mosaic_members?.length || 0,
-  })) as MosaicWithStats[];
+  return ((data as MosaicQueryResult[]) || []).map(transformMosaicWithStats);
 }
 
 /**
