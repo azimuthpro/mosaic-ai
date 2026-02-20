@@ -8,6 +8,7 @@ import {
   formatSearchResultsAsMarkdown,
   searchWeb,
 } from "@/lib/search/tavily";
+import { fetchChannelMessages } from "@/lib/slack/client";
 import { extractKeywordsFromContent } from "@/lib/tiles/extract-keywords-from-job";
 import { extractUrlsFromContent } from "@/lib/tiles/extract-urls-from-job";
 import {
@@ -17,6 +18,7 @@ import {
 import type {
   Database,
   Json,
+  SlackSourceConfig,
   TileJobResult as TileReport,
   TileSource,
   UrlSourceConfig,
@@ -25,8 +27,8 @@ import type {
 
 export interface TileSourceContent {
   sourceId: string;
-  sourceType: "url" | "web_search" | "tile_connection";
-  identifier: string; // URL for url type, tile name for tile_connection, query for web_search
+  sourceType: "url" | "web_search" | "tile_connection" | "slack_channel";
+  identifier: string; // URL for url type, tile name for tile_connection, query for web_search, channel for slack_channel
   success: boolean;
   content?: string;
   title?: string;
@@ -132,6 +134,8 @@ export async function fetchTileSourceContent(
       return fetchUrlContent(source);
     case "web_search":
       return fetchWebSearchContent(source);
+    case "slack_channel":
+      return fetchSlackChannelContent(source, adminClient);
     default:
       return {
         sourceId: source.id,
@@ -357,6 +361,116 @@ async function fetchWebSearchContent(
 }
 
 /**
+ * Fetches messages from a Slack channel source.
+ */
+async function fetchSlackChannelContent(
+  source: TileSource,
+  adminClient: SupabaseClient<Database>,
+): Promise<TileSourceContent> {
+  const config = source.config as SlackSourceConfig | null;
+
+  if (!config?.channel_id) {
+    return {
+      sourceId: source.id,
+      sourceType: "slack_channel",
+      identifier: "unknown",
+      success: false,
+      error: "Slack channel source is missing channel_id",
+    };
+  }
+
+  // Get the tile owner's Slack integration
+  const { data: tileData } = await adminClient
+    .from("tiles")
+    .select("mosaic_id")
+    .eq("id", source.tile_id)
+    .single();
+
+  if (!tileData) {
+    return {
+      sourceId: source.id,
+      sourceType: "slack_channel",
+      identifier: config.channel_name || config.channel_id,
+      success: false,
+      error: "Could not find tile owner",
+    };
+  }
+
+  // Get the mosaic owner's user_id
+  const { data: mosaicData } = await adminClient
+    .from("mosaics")
+    .select("owner_id")
+    .eq("id", (tileData as { mosaic_id: string }).mosaic_id)
+    .single();
+
+  if (!mosaicData) {
+    return {
+      sourceId: source.id,
+      sourceType: "slack_channel",
+      identifier: config.channel_name || config.channel_id,
+      success: false,
+      error: "Could not find mosaic owner",
+    };
+  }
+
+  const { data: integrationData } = await adminClient
+    .from("user_integrations")
+    .select("access_token")
+    .eq("user_id", (mosaicData as { owner_id: string }).owner_id)
+    .eq("provider", "slack")
+    .single();
+
+  if (!integrationData) {
+    return {
+      sourceId: source.id,
+      sourceType: "slack_channel",
+      identifier: config.channel_name || config.channel_id,
+      success: false,
+      error:
+        "Slack integration not connected. Please connect Slack in the tile settings.",
+    };
+  }
+
+  try {
+    const content = await fetchChannelMessages(
+      (integrationData as { access_token: string }).access_token,
+      config.channel_id,
+      {
+        hoursBack: config.hours_back,
+        maxMessages: config.max_messages,
+        includeThreads: config.include_threads,
+      },
+    );
+
+    const {
+      content: truncated,
+      truncated: wasTruncated,
+      originalSize,
+    } = truncateContent(content);
+
+    return {
+      sourceId: source.id,
+      sourceType: "slack_channel",
+      identifier: config.channel_name || config.channel_id,
+      success: true,
+      content: truncated,
+      title: `Slack: #${config.channel_name || config.channel_id}`,
+      contentTruncated: wasTruncated,
+      originalSize: wasTruncated ? originalSize : undefined,
+    };
+  } catch (err) {
+    return {
+      sourceId: source.id,
+      sourceType: "slack_channel",
+      identifier: config.channel_name || config.channel_id,
+      success: false,
+      error:
+        err instanceof Error ? err.message : "Failed to fetch Slack messages",
+    };
+  }
+}
+
+/**
  * Formats report content based on its format type.
  */
 function formatReportContent(content: Json, format: string): string {
@@ -457,6 +571,8 @@ export function getTileSourceIdentifiers(
         return `search:${r.identifier}`;
       case "tile_connection":
         return `tile:${r.metadata?.tileName || r.identifier}`;
+      case "slack_channel":
+        return `slack:${r.identifier}`;
     }
   });
 }
@@ -476,10 +592,12 @@ export function getTileSourceTypeBreakdown(results: TileSourceContent[]): {
     url: { total: 0, success: 0 },
     tile_connection: { total: 0, success: 0 },
     web_search: { total: 0, success: 0 },
+    slack_channel: { total: 0, success: 0 },
   };
 
   for (const r of results) {
     const bucket = counts[r.sourceType];
+    if (!bucket) continue;
     bucket.total++;
     if (r.success) bucket.success++;
   }

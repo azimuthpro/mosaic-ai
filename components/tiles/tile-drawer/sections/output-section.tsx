@@ -5,6 +5,7 @@ import type { TileWithSources } from "@/types/database";
 import type { TileDrawerState } from "../hooks/use-tile-drawer-state";
 import { FormatPlugin } from "../plugins/output/format-plugin";
 import { HistoryPlugin } from "../plugins/output/history-plugin";
+import { SlackOutputPlugin } from "../plugins/output/slack-output-plugin";
 import { WebhooksPlugin } from "../plugins/output/webhooks-plugin";
 
 interface OutputSectionProps {
@@ -45,6 +46,13 @@ export function OutputSection({
         />
 
         <WebhooksPlugin
+          tile={tile}
+          mosaicId={mosaicId}
+          state={state}
+          disabled={disabled}
+        />
+
+        <SlackOutputPlugin
           tile={tile}
           mosaicId={mosaicId}
           state={state}

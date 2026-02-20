@@ -4,6 +4,7 @@ import {
   Check,
   Database,
   Globe,
+  Hash,
   Link2,
   Loader2,
   Pencil,
@@ -13,6 +14,8 @@ import {
   X,
 } from "lucide-react";
 
+import { SlackChannelPicker } from "@/components/slack/slack-channel-picker";
+import { SlackConnectButton } from "@/components/slack/slack-connect-button";
 import { AddUrlSourceDialog } from "@/components/tiles/add-url-source-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,8 +75,17 @@ function renderSourceTypeOptions(_tileType: TileType): React.ReactNode {
     </SelectItem>
   );
 
+  const slackChannelOption = (
+    <SelectItem key="slack_channel" value="slack_channel">
+      <div className="flex items-center gap-2">
+        <Hash className="h-4 w-4 text-[#4A154B]" />
+        Slack Channel
+      </div>
+    </SelectItem>
+  );
+
   // All tile types get all source type options
-  return [urlOption, webSearchOption, tileReportOption];
+  return [urlOption, webSearchOption, tileReportOption, slackChannelOption];
 }
 
 interface SourceIconProps {
@@ -87,6 +99,7 @@ function SourceIcon({ type, className = "h-4 w-4 shrink-0" }: SourceIconProps) {
     Globe: Globe,
     Search: Search,
     Link2: Link2,
+    Hash: Hash,
   };
   const Icon = icons[config.icon as keyof typeof icons];
   return <Icon className={`${className} ${config.color}`} />;
@@ -97,8 +110,17 @@ function getSourceDisplayName(source: {
   url: string | null;
   config: unknown;
 }): string {
-  const config = source.config as { query?: string } | null;
-  return source.name || source.url || config?.query || "Unnamed source";
+  const config = source.config as {
+    query?: string;
+    channel_name?: string;
+  } | null;
+  return (
+    source.name ||
+    config?.channel_name ||
+    source.url ||
+    config?.query ||
+    "Unnamed source"
+  );
 }
 
 function getConnectionBehaviorHint(tileType: TileType): string {
@@ -364,6 +386,22 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                   }
                   placeholder="Enter search query..."
                 />
+              </div>
+            )}
+
+            {sourceForm.type === "slack_channel" && (
+              <div className="space-y-3">
+                <SlackConnectButton returnTo={`/mosaics/${tile.mosaic_id}`} />
+                <div className="space-y-2">
+                  <Label>Channel</Label>
+                  <SlackChannelPicker
+                    value={sourceForm.slackChannelId || null}
+                    onChange={(id, name) => {
+                      updateSourceField("slackChannelId", id);
+                      updateSourceField("slackChannelName", name);
+                    }}
+                  />
+                </div>
               </div>
             )}
 

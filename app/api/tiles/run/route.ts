@@ -8,6 +8,7 @@ import {
   DEFAULT_MAX_DEPTH,
   DEFAULT_TIMEOUT_MS,
 } from "@/lib/execution/context";
+import { deliverSlackOutput } from "@/lib/outputs/slack-output";
 import {
   assertRateLimitAllowed,
   checkAndIncrementRateLimit,
@@ -381,8 +382,16 @@ export async function POST(request: Request): Promise<Response> {
         mosaicId: typedTile.mosaic_id,
         userId: user.id,
       }).catch((err) =>
-        console.error(`[tiles/run] Failed to trigger downstream tiles (tile=${tileId}, job=${job.id}, mosaic=${typedTile.mosaic_id}):`, err),
+        console.error(
+          `[tiles/run] Failed to trigger downstream tiles (tile=${tileId}, job=${job.id}, mosaic=${typedTile.mosaic_id}):`,
+          err,
+        ),
       );
+
+      // Deliver to Slack output channel (fire and forget)
+      deliverSlackOutput(adminClient, typedTile, {
+        content: analysis.content,
+      });
 
       return NextResponse.json({
         success: true,

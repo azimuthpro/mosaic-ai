@@ -78,6 +78,8 @@ export function useTileDrawerState({
     extractUrlsFromReport: false,
     maxUrls: 10,
     fetchMode: "fast",
+    slackChannelId: "",
+    slackChannelName: "",
   });
 
   // API keys state
@@ -216,6 +218,8 @@ export function useTileDrawerState({
         extractUrlsFromReport: false,
         maxUrls: 10,
         fetchMode: "fast",
+        slackChannelId: "",
+        slackChannelName: "",
       });
 
       // Reset edit state when switching tiles
@@ -297,6 +301,8 @@ export function useTileDrawerState({
       extractUrlsFromReport: false,
       maxUrls: 10,
       fetchMode: "fast",
+      slackChannelId: "",
+      slackChannelName: "",
     });
   }, [tile]);
 
@@ -355,6 +361,10 @@ export function useTileDrawerState({
       alert("Please select a tile");
       return;
     }
+    if (sourceForm.type === "slack_channel" && !sourceForm.slackChannelId) {
+      alert("Please select a Slack channel");
+      return;
+    }
 
     setIsAddingSource(true);
     try {
@@ -374,7 +384,7 @@ export function useTileDrawerState({
 
       const params: Parameters<typeof addTileSource>[0] = {
         tileId: tile.id,
-        type: sourceForm.type as "url" | "web_search",
+        type: sourceForm.type,
       };
 
       if (sourceForm.name) {
@@ -386,6 +396,14 @@ export function useTileDrawerState({
         params.urlConfig = { extract_depth: sourceForm.extractDepth };
       } else if (sourceForm.type === "web_search") {
         params.config = { query: sourceForm.searchQuery };
+      } else if (sourceForm.type === "slack_channel") {
+        params.slackConfig = {
+          channel_id: sourceForm.slackChannelId,
+          channel_name: sourceForm.slackChannelName,
+          max_messages: 50,
+          include_threads: true,
+          hours_back: 24,
+        };
       }
 
       const result = await addTileSource(params);

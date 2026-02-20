@@ -8,6 +8,7 @@ import type {
   Json,
   LanguageCode,
   OutputFormat,
+  SlackSourceConfig,
   SourceType,
   Tile,
   TileConnection,
@@ -422,6 +423,45 @@ export async function toggleTileActive(id: string) {
   return { success: true, isActive: newIsActive };
 }
 
+/**
+ * Update tile Slack output settings
+ */
+export async function updateTileSlackOutput(
+  tileId: string,
+  config: {
+    enabled: boolean;
+    channelId: string | null;
+    channelName: string | null;
+  },
+) {
+  const supabase = await createClient();
+  const user = await getUser();
+
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  const { data: tileData, error } = await supabase
+    .from("tiles")
+    .update({
+      slack_output_enabled: config.enabled,
+      slack_output_channel_id: config.channelId,
+      slack_output_channel_name: config.channelName,
+    } as never)
+    .eq("id", tileId)
+    .select("mosaic_id")
+    .single();
+
+  if (error) {
+    console.error("Error updating tile Slack output:", error);
+    return { error: "Failed to update Slack output settings" };
+  }
+
+  const tile = tileData as { mosaic_id: string };
+  revalidatePath(`/mosaics/${tile.mosaic_id}`);
+  return { success: true };
+}
+
 // ============================================================================
 // Tile Sources
 // ============================================================================
@@ -433,6 +473,7 @@ interface AddTileSourceParams {
   name?: string;
   config?: WebSearchConfig;
   urlConfig?: UrlSourceConfig;
+  slackConfig?: SlackSourceConfig;
 }
 
 /**
@@ -485,6 +526,10 @@ export async function addTileSource(params: AddTileSourceParams) {
     return { error: "URL is required for URL source type" };
   }
 
+  if (sourceType === "slack_channel" && !params.slackConfig?.channel_id) {
+    return { error: "Channel is required for Slack channel source type" };
+  }
+
   // Validate URL for SSRF protection (backend safety layer)
   if (sourceType === "url" && params.url) {
     const { validateUrlWithDnsCheck } =
@@ -502,6 +547,7 @@ export async function addTileSource(params: AddTileSourceParams) {
   const configByType: Partial<Record<SourceType, unknown>> = {
     url: params.urlConfig,
     web_search: params.config,
+    slack_channel: params.slackConfig,
   };
   const config = (configByType[sourceType] as Json) ?? {};
 
@@ -509,7 +555,11 @@ export async function addTileSource(params: AddTileSourceParams) {
     tile_id: params.tileId,
     type: sourceType,
     url: sourceType === "url" ? params.url : null,
-    name: params.name ?? null,
+    name:
+      params.name ??
+      (sourceType === "slack_channel"
+        ? (params.slackConfig?.channel_name ?? null)
+        : null),
     config,
   };
 

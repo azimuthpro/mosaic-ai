@@ -7,6 +7,7 @@ import {
   DEFAULT_TIMEOUT_MS,
   ExecutionGuardError,
 } from "@/lib/execution/context";
+import { deliverSlackOutput } from "@/lib/outputs/slack-output";
 import {
   checkAndIncrementRateLimit,
   decrementConcurrentCount,
@@ -210,7 +211,9 @@ async function processTile(
           ...supabaseErrorMetadata(jobError),
         },
       });
-      throw new Error(`Failed to create job: ${jobError?.message || "No job data returned"}`);
+      throw new Error(
+        `Failed to create job: ${jobError?.message || "No job data returned"}`,
+      );
     }
 
     try {
@@ -328,8 +331,16 @@ async function processTile(
         mosaicId: tile.mosaic_id,
         userId,
       }).catch((err) =>
-        console.error(`[cron/trigger] Failed to trigger downstream tiles (tile=${tile.id}, job=${job.id}, mosaic=${tile.mosaic_id}):`, err),
+        console.error(
+          `[cron/trigger] Failed to trigger downstream tiles (tile=${tile.id}, job=${job.id}, mosaic=${tile.mosaic_id}):`,
+          err,
+        ),
       );
+
+      // Deliver to Slack output channel (fire and forget)
+      deliverSlackOutput(adminClient, tile, {
+        content: analysis.content,
+      });
 
       return {
         tileId: tile.id,

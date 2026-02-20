@@ -8,6 +8,7 @@ import {
   DEFAULT_MAX_DEPTH,
   DEFAULT_TIMEOUT_MS,
 } from "@/lib/execution/context";
+import { deliverSlackOutput } from "@/lib/outputs/slack-output";
 import { logTileJobExecutionEvent } from "@/lib/rate-limit/limiter";
 import {
   countActiveUrlSources,
@@ -608,8 +609,16 @@ export async function POST(
         mosaicId: mosaicId,
         userId: authResult.apiKey?.created_by || "api-key",
       }).catch((err) =>
-        console.error(`[v1/tiles/run] Failed to trigger downstream tiles (tile=${tileId}, job=${job.id}, mosaic=${mosaicId}):`, err),
+        console.error(
+          `[v1/tiles/run] Failed to trigger downstream tiles (tile=${tileId}, job=${job.id}, mosaic=${mosaicId}):`,
+          err,
+        ),
       );
+
+      // Deliver to Slack output channel (fire and forget)
+      deliverSlackOutput(adminClient, typedTile, {
+        content: analysis.content,
+      });
 
       // Send done event
       writer.sendDone(job.id);

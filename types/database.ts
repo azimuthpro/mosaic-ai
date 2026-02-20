@@ -11,8 +11,16 @@ export type JobStatus = "pending" | "processing" | "completed" | "failed";
 export type MemberRole = "owner" | "admin" | "member";
 export type InvitationStatus = "pending" | "accepted" | "expired" | "cancelled";
 export type LanguageCode = "en" | "pl" | "es" | "it" | "de";
-export type SourceType = "url" | "web_search";
+export type SourceType = "url" | "web_search" | "slack_channel";
 export type FetchMode = "fast" | "memory";
+
+export interface SlackSourceConfig {
+  channel_id: string;
+  channel_name: string;
+  max_messages?: number;
+  include_threads?: boolean;
+  hours_back?: number;
+}
 
 export type TileType = "url_reader" | "web_search" | "analyzer";
 export type TilePattern = "solid" | "stripes" | "dots" | "gradient";
@@ -260,6 +268,9 @@ export interface Database {
           trigger_on_source_update: boolean;
           max_chain_depth: number;
           execution_timeout_ms: number;
+          slack_output_enabled: boolean;
+          slack_output_channel_id: string | null;
+          slack_output_channel_name: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -284,6 +295,9 @@ export interface Database {
           trigger_on_source_update?: boolean;
           max_chain_depth?: number;
           execution_timeout_ms?: number;
+          slack_output_enabled?: boolean;
+          slack_output_channel_id?: string | null;
+          slack_output_channel_name?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -308,6 +322,9 @@ export interface Database {
           trigger_on_source_update?: boolean;
           max_chain_depth?: number;
           execution_timeout_ms?: number;
+          slack_output_enabled?: boolean;
+          slack_output_channel_id?: string | null;
+          slack_output_channel_name?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -546,6 +563,35 @@ export interface Database {
           expires_at?: string | null;
           is_active?: boolean;
           created_at?: string;
+        };
+      };
+      user_integrations: {
+        Row: {
+          id: string;
+          user_id: string;
+          provider: string;
+          access_token: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          provider: string;
+          access_token: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          provider?: string;
+          access_token?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
         };
       };
       tile_webhooks: {
@@ -908,6 +954,20 @@ export type WebhookAuthConfig =
   | WebhookAuthConfigBearer
   | WebhookAuthConfigBasic
   | WebhookAuthConfigHeader;
+
+// User Integrations (OAuth tokens for Slack, etc.)
+export type UserIntegration =
+  Database["public"]["Tables"]["user_integrations"]["Row"];
+export type UserIntegrationInsert =
+  Database["public"]["Tables"]["user_integrations"]["Insert"];
+export type UserIntegrationUpdate =
+  Database["public"]["Tables"]["user_integrations"]["Update"];
+
+export interface SlackIntegrationMetadata {
+  team_id: string;
+  team_name: string;
+  bot_user_id: string;
+}
 
 // Webhook payload structure
 export interface WebhookPayload {

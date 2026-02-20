@@ -31,6 +31,11 @@ export const SOURCE_TYPE_CONFIG = {
     color: "text-teal-400",
     label: "Tile Connection",
   },
+  slack_channel: {
+    icon: "Hash",
+    color: "text-[#4A154B]",
+    label: "Slack Channel",
+  },
 } as const;
 
 export type SourceTypeKey = keyof typeof SOURCE_TYPE_CONFIG;
@@ -80,6 +85,8 @@ export interface SourceFormState {
   extractUrlsFromReport: boolean;
   maxUrls: number;
   fetchMode: FetchMode;
+  slackChannelId: string;
+  slackChannelName: string;
 }
 
 // Source edit form state (for editing existing sources)
