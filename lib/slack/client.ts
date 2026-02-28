@@ -143,40 +143,68 @@ export async function fetchChannelMessages(
     },
   });
 
-  const messages = data.messages ?? [];
+  const messages = (data.messages ?? []).slice(0, maxMessages);
 
-  const enrichedMessages: string[] = [];
-
-  for (const msg of messages.slice(0, maxMessages)) {
-    const timestamp = new Date(parseFloat(msg.ts) * 1000).toISOString();
-    let messageText = `[${timestamp}] ${msg.text ?? ""}`;
-
-    if (includeThreads && msg.thread_ts && (msg.reply_count ?? 0) > 0) {
-      try {
+  // Fetch all thread replies in parallel
+  const threadReplies = new Map<string, SlackMessage[]>();
+  if (includeThreads) {
+    const threadsWithReplies = messages.filter(
+      (msg) => msg.thread_ts && (msg.reply_count ?? 0) > 0,
+    );
+    const results = await Promise.allSettled(
+      threadsWithReplies.map(async (msg) => {
         const threadData = await slackFetch(token, "conversations.replies", {
-          params: { channel: channelId, ts: msg.thread_ts, limit: 20 },
+          params: { channel: channelId, ts: msg.thread_ts!, limit: 20 },
         });
-        const replies = (threadData.messages ?? []).slice(1);
-        if (replies.length > 0) {
-          const replyTexts = replies.map((r) => {
-            const replyTs = new Date(parseFloat(r.ts) * 1000).toISOString();
-            return `  > [${replyTs}] ${r.text ?? ""}`;
-          });
-          messageText += "\n" + replyTexts.join("\n");
-        }
-      } catch {
-        // Thread fetch failed, continue without replies
+        return { ts: msg.ts, replies: (threadData.messages ?? []).slice(1) };
+      }),
+    );
+    for (const result of results) {
+      if (result.status === "fulfilled" && result.value.replies.length > 0) {
+        threadReplies.set(result.value.ts, result.value.replies);
       }
     }
-
-    enrichedMessages.push(messageText);
   }
 
-  if (enrichedMessages.length === 0) {
+  // Collect all unique user IDs from messages and thread replies
+  const allMessages = messages.concat(
+    Array.from(threadReplies.values()).flat(),
+  );
+  const userIds = new Set(
+    allMessages.map((msg) => msg.user).filter(Boolean) as string[],
+  );
+
+  // Batch-resolve all user IDs to display names
+  const entries = await Promise.all(
+    Array.from(userIds).map(async (id) =>
+      [id, await resolveUserName(token, id)] as const,
+    ),
+  );
+  const userNames = new Map(entries);
+
+  function authorName(userId: string | undefined): string {
+    if (!userId) return "Unknown";
+    return userNames.get(userId) ?? userId;
+  }
+
+  function formatLine(msg: SlackMessage, indent = ""): string {
+    const time = new Date(parseFloat(msg.ts) * 1000).toISOString();
+    return `${indent}[${time}] **${authorName(msg.user)}**: ${msg.text ?? ""}`;
+  }
+
+  // Format messages with author names and inline thread replies
+  const formatted = messages.map((msg) => {
+    const line = formatLine(msg);
+    const replies = threadReplies.get(msg.ts);
+    if (!replies) return line;
+    return [line, ...replies.map((r) => formatLine(r, "  > "))].join("\n");
+  });
+
+  if (formatted.length === 0) {
     return `No messages found in the last ${hoursBack} hours.`;
   }
 
-  return `## Slack Channel Messages (last ${hoursBack}h)\n\n${enrichedMessages.join("\n\n")}`;
+  return `## Slack Channel Messages (last ${hoursBack}h)\n\n${formatted.join("\n\n")}`;
 }
 
 /**
