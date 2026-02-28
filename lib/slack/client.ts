@@ -353,7 +353,7 @@ export function formatChannelMetadata(meta: SlackChannelMetadata): string {
     lines.push(`**Topic**: ${meta.topic}`);
   }
   if (meta.purpose) {
-    lines.push(`**Purpose**: ${meta.purpose}`);
+    lines.push(`**Description**: ${meta.purpose}`);
   }
 
   if (meta.memberNames.length > 0) {
