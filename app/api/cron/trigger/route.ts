@@ -337,8 +337,8 @@ async function processTile(
         ),
       );
 
-      // Deliver to Slack output channel (fire and forget)
-      deliverSlackOutput(adminClient, tile, {
+      // Deliver to Slack output channel
+      await deliverSlackOutput(adminClient, tile, {
         content: analysis.content,
       });
 

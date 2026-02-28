@@ -388,8 +388,8 @@ export async function POST(request: Request): Promise<Response> {
         ),
       );
 
-      // Deliver to Slack output channel (fire and forget)
-      deliverSlackOutput(adminClient, typedTile, {
+      // Deliver to Slack output channel
+      await deliverSlackOutput(adminClient, typedTile, {
         content: analysis.content,
       });
 

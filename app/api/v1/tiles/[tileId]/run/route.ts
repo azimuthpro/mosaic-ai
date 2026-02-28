@@ -615,8 +615,8 @@ export async function POST(
         ),
       );
 
-      // Deliver to Slack output channel (fire and forget)
-      deliverSlackOutput(adminClient, typedTile, {
+      // Deliver to Slack output channel
+      await deliverSlackOutput(adminClient, typedTile, {
         content: analysis.content,
       });
 
