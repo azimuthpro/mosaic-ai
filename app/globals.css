@@ -148,6 +148,10 @@
 }
 
 @layer base {
+  .prose table {
+    display: block;
+    overflow-x: auto;
+  }
   * {
     @apply border-border;
   }

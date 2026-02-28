@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,7 +62,7 @@ function ResultContent({
 
   return (
     <div className={`prose prose-sm prose-invert max-w-none ${wrapperClass}`}>
-      <ReactMarkdown>{contentStr}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{contentStr}</ReactMarkdown>
     </div>
   );
 }
