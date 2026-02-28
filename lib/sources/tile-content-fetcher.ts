@@ -13,6 +13,7 @@ import {
   fetchChannelMetadata,
   formatChannelMetadata,
 } from "@/lib/slack/client";
+import { resolveSlackToken } from "@/lib/slack/integration";
 import { extractKeywordsFromContent } from "@/lib/tiles/extract-keywords-from-job";
 import { extractUrlsFromContent } from "@/lib/tiles/extract-urls-from-job";
 import {
@@ -396,41 +397,18 @@ async function fetchSlackChannelContent(
     };
   }
 
-  const { data: tileData } = await adminClient
-    .from("tiles")
-    .select("mosaic_id")
-    .eq("id", source.tile_id)
-    .single();
+  const result = await resolveSlackToken(
+    adminClient,
+    source.tile_id,
+    config.team_id,
+  );
 
-  if (!tileData) {
-    return failResult("Could not find tile owner");
-  }
-
-  const { data: mosaicData } = await adminClient
-    .from("mosaics")
-    .select("owner_id")
-    .eq("id", (tileData as { mosaic_id: string }).mosaic_id)
-    .single();
-
-  if (!mosaicData) {
-    return failResult("Could not find mosaic owner");
-  }
-
-  const { data: integrationData } = await adminClient
-    .from("user_integrations")
-    .select("access_token")
-    .eq("user_id", (mosaicData as { owner_id: string }).owner_id)
-    .eq("provider", "slack")
-    .single();
-
-  if (!integrationData) {
-    return failResult(
-      "Slack integration not connected. Please connect Slack in the tile settings.",
-    );
+  if (!result.ok) {
+    return failResult(result.reason);
   }
 
   try {
-    const token = (integrationData as { access_token: string }).access_token;
+    const token = result.token;
 
     const [metadata, messages] = await Promise.all([
       fetchChannelMetadata(token, config.channel_id),

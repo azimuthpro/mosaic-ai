@@ -40,6 +40,9 @@ export function SlackOutputPlugin({
   const [channelName, setChannelName] = useState<string | null>(
     tile.slack_output_channel_name ?? null,
   );
+  const [teamId, setTeamId] = useState<string | null>(
+    tile.slack_output_team_id ?? null,
+  );
   const [saving, setSaving] = useState(false);
 
   async function handleToggleEnabled(value: boolean) {
@@ -49,18 +52,25 @@ export function SlackOutputPlugin({
       enabled: value,
       channelId,
       channelName,
+      teamId,
     });
     setSaving(false);
   }
 
-  async function handleChannelChange(id: string, name: string) {
+  async function handleChannelChange(
+    id: string,
+    name: string,
+    newTeamId: string,
+  ) {
     setChannelId(id);
     setChannelName(name);
+    setTeamId(newTeamId);
     setSaving(true);
     await updateTileSlackOutput(tile.id, {
       enabled,
       channelId: id,
       channelName: name,
+      teamId: newTeamId,
     });
     setSaving(false);
   }
@@ -109,8 +119,11 @@ export function SlackOutputPlugin({
               </Label>
               <SlackChannelPicker
                 value={channelId}
-                onChange={handleChannelChange}
+                onChange={(id, name, newTeamId) =>
+                  handleChannelChange(id, name, newTeamId)
+                }
                 disabled={disabled || saving}
+                teamId={teamId || undefined}
               />
             </div>
           </div>

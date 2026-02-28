@@ -20,6 +20,8 @@ export interface SlackSourceConfig {
   max_messages?: number;
   include_threads?: boolean;
   hours_back?: number;
+  team_id?: string;
+  team_name?: string;
 }
 
 export type TileType = "url_reader" | "web_search" | "analyzer" | "slack_reader";
@@ -271,6 +273,7 @@ export interface Database {
           slack_output_enabled: boolean;
           slack_output_channel_id: string | null;
           slack_output_channel_name: string | null;
+          slack_output_team_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -298,6 +301,7 @@ export interface Database {
           slack_output_enabled?: boolean;
           slack_output_channel_id?: string | null;
           slack_output_channel_name?: string | null;
+          slack_output_team_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -325,6 +329,7 @@ export interface Database {
           slack_output_enabled?: boolean;
           slack_output_channel_id?: string | null;
           slack_output_channel_name?: string | null;
+          slack_output_team_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -570,6 +575,7 @@ export interface Database {
           id: string;
           user_id: string;
           provider: string;
+          provider_team_id: string;
           access_token: string;
           metadata: Json;
           created_at: string;
@@ -579,6 +585,7 @@ export interface Database {
           id?: string;
           user_id: string;
           provider: string;
+          provider_team_id?: string;
           access_token: string;
           metadata?: Json;
           created_at?: string;
@@ -588,6 +595,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           provider?: string;
+          provider_team_id?: string;
           access_token?: string;
           metadata?: Json;
           created_at?: string;

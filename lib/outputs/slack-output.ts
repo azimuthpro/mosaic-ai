@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { postMessage } from "@/lib/slack/client";
+import { resolveSlackToken } from "@/lib/slack/integration";
 import type { Database, Json, Tile } from "@/types/database";
 
 function formatContentAsText(content: Json): string {
@@ -23,41 +24,20 @@ export async function deliverSlackOutput(
   if (!tile.slack_output_enabled || !tile.slack_output_channel_id) return;
 
   try {
-    const { data: mosaicData } = await adminClient
-      .from("mosaics")
-      .select("owner_id")
-      .eq("id", tile.mosaic_id)
-      .single();
+    const resolved = await resolveSlackToken(
+      adminClient,
+      tile.id,
+      tile.slack_output_team_id,
+    );
 
-    const mosaic = mosaicData as { owner_id: string } | null;
-    if (!mosaic) {
-      console.error(
-        "[slack-output] Could not find mosaic owner for tile",
-        tile.id,
-      );
-      return;
-    }
-
-    const { data: integrationData } = await adminClient
-      .from("user_integrations")
-      .select("access_token")
-      .eq("user_id", mosaic.owner_id)
-      .eq("provider", "slack")
-      .single();
-
-    const integration = integrationData as { access_token: string } | null;
-    if (!integration) {
-      console.error(
-        "[slack-output] Slack integration not found for tile",
-        tile.id,
-      );
+    if (!resolved.ok) {
+      console.error("[slack-output]", resolved.reason, "tile:", tile.id);
       return;
     }
 
     const text = formatContentAsText(result.content);
-
     await postMessage(
-      integration.access_token,
+      resolved.token,
       tile.slack_output_channel_id,
       text,
       tile.name,

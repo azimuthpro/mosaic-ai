@@ -89,6 +89,10 @@ export interface SourceFormState {
   fetchMode: FetchMode;
   slackChannelId: string;
   slackChannelName: string;
+  slackTeamId: string;
+  slackTeamName: string;
+  slackDays: number;
+  slackIncludeThreads: boolean;
 }
 
 // Source edit form state (for editing existing sources)
@@ -98,6 +102,8 @@ export interface SourceEditFormState {
   searchQuery: string;
   extractDepth: "basic" | "advanced";
   isActive: boolean;
+  slackDays: number;
+  slackIncludeThreads: boolean;
 }
 
 // Tile config form state

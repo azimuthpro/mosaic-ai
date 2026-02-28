@@ -66,7 +66,7 @@ function renderSourceTypeOptions(tileType: TileType): React.ReactNode {
   );
 
   if (tileType === "slack_reader") {
-    return [slackChannelOption, tileReportOption];
+    return [slackChannelOption];
   }
 
   return [
@@ -200,22 +200,24 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
           </h4>
 
           <div className="space-y-3">
-            <div className="space-y-2">
-              <Label>Type</Label>
-              <Select
-                value={sourceForm.type}
-                onValueChange={(v) =>
-                  updateSourceField("type", v as SourceTypeKey)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue className="text-left" />
-                </SelectTrigger>
-                <SelectContent>
-                  {renderSourceTypeOptions(tile.tile_type)}
-                </SelectContent>
-              </Select>
-            </div>
+            {tile.tile_type !== "slack_reader" && (
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select
+                  value={sourceForm.type}
+                  onValueChange={(v) =>
+                    updateSourceField("type", v as SourceTypeKey)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue className="text-left" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {renderSourceTypeOptions(tile.tile_type)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {sourceForm.type === "url" && (
               <div className="space-y-3">
@@ -396,10 +398,44 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                   <Label>Channel</Label>
                   <SlackChannelPicker
                     value={sourceForm.slackChannelId || null}
-                    onChange={(id, name) => {
+                    onChange={(id, name, teamId, teamName) => {
                       updateSourceField("slackChannelId", id);
                       updateSourceField("slackChannelName", name);
+                      updateSourceField("slackTeamId", teamId);
+                      updateSourceField("slackTeamName", teamName);
                     }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Time window (days)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={sourceForm.slackDays}
+                    onChange={(e) =>
+                      updateSourceField(
+                        "slackDays",
+                        Math.min(
+                          30,
+                          Math.max(1, parseInt(e.target.value) || 1),
+                        ),
+                      )
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
+                  <div>
+                    <Label className="text-sm">Include threads</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Include threaded replies from channel messages
+                    </p>
+                  </div>
+                  <Switch
+                    checked={sourceForm.slackIncludeThreads}
+                    onCheckedChange={(v) =>
+                      updateSourceField("slackIncludeThreads", v)
+                    }
                   />
                 </div>
               </div>
@@ -450,7 +486,109 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                 const urlConfig = source.config as {
                   extract_depth?: string;
                   query?: string;
+                  hours_back?: number;
+                  include_threads?: boolean;
+                  channel_name?: string;
+                  team_name?: string;
                 } | null;
+
+                if (isEditing && source.type === "slack_channel") {
+                  return (
+                    <div
+                      key={source.id}
+                      className="rounded-lg border border-cyan-500/40 bg-muted/20 p-3 space-y-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <SourceIcon
+                          type={source.type}
+                          className="h-5 w-5 shrink-0"
+                        />
+                        <span className="text-sm font-medium">
+                          Edit Slack Channel
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Channel</Label>
+                        <Input
+                          value={urlConfig?.channel_name || ""}
+                          disabled
+                          className="opacity-60"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Time window (days)</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={30}
+                          value={editForm.slackDays}
+                          onChange={(e) =>
+                            updateEditField(
+                              "slackDays",
+                              Math.min(
+                                30,
+                                Math.max(1, parseInt(e.target.value) || 1),
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
+                        <div>
+                          <Label className="text-sm">Include threads</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Include threaded replies from channel messages
+                          </p>
+                        </div>
+                        <Switch
+                          checked={editForm.slackIncludeThreads}
+                          onCheckedChange={(v) =>
+                            updateEditField("slackIncludeThreads", v)
+                          }
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
+                        <Label className="text-sm">Active</Label>
+                        <Switch
+                          checked={editForm.isActive}
+                          onCheckedChange={(v) =>
+                            updateEditField("isActive", v)
+                          }
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={handleCancelEditSource}
+                          disabled={isSavingSource}
+                        >
+                          <X className="mr-1 h-4 w-4" />
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          onClick={handleSaveSource}
+                          disabled={isSavingSource}
+                        >
+                          {isSavingSource ? (
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="mr-1 h-4 w-4" />
+                          )}
+                          Save
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
 
                 if (isEditing && source.type === "web_search") {
                   return (
@@ -564,6 +702,17 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                         )}
                         {source.type === "web_search" && (
                           <span>Query: {urlConfig?.query}</span>
+                        )}
+                        {source.type === "slack_channel" && (
+                          <span>
+                            {urlConfig?.team_name
+                              ? `${urlConfig.team_name} \u00B7 `
+                              : ""}
+                            {(urlConfig?.hours_back ?? 24) / 24}d &middot;{" "}
+                            {urlConfig?.include_threads !== false
+                              ? "threads"
+                              : "no threads"}
+                          </span>
                         )}
                       </p>
                       {source.last_scraped_at && (

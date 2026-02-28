@@ -63,11 +63,12 @@ export async function GET(request: Request): Promise<Response> {
         {
           user_id: user.id,
           provider: "slack",
+          provider_team_id: tokenData.team.id,
           access_token: tokenData.access_token,
           metadata,
           updated_at: new Date().toISOString(),
         } as never,
-        { onConflict: "user_id,provider" },
+        { onConflict: "user_id,provider,provider_team_id" },
       );
 
     if (upsertError) {

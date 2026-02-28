@@ -80,6 +80,10 @@ export function useTileDrawerState({
     fetchMode: "fast",
     slackChannelId: "",
     slackChannelName: "",
+    slackTeamId: "",
+    slackTeamName: "",
+    slackDays: 1,
+    slackIncludeThreads: true,
   });
 
   // API keys state
@@ -112,6 +116,8 @@ export function useTileDrawerState({
     searchQuery: "",
     extractDepth: "basic",
     isActive: true,
+    slackDays: 1,
+    slackIncludeThreads: true,
   });
   const [isSavingSource, setIsSavingSource] = useState(false);
 
@@ -220,6 +226,10 @@ export function useTileDrawerState({
         fetchMode: "fast",
         slackChannelId: "",
         slackChannelName: "",
+        slackTeamId: "",
+        slackTeamName: "",
+        slackDays: 1,
+        slackIncludeThreads: true,
       });
 
       // Reset edit state when switching tiles
@@ -303,6 +313,10 @@ export function useTileDrawerState({
       fetchMode: "fast",
       slackChannelId: "",
       slackChannelName: "",
+      slackTeamId: "",
+      slackTeamName: "",
+      slackDays: 1,
+      slackIncludeThreads: true,
     });
   }, [tile]);
 
@@ -400,9 +414,13 @@ export function useTileDrawerState({
         params.slackConfig = {
           channel_id: sourceForm.slackChannelId,
           channel_name: sourceForm.slackChannelName,
-          max_messages: 50,
-          include_threads: true,
-          hours_back: 24,
+          max_messages: 500,
+          include_threads: sourceForm.slackIncludeThreads,
+          hours_back: sourceForm.slackDays * 24,
+          ...(sourceForm.slackTeamId && {
+            team_id: sourceForm.slackTeamId,
+            team_name: sourceForm.slackTeamName,
+          }),
         };
       }
 
@@ -470,6 +488,10 @@ export function useTileDrawerState({
       const config = source.config as {
         extract_depth?: string;
         query?: string;
+        hours_back?: number;
+        include_threads?: boolean;
+        team_id?: string;
+        team_name?: string;
       } | null;
       setEditingSourceId(source.id);
       setEditForm({
@@ -479,6 +501,8 @@ export function useTileDrawerState({
         extractDepth:
           (config?.extract_depth as "basic" | "advanced") || "basic",
         isActive: source.is_active,
+        slackDays: Math.round((config?.hours_back ?? 24) / 24),
+        slackIncludeThreads: config?.include_threads ?? true,
       });
     },
     [],
@@ -525,6 +549,13 @@ export function useTileDrawerState({
         params.config = { extract_depth: editForm.extractDepth };
       } else if (source.type === "web_search") {
         params.config = { query: editForm.searchQuery };
+      } else if (source.type === "slack_channel") {
+        const existingConfig = (source.config || {}) as Record<string, unknown>;
+        params.config = {
+          ...existingConfig,
+          include_threads: editForm.slackIncludeThreads,
+          hours_back: editForm.slackDays * 24,
+        };
       }
 
       const result = await updateTileSource(editingSourceId, params);

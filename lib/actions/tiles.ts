@@ -464,6 +464,7 @@ export async function updateTileSlackOutput(
     enabled: boolean;
     channelId: string | null;
     channelName: string | null;
+    teamId?: string | null;
   },
 ) {
   const supabase = await createClient();
@@ -479,6 +480,7 @@ export async function updateTileSlackOutput(
       slack_output_enabled: config.enabled,
       slack_output_channel_id: config.channelId,
       slack_output_channel_name: config.channelName,
+      slack_output_team_id: config.teamId ?? null,
     } as never)
     .eq("id", tileId)
     .select("mosaic_id")
