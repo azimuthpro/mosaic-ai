@@ -271,8 +271,47 @@ export function formatChannelMetadata(meta: SlackChannelMetadata): string {
   return lines.join("\n");
 }
 
+const SECTION_MAX_LENGTH = 3000;
+const MAX_BLOCKS = 50;
+
+/**
+ * Splits text into chunks that fit within Slack's section block limit.
+ * Prefers splitting at paragraph boundaries, then line breaks, then hard split.
+ */
+function splitIntoChunks(text: string, maxSize: number): string[] {
+  if (text.length <= maxSize) return [text];
+
+  const chunks: string[] = [];
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    if (remaining.length <= maxSize) {
+      chunks.push(remaining);
+      break;
+    }
+
+    const window = remaining.slice(0, maxSize);
+    const splitIndex =
+      findLastIndex(window, "\n\n") ??
+      findLastIndex(window, "\n") ??
+      maxSize;
+
+    chunks.push(remaining.slice(0, splitIndex));
+    remaining = remaining.slice(splitIndex).replace(/^\n+/, "");
+  }
+
+  return chunks;
+}
+
+/** Returns the last index of `sep` in `str`, or null if not found (or at position 0). */
+function findLastIndex(str: string, sep: string): number | null {
+  const index = str.lastIndexOf(sep);
+  return index > 0 ? index : null;
+}
+
 /**
  * Posts a message to a Slack channel with a tile name header.
+ * Splits long content into multiple section blocks (Slack limit: 3000 chars each, 50 blocks max).
  */
 export async function postMessage(
   token: string,
@@ -280,29 +319,52 @@ export async function postMessage(
   text: string,
   tileName: string,
 ): Promise<void> {
-  const truncatedText = text.length > 3000 ? text.slice(0, 2997) + "..." : text;
+  const chunks = splitIntoChunks(text, SECTION_MAX_LENGTH);
+
+  // Header block always first
+  const blocks: Record<string, unknown>[] = [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: `Mosaic: ${tileName}`,
+        emoji: true,
+      },
+    },
+  ];
+
+  // 1 header + N sections + possibly 1 context = stay under MAX_BLOCKS
+  const maxSections = MAX_BLOCKS - 2; // reserve header + context
+  const truncated = chunks.length > maxSections;
+  const visibleChunks = chunks.slice(0, maxSections);
+
+  for (const chunk of visibleChunks) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: chunk,
+      },
+    });
+  }
+
+  if (truncated) {
+    blocks.push({
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: "Content truncated. Full report available in Mosaic AI.",
+        },
+      ],
+    });
+  }
 
   await slackFetch(token, "chat.postMessage", {
     body: {
       channel: channelId,
       text: `Mosaic result from ${tileName}`,
-      blocks: [
-        {
-          type: "header",
-          text: {
-            type: "plain_text",
-            text: `Mosaic: ${tileName}`,
-            emoji: true,
-          },
-        },
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: truncatedText,
-          },
-        },
-      ],
+      blocks,
     },
   });
 }
