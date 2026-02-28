@@ -12,6 +12,7 @@ import {
   fetchChannelMessages,
   fetchChannelMetadata,
   formatChannelMetadata,
+  getCalendarRange,
 } from "@/lib/slack/client";
 import { resolveSlackToken } from "@/lib/slack/integration";
 import { extractKeywordsFromContent } from "@/lib/tiles/extract-keywords-from-job";
@@ -367,6 +368,65 @@ async function fetchWebSearchContent(
 }
 
 /**
+ * Resolves the IANA timezone for a tile's mosaic.
+ * Falls back to "UTC" if the mosaic has no timezone configured.
+ */
+async function getMosaicTimezone(
+  adminClient: SupabaseClient<Database>,
+  tileId: string,
+): Promise<string> {
+  const { data: tileRow } = await adminClient
+    .from("tiles")
+    .select("mosaic_id")
+    .eq("id", tileId)
+    .single();
+
+  if (!tileRow) return "UTC";
+
+  const { data: mosaicRow } = await adminClient
+    .from("mosaics")
+    .select("settings")
+    .eq("id", (tileRow as { mosaic_id: string }).mosaic_id)
+    .single();
+
+  const settings = (mosaicRow as { settings: Record<string, unknown> } | null)
+    ?.settings;
+
+  return typeof settings?.timezone === "string" ? settings.timezone : "UTC";
+}
+
+/**
+ * Builds the time range options for fetchChannelMessages based on config.
+ */
+async function buildTimeRangeOptions(
+  config: SlackSourceConfig,
+  adminClient: SupabaseClient<Database>,
+  tileId: string,
+): Promise<Parameters<typeof fetchChannelMessages>[2]> {
+  const base = {
+    maxMessages: config.max_messages,
+    includeThreads: config.include_threads,
+  };
+
+  if (config.timeframe) {
+    const timezone = await getMosaicTimezone(adminClient, tileId);
+    const range = getCalendarRange(config.timeframe, timezone);
+    return {
+      ...base,
+      oldest: range.oldest,
+      latest: range.latest,
+      rangeLabel: range.label,
+    };
+  }
+
+  if (config.hours_back) {
+    return { ...base, hoursBack: config.hours_back };
+  }
+
+  return base;
+}
+
+/**
  * Fetches messages from a Slack channel source.
  */
 async function fetchSlackChannelContent(
@@ -409,14 +469,15 @@ async function fetchSlackChannelContent(
 
   try {
     const token = result.token;
+    const messageOptions = await buildTimeRangeOptions(
+      config,
+      adminClient,
+      source.tile_id,
+    );
 
     const [metadata, messages] = await Promise.all([
       fetchChannelMetadata(token, config.channel_id),
-      fetchChannelMessages(token, config.channel_id, {
-        hoursBack: config.hours_back,
-        maxMessages: config.max_messages,
-        includeThreads: config.include_threads,
-      }),
+      fetchChannelMessages(token, config.channel_id, messageOptions),
     ]);
 
     const combined = metadata

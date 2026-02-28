@@ -114,33 +114,102 @@ export async function listChannels(
   return channels;
 }
 
+/** Converts a Date to a Unix timestamp string (seconds). */
+function toUnixSeconds(date: Date): string {
+  return String(Math.floor(date.getTime() / 1000));
+}
+
+/**
+ * Computes calendar-based time ranges relative to a given IANA timezone.
+ * - "last_day"  → yesterday 00:00:00 → 23:59:59
+ * - "last_week" → previous Monday 00:00:00 → previous Sunday 23:59:59
+ */
+export function getCalendarRange(
+  timeframe: "last_day" | "last_week",
+  timezone: string,
+): { oldest: string; latest: string; label: string } {
+  // "now" expressed in the mosaic timezone
+  const nowInTz = new Date(
+    new Date().toLocaleString("en-US", { timeZone: timezone }),
+  );
+
+  if (timeframe === "last_day") {
+    const start = new Date(nowInTz);
+    start.setDate(start.getDate() - 1);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setHours(23, 59, 59, 999);
+    return {
+      oldest: toUnixSeconds(start),
+      latest: toUnixSeconds(end),
+      label: "yesterday",
+    };
+  }
+
+  // last_week: previous Monday 00:00 → previous Sunday 23:59:59
+  const dayOfWeek = nowInTz.getDay(); // 0=Sun..6=Sat
+  const daysSinceLastMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const prevMonday = new Date(nowInTz);
+  prevMonday.setDate(prevMonday.getDate() - daysSinceLastMonday - 7);
+  prevMonday.setHours(0, 0, 0, 0);
+  const prevSunday = new Date(prevMonday);
+  prevSunday.setDate(prevSunday.getDate() + 6);
+  prevSunday.setHours(23, 59, 59, 999);
+  return {
+    oldest: toUnixSeconds(prevMonday),
+    latest: toUnixSeconds(prevSunday),
+    label: "last week",
+  };
+}
+
 /**
  * Fetches recent messages from a channel, optionally with thread replies.
  * Returns a formatted markdown string for LLM consumption.
+ *
+ * Accepts explicit `oldest`/`latest` Unix timestamp strings for the time range,
+ * or a legacy `hoursBack` rolling window.
  */
 export async function fetchChannelMessages(
   token: string,
   channelId: string,
   options: {
+    oldest?: string;
+    latest?: string;
+    rangeLabel?: string;
     hoursBack?: number;
     maxMessages?: number;
     includeThreads?: boolean;
   } = {},
 ): Promise<string> {
-  const hoursBack = options.hoursBack ?? 24;
   const maxMessages = options.maxMessages ?? 50;
   const includeThreads = options.includeThreads ?? true;
 
-  const oldest = String(
-    Math.floor((Date.now() - hoursBack * 60 * 60 * 1000) / 1000),
-  );
+  // Use explicit range when provided, otherwise fall back to hoursBack
+  let oldest: string;
+  let rangeLabel: string;
+  const params: Record<string, string | number | boolean> = {
+    channel: channelId,
+    limit: Math.min(maxMessages, 200),
+  };
+
+  if (options.oldest) {
+    oldest = options.oldest;
+    rangeLabel = options.rangeLabel ?? "specified range";
+    params.oldest = oldest;
+    if (options.latest) {
+      params.latest = options.latest;
+    }
+  } else {
+    const hoursBack = options.hoursBack ?? 24;
+    oldest = String(
+      Math.floor((Date.now() - hoursBack * 60 * 60 * 1000) / 1000),
+    );
+    rangeLabel = `last ${hoursBack}h`;
+    params.oldest = oldest;
+  }
 
   const data = await slackFetch(token, "conversations.history", {
-    params: {
-      channel: channelId,
-      oldest,
-      limit: Math.min(maxMessages, 200),
-    },
+    params,
   });
 
   const messages = (data.messages ?? []).slice(0, maxMessages);
@@ -201,10 +270,10 @@ export async function fetchChannelMessages(
   });
 
   if (formatted.length === 0) {
-    return `No messages found in the last ${hoursBack} hours.`;
+    return `No messages found (${rangeLabel}).`;
   }
 
-  return `## Slack Channel Messages (last ${hoursBack}h)\n\n${formatted.join("\n\n")}`;
+  return `## Slack Channel Messages (${rangeLabel})\n\n${formatted.join("\n\n")}`;
 }
 
 /**

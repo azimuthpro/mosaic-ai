@@ -1,6 +1,7 @@
 import type {
   FetchMode,
   OutputFormat,
+  SlackTimeframe,
   TileType,
   TileWithSources,
 } from "@/types/database";
@@ -91,7 +92,7 @@ export interface SourceFormState {
   slackChannelName: string;
   slackTeamId: string;
   slackTeamName: string;
-  slackDays: number;
+  slackTimeframe: SlackTimeframe;
   slackIncludeThreads: boolean;
 }
 
@@ -102,7 +103,7 @@ export interface SourceEditFormState {
   searchQuery: string;
   extractDepth: "basic" | "advanced";
   isActive: boolean;
-  slackDays: number;
+  slackTimeframe: SlackTimeframe;
   slackIncludeThreads: boolean;
 }
 

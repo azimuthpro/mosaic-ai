@@ -19,7 +19,7 @@ import {
   updateTileConnection,
   updateTileSource,
 } from "@/lib/actions/tiles";
-import type { TileWithSources } from "@/types/database";
+import type { SlackTimeframe, TileWithSources } from "@/types/database";
 
 import {
   type ApiKey,
@@ -82,7 +82,7 @@ export function useTileDrawerState({
     slackChannelName: "",
     slackTeamId: "",
     slackTeamName: "",
-    slackDays: 1,
+    slackTimeframe: "last_day",
     slackIncludeThreads: true,
   });
 
@@ -116,7 +116,7 @@ export function useTileDrawerState({
     searchQuery: "",
     extractDepth: "basic",
     isActive: true,
-    slackDays: 1,
+    slackTimeframe: "last_day",
     slackIncludeThreads: true,
   });
   const [isSavingSource, setIsSavingSource] = useState(false);
@@ -228,7 +228,7 @@ export function useTileDrawerState({
         slackChannelName: "",
         slackTeamId: "",
         slackTeamName: "",
-        slackDays: 1,
+        slackTimeframe: "last_day",
         slackIncludeThreads: true,
       });
 
@@ -315,7 +315,7 @@ export function useTileDrawerState({
       slackChannelName: "",
       slackTeamId: "",
       slackTeamName: "",
-      slackDays: 1,
+      slackTimeframe: "last_day",
       slackIncludeThreads: true,
     });
   }, [tile]);
@@ -416,7 +416,7 @@ export function useTileDrawerState({
           channel_name: sourceForm.slackChannelName,
           max_messages: 500,
           include_threads: sourceForm.slackIncludeThreads,
-          hours_back: sourceForm.slackDays * 24,
+          timeframe: sourceForm.slackTimeframe,
           ...(sourceForm.slackTeamId && {
             team_id: sourceForm.slackTeamId,
             team_name: sourceForm.slackTeamName,
@@ -488,6 +488,7 @@ export function useTileDrawerState({
       const config = source.config as {
         extract_depth?: string;
         query?: string;
+        timeframe?: SlackTimeframe;
         hours_back?: number;
         include_threads?: boolean;
         team_id?: string;
@@ -501,7 +502,7 @@ export function useTileDrawerState({
         extractDepth:
           (config?.extract_depth as "basic" | "advanced") || "basic",
         isActive: source.is_active,
-        slackDays: Math.round((config?.hours_back ?? 24) / 24),
+        slackTimeframe: config?.timeframe ?? "last_day",
         slackIncludeThreads: config?.include_threads ?? true,
       });
     },
@@ -554,7 +555,7 @@ export function useTileDrawerState({
         params.config = {
           ...existingConfig,
           include_threads: editForm.slackIncludeThreads,
-          hours_back: editForm.slackDays * 24,
+          timeframe: editForm.slackTimeframe,
         };
       }
 

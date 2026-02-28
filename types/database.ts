@@ -14,12 +14,15 @@ export type LanguageCode = "en" | "pl" | "es" | "it" | "de";
 export type SourceType = "url" | "web_search" | "slack_channel";
 export type FetchMode = "fast" | "memory";
 
+export type SlackTimeframe = "last_day" | "last_week";
+
 export interface SlackSourceConfig {
   channel_id: string;
   channel_name: string;
   max_messages?: number;
   include_threads?: boolean;
-  hours_back?: number;
+  timeframe?: SlackTimeframe;
+  hours_back?: number; // Legacy — kept for backward compat
   team_id?: string;
   team_name?: string;
 }

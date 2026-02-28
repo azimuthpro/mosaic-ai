@@ -32,7 +32,12 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
 import { formatRelativeTime } from "@/lib/utils/format";
-import type { FetchMode, TileConnection, TileType } from "@/types/database";
+import type {
+  FetchMode,
+  SlackTimeframe,
+  TileConnection,
+  TileType,
+} from "@/types/database";
 
 import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
 import type { PluginBaseProps, SourceTypeKey } from "../../types";
@@ -407,22 +412,21 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Time window (days)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={30}
-                    value={sourceForm.slackDays}
-                    onChange={(e) =>
-                      updateSourceField(
-                        "slackDays",
-                        Math.min(
-                          30,
-                          Math.max(1, parseInt(e.target.value) || 1),
-                        ),
-                      )
+                  <Label>Time window</Label>
+                  <Select
+                    value={sourceForm.slackTimeframe}
+                    onValueChange={(v) =>
+                      updateSourceField("slackTimeframe", v as SlackTimeframe)
                     }
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="last_day">Last day</SelectItem>
+                      <SelectItem value="last_week">Last week</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
                   <div>
@@ -486,6 +490,7 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                 const urlConfig = source.config as {
                   extract_depth?: string;
                   query?: string;
+                  timeframe?: SlackTimeframe;
                   hours_back?: number;
                   include_threads?: boolean;
                   channel_name?: string;
@@ -518,22 +523,24 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Time window (days)</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={30}
-                          value={editForm.slackDays}
-                          onChange={(e) =>
+                        <Label>Time window</Label>
+                        <Select
+                          value={editForm.slackTimeframe}
+                          onValueChange={(v) =>
                             updateEditField(
-                              "slackDays",
-                              Math.min(
-                                30,
-                                Math.max(1, parseInt(e.target.value) || 1),
-                              ),
+                              "slackTimeframe",
+                              v as SlackTimeframe,
                             )
                           }
-                        />
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="last_day">Last day</SelectItem>
+                            <SelectItem value="last_week">Last week</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
@@ -708,7 +715,10 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                             {urlConfig?.team_name
                               ? `${urlConfig.team_name} \u00B7 `
                               : ""}
-                            {(urlConfig?.hours_back ?? 24) / 24}d &middot;{" "}
+                            {urlConfig?.timeframe === "last_week"
+                              ? "Last week"
+                              : "Last day"}{" "}
+                            &middot;{" "}
                             {urlConfig?.include_threads !== false
                               ? "threads"
                               : "no threads"}
