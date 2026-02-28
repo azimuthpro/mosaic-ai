@@ -56,11 +56,21 @@ function markdownToSlackMrkdwn(text: string): string {
     return `__INLINE_CODE_${inlineCode.length - 1}__`;
   });
 
-  // Tables become monospace code blocks in Slack
+  // Convert markdown bullet markers (* ) to Unicode bullets (before italic/bold)
+  result = result.replace(/^(\s*)\*(\s+\S)/gm, "$1•$2");
+
+  // Convert horizontal rules to visual separator
+  result = result.replace(/^-{3,}\s*$/gm, "───────────────────");
+  result = result.replace(/^\*{3,}\s*$/gm, "───────────────────");
+
+  // Split lines where non-table text runs into a table row
   result = result.replace(
-    /(?:^|\n)(\|.+\|(?:\n\|[-: |]+\|)?(?:\n\|.+\|)+)/g,
-    (match) => "\n```" + match + "\n```",
+    /^([^|\n]+[^|\s\n])\s*(\|(?:[^|\n]+\|)+)\s*$/gm,
+    "$1\n$2",
   );
+
+  // Tables become monospace code blocks in Slack (protected from later transforms)
+  result = wrapTablesInCodeBlocks(result, codeBlocks);
 
   // Links: [text](url) -> <url|text>
   result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<$2|$1>");
@@ -80,6 +90,35 @@ function markdownToSlackMrkdwn(text: string): string {
   result = result.replace(/__CODE_BLOCK_(\d+)__/g, (_, i) => codeBlocks[i]);
 
   return result;
+}
+
+/** Wraps consecutive pipe-delimited table lines in code block fences. */
+function wrapTablesInCodeBlocks(
+  text: string,
+  protectedBlocks: string[],
+): string {
+  const lines = text.split("\n");
+  const out: string[] = [];
+  let table: string[] = [];
+
+  const flush = () => {
+    if (table.length === 0) return;
+    const block = "```\n" + table.join("\n") + "\n```";
+    protectedBlocks.push(block);
+    out.push(`__CODE_BLOCK_${protectedBlocks.length - 1}__`);
+    table = [];
+  };
+
+  for (const line of lines) {
+    if (/^\s*\|.+\|\s*$/.test(line)) {
+      table.push(line.trim());
+    } else {
+      flush();
+      out.push(line);
+    }
+  }
+  flush();
+  return out.join("\n");
 }
 
 /**
