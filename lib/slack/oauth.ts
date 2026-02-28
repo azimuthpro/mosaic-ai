@@ -7,6 +7,7 @@ const SLACK_SCOPES = [
   "groups:read",
   "groups:history",
   "chat:write",
+  "users:read",
 ].join(",");
 
 export function getSlackOAuthUrl(state: string, returnTo?: string): string {

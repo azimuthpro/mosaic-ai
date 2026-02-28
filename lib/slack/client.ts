@@ -7,6 +7,20 @@ interface SlackChannel {
   num_members?: number;
 }
 
+interface SlackChannelInfo {
+  id: string;
+  name: string;
+  purpose?: { value: string };
+  topic?: { value: string };
+  num_members?: number;
+}
+
+interface SlackUser {
+  id: string;
+  real_name?: string;
+  profile?: { display_name?: string; real_name?: string };
+}
+
 interface SlackMessage {
   ts: string;
   user?: string;
@@ -22,6 +36,17 @@ interface SlackApiResponse {
   response_metadata?: { next_cursor?: string };
   channels?: SlackChannel[];
   messages?: SlackMessage[];
+  channel?: SlackChannelInfo;
+  members?: string[];
+  user?: SlackUser;
+}
+
+export interface SlackChannelMetadata {
+  name: string;
+  purpose: string;
+  topic: string;
+  memberNames: string[];
+  totalMembers: number;
 }
 
 async function slackFetch(
@@ -152,6 +177,98 @@ export async function fetchChannelMessages(
   }
 
   return `## Slack Channel Messages (last ${hoursBack}h)\n\n${enrichedMessages.join("\n\n")}`;
+}
+
+/**
+ * Resolves a Slack user ID to a display name via users.info.
+ * Falls back to the raw user ID on error (e.g. missing users:read scope).
+ */
+async function resolveUserName(token: string, userId: string): Promise<string> {
+  try {
+    const data = await slackFetch(token, "users.info", {
+      params: { user: userId },
+    });
+    return data.user?.profile?.display_name || data.user?.real_name || userId;
+  } catch {
+    return userId;
+  }
+}
+
+const MAX_MEMBERS_TO_RESOLVE = 30;
+
+/**
+ * Resolves member names for a channel.
+ * Returns an empty array on failure (e.g. missing scope).
+ */
+async function resolveMemberNames(
+  token: string,
+  channelId: string,
+): Promise<string[]> {
+  try {
+    const data = await slackFetch(token, "conversations.members", {
+      params: { channel: channelId, limit: MAX_MEMBERS_TO_RESOLVE },
+    });
+
+    const memberIds = data.members ?? [];
+    return Promise.all(memberIds.map((id) => resolveUserName(token, id)));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetches channel metadata: name, purpose, topic, and member names.
+ * Returns null on failure (never throws).
+ */
+export async function fetchChannelMetadata(
+  token: string,
+  channelId: string,
+): Promise<SlackChannelMetadata | null> {
+  try {
+    const info = await slackFetch(token, "conversations.info", {
+      params: { channel: channelId },
+    });
+
+    const channel = info.channel;
+    if (!channel) return null;
+
+    const memberNames = await resolveMemberNames(token, channelId);
+
+    return {
+      name: channel.name || channelId,
+      purpose: channel.purpose?.value || "",
+      topic: channel.topic?.value || "",
+      memberNames,
+      totalMembers: channel.num_members ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Formats channel metadata as a markdown block for LLM context.
+ */
+export function formatChannelMetadata(meta: SlackChannelMetadata): string {
+  const lines: string[] = [`## Channel: #${meta.name}`];
+
+  if (meta.topic) {
+    lines.push(`**Topic**: ${meta.topic}`);
+  }
+  if (meta.purpose) {
+    lines.push(`**Purpose**: ${meta.purpose}`);
+  }
+
+  if (meta.memberNames.length > 0) {
+    const displayNames = meta.memberNames.join(", ");
+    const remaining = meta.totalMembers - meta.memberNames.length;
+    const suffix = remaining > 0 ? `, ... (and ${remaining} more)` : "";
+    lines.push(`**Members** (${meta.totalMembers}): ${displayNames}${suffix}`);
+  } else if (meta.totalMembers > 0) {
+    lines.push(`**Members**: ${meta.totalMembers}`);
+  }
+
+  return lines.join("\n");
 }
 
 /**

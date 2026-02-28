@@ -8,7 +8,11 @@ import {
   formatSearchResultsAsMarkdown,
   searchWeb,
 } from "@/lib/search/tavily";
-import { fetchChannelMessages } from "@/lib/slack/client";
+import {
+  fetchChannelMessages,
+  fetchChannelMetadata,
+  formatChannelMetadata,
+} from "@/lib/slack/client";
 import { extractKeywordsFromContent } from "@/lib/tiles/extract-keywords-from-job";
 import { extractUrlsFromContent } from "@/lib/tiles/extract-urls-from-job";
 import {
@@ -426,31 +430,32 @@ async function fetchSlackChannelContent(
   }
 
   try {
-    const content = await fetchChannelMessages(
-      (integrationData as { access_token: string }).access_token,
-      config.channel_id,
-      {
+    const token = (integrationData as { access_token: string }).access_token;
+
+    const [metadata, messages] = await Promise.all([
+      fetchChannelMetadata(token, config.channel_id),
+      fetchChannelMessages(token, config.channel_id, {
         hoursBack: config.hours_back,
         maxMessages: config.max_messages,
         includeThreads: config.include_threads,
-      },
-    );
+      }),
+    ]);
 
-    const {
-      content: truncated,
-      truncated: wasTruncated,
-      originalSize,
-    } = truncateContent(content);
+    const combined = metadata
+      ? formatChannelMetadata(metadata) + "\n\n---\n\n" + messages
+      : messages;
+
+    const { content, truncated, originalSize } = truncateContent(combined);
 
     return {
       sourceId: source.id,
       sourceType: "slack_channel",
       identifier: channelLabel,
       success: true,
-      content: truncated,
+      content,
       title: `Slack: #${channelLabel}`,
-      contentTruncated: wasTruncated,
-      originalSize: wasTruncated ? originalSize : undefined,
+      contentTruncated: truncated,
+      originalSize: truncated ? originalSize : undefined,
     };
   } catch (err) {
     return failResult(
