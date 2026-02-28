@@ -4,7 +4,7 @@ import { generateText } from "ai";
 import { getLanguageInstruction } from "@/lib/constants/languages";
 import type { Json, LanguageCode, OutputFormat } from "@/types/database";
 
-const model = google("gemini-2.0-flash");
+const model = google("gemini-flash-latest");
 
 interface AnalysisResult {
   success: boolean;
