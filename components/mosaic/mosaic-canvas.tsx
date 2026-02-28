@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CreateTileDialog } from "@/components/tiles/create-tile-dialog";
@@ -9,10 +10,12 @@ import { TileDrawer } from "@/components/tiles/tile-drawer";
 import { useSound } from "@/hooks/use-sound";
 import { getTileExecutionStatus } from "@/lib/actions/tile-execution";
 import { updateTilePosition } from "@/lib/actions/tiles";
-import type {
-  MosaicWithTiles,
-  TileConnection,
-  TileWithSources,
+import {
+  TILE_TYPE_CONFIGS,
+  type MosaicWithTiles,
+  type TileConnection,
+  type TileType,
+  type TileWithSources,
 } from "@/types/database";
 
 interface MosaicCanvasProps {
@@ -27,6 +30,12 @@ const GRID_GAP = 8;
 
 export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   const { playClick, playStop } = useSound();
+  const searchParams = useSearchParams();
+  const rawCreateTile = searchParams.get("create_tile");
+  const createTileParam =
+    rawCreateTile && rawCreateTile in TILE_TYPE_CONFIGS
+      ? (rawCreateTile as TileType)
+      : null;
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [drawerTileId, setDrawerTileId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -40,7 +49,7 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
     gridX: number;
     gridY: number;
   } | null>(null);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(!!createTileParam);
   const [createDialogPosition, setCreateDialogPosition] = useState<{
     gridX: number;
     gridY: number;
@@ -178,6 +187,10 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
     setCreateDialogOpen(open);
     if (!open) {
       setCreateDialogPosition(null);
+      // Clean up create_tile query param if present
+      if (createTileParam) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
     }
   }
 
@@ -412,6 +425,7 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
         open={createDialogOpen}
         onOpenChange={handleCreateDialogOpenChange}
         hideTrigger
+        initialType={createTileParam ?? undefined}
       />
 
       {/* Tile drawer (opened when clicking a tile) */}

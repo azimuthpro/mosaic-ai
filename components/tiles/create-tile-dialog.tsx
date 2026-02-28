@@ -51,6 +51,8 @@ interface CreateTileDialogProps {
   onOpenChange?: (open: boolean) => void;
   /** If true, don't render the trigger button */
   hideTrigger?: boolean;
+  /** Pre-select a tile type and skip to config step */
+  initialType?: TileType;
 }
 
 type Step = "type" | "config";
@@ -68,14 +70,17 @@ export function CreateTileDialog({
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   hideTrigger = false,
+  initialType,
 }: CreateTileDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
 
   // Support both controlled and uncontrolled modes
   const open = controlledOpen ?? internalOpen;
   const setOpen = controlledOnOpenChange ?? setInternalOpen;
-  const [step, setStep] = useState<Step>("type");
-  const [selectedType, setSelectedType] = useState<TileType | null>(null);
+  const [step, setStep] = useState<Step>(initialType ? "config" : "type");
+  const [selectedType, setSelectedType] = useState<TileType | null>(
+    initialType ?? null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,8 +100,8 @@ export function CreateTileDialog({
   const [slackTimeWindowDays, setSlackTimeWindowDays] = useState(1);
 
   function resetState() {
-    setStep("type");
-    setSelectedType(null);
+    setStep(initialType ? "config" : "type");
+    setSelectedType(initialType ?? null);
     setError(null);
     setUrls([]);
     setSearchQuery("");
@@ -347,7 +352,9 @@ export function CreateTileDialog({
 
                 {selectedType === "slack_reader" && (
                   <div className="space-y-4">
-                    <SlackConnectButton returnTo={`/mosaics/${mosaicId}`} />
+                    <SlackConnectButton
+                      returnTo={`/mosaics/${mosaicId}?create_tile=slack_reader`}
+                    />
                     <div className="space-y-2">
                       <Label>Slack Channels</Label>
                       <SlackMultiChannelPicker
