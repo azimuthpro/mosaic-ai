@@ -346,6 +346,7 @@ export const DEFAULT_TILE_SKILLS: Record<TileType, DefaultTileSkill[]> = {
   url_reader: URL_READER_SKILLS,
   web_search: WEB_SEARCH_SKILLS,
   analyzer: ANALYZER_SKILLS,
+  slack_reader: ANALYZER_SKILLS,
 };
 
 // All skills flat array

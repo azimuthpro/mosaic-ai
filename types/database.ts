@@ -22,7 +22,7 @@ export interface SlackSourceConfig {
   hours_back?: number;
 }
 
-export type TileType = "url_reader" | "web_search" | "analyzer";
+export type TileType = "url_reader" | "web_search" | "analyzer" | "slack_reader";
 export type TilePattern = "solid" | "stripes" | "dots" | "gradient";
 
 export interface WebSearchConfig {
@@ -912,6 +912,14 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
     pattern: "gradient",
     icon: "Brain",
     description: "Process and analyze connected data",
+  },
+  slack_reader: {
+    type: "slack_reader",
+    label: "Slack Reader",
+    color: "#7C3AED",
+    pattern: "dots",
+    icon: "MessageSquare",
+    description: "Read and analyze Slack channel messages",
   },
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Globe, Search } from "lucide-react";
+import { Brain, Globe, MessageSquare, Search } from "lucide-react";
 
 import {
   Card,
@@ -19,13 +19,14 @@ const TILE_ICONS = {
   url_reader: Globe,
   web_search: Search,
   analyzer: Brain,
+  slack_reader: MessageSquare,
 };
 
 export function TileTypePicker({ onSelect, disabled }: TileTypePickerProps) {
   const tileTypes = Object.values(TILE_TYPE_CONFIGS);
 
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       {tileTypes.map((config) => {
         const Icon = TILE_ICONS[config.type];
         return (

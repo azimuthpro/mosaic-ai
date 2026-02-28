@@ -3,6 +3,8 @@
 import { Loader2, Plus } from "lucide-react";
 import { useState } from "react";
 
+import { SlackConnectButton } from "@/components/slack/slack-connect-button";
+import { SlackMultiChannelPicker } from "@/components/slack/slack-multi-channel-picker";
 import { SkillSelector } from "@/components/tiles/skill-selector";
 import { TileSelector } from "@/components/tiles/tile-selector";
 import { TileTypePicker } from "@/components/tiles/tile-type-picker";
@@ -24,9 +26,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { createTile } from "@/lib/actions/tiles";
+import { MAX_SLACK_CHANNELS_PER_TILE } from "@/lib/constants/tiles";
 import { TILE_TYPE_CONFIGS, type TileType } from "@/types/database";
 
 interface CreateTileDialogProps {
@@ -79,8 +89,12 @@ export function CreateTileDialog({
   );
   const [customInstructions, setCustomInstructions] = useState("");
   const [trigger, setTrigger] = useState<TriggerOption>("manual");
+  const [slackChannels, setSlackChannels] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [slackTimeWindowDays, setSlackTimeWindowDays] = useState(1);
 
-  const resetState = () => {
+  function resetState() {
     setStep("type");
     setSelectedType(null);
     setError(null);
@@ -91,19 +105,21 @@ export function CreateTileDialog({
     setSelectedSkill(null);
     setCustomInstructions("");
     setTrigger("manual");
-  };
+    setSlackChannels([]);
+    setSlackTimeWindowDays(1);
+  }
 
-  const handleTypeSelect = (type: TileType) => {
+  function handleTypeSelect(type: TileType) {
     setSelectedType(type);
     setStep("config");
-  };
+  }
 
-  const handleSkillSelect = (skill: SelectedSkill | null) => {
+  function handleSkillSelect(skill: SelectedSkill | null) {
     setSelectedSkill(skill);
     if (skill) {
       setCustomInstructions(skill.prompt);
     }
-  };
+  }
 
   function getTileName(): string {
     if (selectedSkill) return selectedSkill.name;
@@ -121,6 +137,8 @@ export function CreateTileDialog({
         return searchQuery.trim().length > 0;
       case "analyzer":
         return inputTileIds.length > 0;
+      case "slack_reader":
+        return slackChannels.length > 0;
       default:
         return false;
     }
@@ -137,6 +155,10 @@ export function CreateTileDialog({
       case "analyzer":
         return inputTileIds.length === 0
           ? "Select at least one input tile"
+          : null;
+      case "slack_reader":
+        return slackChannels.length === 0
+          ? "Select at least one Slack channel"
           : null;
       default:
         return null;
@@ -195,6 +217,15 @@ export function CreateTileDialog({
       scheduleCron: getTriggerCron(trigger) || undefined,
       sources: sources.length > 0 ? sources : undefined,
       connections: selectedType === "analyzer" ? inputTileIds : undefined,
+      slackChannels:
+        selectedType === "slack_reader"
+          ? slackChannels.map((ch) => ({
+              channel_id: ch.id,
+              channel_name: ch.name,
+            }))
+          : undefined,
+      slackTimeWindowDays:
+        selectedType === "slack_reader" ? slackTimeWindowDays : undefined,
       gridX,
       gridY,
     });
@@ -312,6 +343,43 @@ export function CreateTileDialog({
                     disabled={isLoading}
                     label="Tiles to Analyze"
                   />
+                )}
+
+                {selectedType === "slack_reader" && (
+                  <div className="space-y-4">
+                    <SlackConnectButton returnTo={`/mosaics/${mosaicId}`} />
+                    <div className="space-y-2">
+                      <Label>Slack Channels</Label>
+                      <SlackMultiChannelPicker
+                        channels={slackChannels}
+                        onChange={setSlackChannels}
+                        maxChannels={MAX_SLACK_CHANNELS_PER_TILE}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="timeWindow">Time Window</Label>
+                      <Select
+                        value={String(slackTimeWindowDays)}
+                        onValueChange={(v) => setSlackTimeWindowDays(Number(v))}
+                        disabled={isLoading}
+                      >
+                        <SelectTrigger id="timeWindow">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                            <SelectItem key={d} value={String(d)}>
+                              {d === 1 ? "Last 24 hours" : `Last ${d} days`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        How far back to read messages from each channel.
+                      </p>
+                    </div>
+                  </div>
                 )}
 
                 {/* Skill Selector */}

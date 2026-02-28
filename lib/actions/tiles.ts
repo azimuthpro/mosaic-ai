@@ -139,6 +139,8 @@ interface CreateTileParams {
     config?: WebSearchConfig;
   }[];
   connections?: string[]; // IDs of source tiles to connect
+  slackChannels?: { channel_id: string; channel_name: string }[];
+  slackTimeWindowDays?: number;
 }
 
 /**
@@ -229,6 +231,36 @@ export async function createTile(params: CreateTileParams) {
       // Rollback
       await supabase.from("tiles").delete().eq("id", tile.id);
       return { error: "Failed to create tile sources" };
+    }
+  }
+
+  // Create Slack channel sources for slack_reader tiles
+  if (params.slackChannels && params.slackChannels.length > 0) {
+    const hoursBack = (params.slackTimeWindowDays ?? 1) * 24;
+    const slackSourceData: TileSourceInsert[] = params.slackChannels.map(
+      (ch) => ({
+        tile_id: tile.id,
+        type: "slack_channel" as SourceType,
+        url: null,
+        name: ch.channel_name,
+        config: {
+          channel_id: ch.channel_id,
+          channel_name: ch.channel_name,
+          max_messages: 50,
+          include_threads: true,
+          hours_back: hoursBack,
+        } as unknown as Json,
+      }),
+    );
+
+    const { error: slackSourcesError } = await supabase
+      .from("tile_sources")
+      .insert(slackSourceData as never);
+
+    if (slackSourcesError) {
+      console.error("Error creating Slack channel sources:", slackSourcesError);
+      await supabase.from("tiles").delete().eq("id", tile.id);
+      return { error: "Failed to create Slack channel sources" };
     }
   }
 

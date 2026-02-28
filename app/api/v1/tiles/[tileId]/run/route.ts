@@ -378,8 +378,8 @@ export async function POST(
         );
         sourceResults.push(...connectionResults);
 
-        // Send per-connection SSE events for analyzer tiles
-        if (typedTile.tile_type === "analyzer") {
+        // Send per-connection SSE events for analyzer and slack_reader tiles
+        if (typedTile.tile_type === "analyzer" || typedTile.tile_type === "slack_reader") {
           for (const result of connectionResults) {
             writer.sendConnection(
               job.id,

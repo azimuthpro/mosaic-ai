@@ -46,31 +46,12 @@ interface SourcesPluginProps extends PluginBaseProps {
   state: TileDrawerState;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function renderSourceTypeOptions(_tileType: TileType): React.ReactNode {
-  const urlOption = (
-    <SelectItem key="url" value="url">
-      <div className="flex items-center gap-2">
-        <Globe className="h-4 w-4 text-cyan-400" />
-        URL
-      </div>
-    </SelectItem>
-  );
-
+function renderSourceTypeOptions(tileType: TileType): React.ReactNode {
   const tileReportOption = (
     <SelectItem key="tile_connection" value="tile_connection">
       <div className="flex items-center gap-2">
         <Link2 className="h-4 w-4 text-teal-400" />
         Tile Connection
-      </div>
-    </SelectItem>
-  );
-
-  const webSearchOption = (
-    <SelectItem key="web_search" value="web_search">
-      <div className="flex items-center gap-2">
-        <Search className="h-4 w-4 text-pink-400" />
-        Web Search
       </div>
     </SelectItem>
   );
@@ -84,8 +65,26 @@ function renderSourceTypeOptions(_tileType: TileType): React.ReactNode {
     </SelectItem>
   );
 
-  // All tile types get all source type options
-  return [urlOption, webSearchOption, tileReportOption, slackChannelOption];
+  if (tileType === "slack_reader") {
+    return [slackChannelOption, tileReportOption];
+  }
+
+  return [
+    <SelectItem key="url" value="url">
+      <div className="flex items-center gap-2">
+        <Globe className="h-4 w-4 text-cyan-400" />
+        URL
+      </div>
+    </SelectItem>,
+    <SelectItem key="web_search" value="web_search">
+      <div className="flex items-center gap-2">
+        <Search className="h-4 w-4 text-pink-400" />
+        Web Search
+      </div>
+    </SelectItem>,
+    tileReportOption,
+    slackChannelOption,
+  ];
 }
 
 interface SourceIconProps {
@@ -129,7 +128,8 @@ function getConnectionBehaviorHint(tileType: TileType): string {
       return "URLs will be extracted from the connected tile's report and fetched";
     case "web_search":
       return "Keywords will be extracted from the connected tile's report and searched";
-    default:
+    case "analyzer":
+    case "slack_reader":
       return "Full report content from the connected tile will be used as input";
   }
 }

@@ -4,6 +4,7 @@ import {
   Brain,
   Globe,
   Loader2,
+  MessageSquare,
   MoreHorizontal,
   Play,
   Search,
@@ -42,12 +43,14 @@ const TILE_ICONS: Record<TileType, React.ElementType> = {
   url_reader: Globe,
   web_search: Search,
   analyzer: Brain,
+  slack_reader: MessageSquare,
 };
 
 const TILE_TYPE_LABELS: Record<TileType, string> = {
   url_reader: "URL Reader",
   web_search: "Web Search",
   analyzer: "Analyzer",
+  slack_reader: "Slack Reader",
 };
 
 function getPatternStyle(

@@ -21,6 +21,7 @@ import type {
   SlackSourceConfig,
   TileJobResult as TileReport,
   TileSource,
+  TileType,
   UrlSourceConfig,
   WebSearchConfig,
 } from "@/types/database";
@@ -379,7 +380,18 @@ async function fetchSlackChannelContent(
     };
   }
 
-  // Get the tile owner's Slack integration
+  const channelLabel = config.channel_name || config.channel_id;
+
+  function failResult(error: string): TileSourceContent {
+    return {
+      sourceId: source.id,
+      sourceType: "slack_channel",
+      identifier: channelLabel,
+      success: false,
+      error,
+    };
+  }
+
   const { data: tileData } = await adminClient
     .from("tiles")
     .select("mosaic_id")
@@ -387,16 +399,9 @@ async function fetchSlackChannelContent(
     .single();
 
   if (!tileData) {
-    return {
-      sourceId: source.id,
-      sourceType: "slack_channel",
-      identifier: config.channel_name || config.channel_id,
-      success: false,
-      error: "Could not find tile owner",
-    };
+    return failResult("Could not find tile owner");
   }
 
-  // Get the mosaic owner's user_id
   const { data: mosaicData } = await adminClient
     .from("mosaics")
     .select("owner_id")
@@ -404,13 +409,7 @@ async function fetchSlackChannelContent(
     .single();
 
   if (!mosaicData) {
-    return {
-      sourceId: source.id,
-      sourceType: "slack_channel",
-      identifier: config.channel_name || config.channel_id,
-      success: false,
-      error: "Could not find mosaic owner",
-    };
+    return failResult("Could not find mosaic owner");
   }
 
   const { data: integrationData } = await adminClient
@@ -421,14 +420,9 @@ async function fetchSlackChannelContent(
     .single();
 
   if (!integrationData) {
-    return {
-      sourceId: source.id,
-      sourceType: "slack_channel",
-      identifier: config.channel_name || config.channel_id,
-      success: false,
-      error:
-        "Slack integration not connected. Please connect Slack in the tile settings.",
-    };
+    return failResult(
+      "Slack integration not connected. Please connect Slack in the tile settings.",
+    );
   }
 
   try {
@@ -451,22 +445,17 @@ async function fetchSlackChannelContent(
     return {
       sourceId: source.id,
       sourceType: "slack_channel",
-      identifier: config.channel_name || config.channel_id,
+      identifier: channelLabel,
       success: true,
       content: truncated,
-      title: `Slack: #${config.channel_name || config.channel_id}`,
+      title: `Slack: #${channelLabel}`,
       contentTruncated: wasTruncated,
       originalSize: wasTruncated ? originalSize : undefined,
     };
   } catch (err) {
-    return {
-      sourceId: source.id,
-      sourceType: "slack_channel",
-      identifier: config.channel_name || config.channel_id,
-      success: false,
-      error:
-        err instanceof Error ? err.message : "Failed to fetch Slack messages",
-    };
+    return failResult(
+      err instanceof Error ? err.message : "Failed to fetch Slack messages",
+    );
   }
 }
 
@@ -737,8 +726,6 @@ export async function searchKeywordsContent(
   return results;
 }
 
-type TileTypeForConnections = "url_reader" | "web_search" | "analyzer";
-
 /**
  * Counts the number of active URL-type sources on a tile.
  * Used to calculate how many URL slots remain before hitting MAX_URLS_PER_TILE.
@@ -759,7 +746,7 @@ export function countActiveUrlSources(
  */
 export async function fetchConnectionContent(
   tileId: string,
-  tileType: TileTypeForConnections,
+  tileType: TileType,
   connections: { id: string; source_tile_id: string }[],
   adminClient: SupabaseClient<Database>,
   context?: ExecutionContext,
@@ -787,7 +774,8 @@ export async function fetchConnectionContent(
       if (linkedKeywords.length === 0) return [];
       return searchKeywordsContent(linkedKeywords);
     }
-    case "analyzer": {
+    case "analyzer":
+    case "slack_reader": {
       const results: TileSourceContent[] = [];
       for (const connection of connections) {
         const result = await fetchConnectedTileContent(

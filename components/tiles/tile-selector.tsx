@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Check, Globe, Search, X } from "lucide-react";
+import { Brain, Check, Globe, MessageSquare, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ const TILE_ICONS = {
   url_reader: Globe,
   web_search: Search,
   analyzer: Brain,
+  slack_reader: MessageSquare,
 };
 
 interface TileOption {
