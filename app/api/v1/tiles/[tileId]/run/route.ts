@@ -2,6 +2,7 @@ import { triggerTileWebhooks } from "@/lib/actions/webhooks";
 import { analyzeContent } from "@/lib/ai/gemini";
 import { authenticateApiRequest, verifyTileAccess } from "@/lib/api/auth";
 import { createSSEResponse, SSE_ERROR_CODES, SSEWriter } from "@/lib/api/sse";
+import { executeCatalogUpdate } from "@/lib/catalog/execute-catalog";
 import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
 import {
   createExecutionContext,
@@ -378,8 +379,12 @@ export async function POST(
         );
         sourceResults.push(...connectionResults);
 
-        // Send per-connection SSE events for analyzer and slack_reader tiles
-        if (typedTile.tile_type === "analyzer" || typedTile.tile_type === "slack_reader") {
+        // Send per-connection SSE events for analyzer, slack_reader, and catalog tiles
+        if (
+          typedTile.tile_type === "analyzer" ||
+          typedTile.tile_type === "slack_reader" ||
+          typedTile.tile_type === "catalog"
+        ) {
           for (const result of connectionResults) {
             writer.sendConnection(
               job.id,
@@ -444,59 +449,77 @@ export async function POST(
         return;
       }
 
-      // Analyze with AI
-      const analysis = await analyzeContent(
-        fetchedContent,
-        typedTile.system_prompt || "",
-        typedTile.output_format,
-        typedTile.language,
-        typedTile.output_schema,
-      );
-
-      if (!analysis.success) {
-        // Update job as failed
-        const failedUpdate: TileJobUpdate = {
-          status: "failed",
-          completed_at: new Date().toISOString(),
-          error_message: analysis.error || "AI analysis failed",
-        };
-
-        await adminClient
-          .from("tile_jobs")
-          .update(failedUpdate as never)
-          .eq("id", job.id);
-
-        // Trigger job.failed webhooks
-        triggerTileWebhooks(tileId, "job.failed", {
-          tile: { id: tileId, name: typedTile.name },
-          job: {
-            id: job.id,
-            started_at: jobInsert.started_at || null,
-            completed_at: failedUpdate.completed_at || null,
-          },
-          error: failedUpdate.error_message || "AI analysis failed",
-        }).catch((err) =>
-          console.error("Failed to trigger failed webhooks:", err),
-        );
-
-        writer.sendError(
-          analysis.error || "AI analysis failed",
-          SSE_ERROR_CODES.AI_ANALYSIS_FAILED,
-        );
-        writer.close();
-        return;
-      }
-
       // Get source identifiers for report
       const sourceIdentifiers = getTileSourceIdentifiers(sourceResults);
       const sourceBreakdown = getTileSourceTypeBreakdown(sourceResults);
+
+      let resultContent: import("@/types/database").Json;
+      let resultFormat = typedTile.output_format;
+      let slackContent: import("@/types/database").Json;
+
+      if (typedTile.tile_type === "catalog") {
+        const catalogResult = await executeCatalogUpdate(
+          tileId,
+          fetchedContent,
+          typedTile.system_prompt,
+          adminClient,
+          job.id,
+        );
+        resultContent = catalogResult.jobResultContent;
+        resultFormat = "json";
+        slackContent = catalogResult.diff.summary;
+      } else {
+        // Standard tile: AI analysis
+        const analysis = await analyzeContent(
+          fetchedContent,
+          typedTile.system_prompt || "",
+          typedTile.output_format,
+          typedTile.language,
+          typedTile.output_schema,
+        );
+
+        if (!analysis.success) {
+          const failedUpdate: TileJobUpdate = {
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error_message: analysis.error || "AI analysis failed",
+          };
+
+          await adminClient
+            .from("tile_jobs")
+            .update(failedUpdate as never)
+            .eq("id", job.id);
+
+          triggerTileWebhooks(tileId, "job.failed", {
+            tile: { id: tileId, name: typedTile.name },
+            job: {
+              id: job.id,
+              started_at: jobInsert.started_at || null,
+              completed_at: failedUpdate.completed_at || null,
+            },
+            error: failedUpdate.error_message || "AI analysis failed",
+          }).catch((err) =>
+            console.error("Failed to trigger failed webhooks:", err),
+          );
+
+          writer.sendError(
+            analysis.error || "AI analysis failed",
+            SSE_ERROR_CODES.AI_ANALYSIS_FAILED,
+          );
+          writer.close();
+          return;
+        }
+
+        resultContent = analysis.content;
+        slackContent = resultContent;
+      }
 
       // Create job result
       const resultInsert: TileJobResultInsert = {
         job_id: job.id,
         tile_id: tileId,
-        content: analysis.content,
-        format: typedTile.output_format,
+        content: resultContent,
+        format: resultFormat,
         source_urls: sourceIdentifiers,
       };
 
@@ -617,7 +640,7 @@ export async function POST(
 
       // Deliver to Slack output channel
       await deliverSlackOutput(adminClient, typedTile, {
-        content: analysis.content,
+        content: slackContent,
       });
 
       // Send done event

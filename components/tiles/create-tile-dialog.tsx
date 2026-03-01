@@ -141,6 +141,7 @@ export function CreateTileDialog({
       case "web_search":
         return searchQuery.trim().length > 0;
       case "analyzer":
+      case "catalog":
         return inputTileIds.length > 0;
       case "slack_reader":
         return slackChannels.length > 0;
@@ -158,6 +159,7 @@ export function CreateTileDialog({
       case "web_search":
         return !searchQuery.trim() ? "Enter a search query" : null;
       case "analyzer":
+      case "catalog":
         return inputTileIds.length === 0
           ? "Select at least one input tile"
           : null;
@@ -221,7 +223,7 @@ export function CreateTileDialog({
       systemPrompt: customInstructions || undefined,
       scheduleCron: getTriggerCron(trigger) || undefined,
       sources: sources.length > 0 ? sources : undefined,
-      connections: selectedType === "analyzer" ? inputTileIds : undefined,
+      connections: selectedType === "analyzer" || selectedType === "catalog" ? inputTileIds : undefined,
       slackChannels:
         selectedType === "slack_reader"
           ? slackChannels.map((ch) => ({
@@ -340,13 +342,13 @@ export function CreateTileDialog({
                   </div>
                 )}
 
-                {selectedType === "analyzer" && (
+                {(selectedType === "analyzer" || selectedType === "catalog") && (
                   <TileSelector
                     mosaicId={mosaicId}
                     selectedTileIds={inputTileIds}
                     onChange={setInputTileIds}
                     disabled={isLoading}
-                    label="Tiles to Analyze"
+                    label={selectedType === "catalog" ? "Source Tiles" : "Tiles to Analyze"}
                   />
                 )}
 

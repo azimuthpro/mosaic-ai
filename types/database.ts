@@ -27,7 +27,12 @@ export interface SlackSourceConfig {
   team_name?: string;
 }
 
-export type TileType = "url_reader" | "web_search" | "analyzer" | "slack_reader";
+export type TileType =
+  | "url_reader"
+  | "web_search"
+  | "analyzer"
+  | "slack_reader"
+  | "catalog";
 export type TilePattern = "solid" | "stripes" | "dots" | "gradient";
 
 export interface WebSearchConfig {
@@ -652,6 +657,140 @@ export interface Database {
           created_at?: string;
         };
       };
+      catalog_schemas: {
+        Row: {
+          id: string;
+          tile_id: string;
+          entity_type: string;
+          fields: Json;
+          version: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tile_id: string;
+          entity_type: string;
+          fields: Json;
+          version?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tile_id?: string;
+          entity_type?: string;
+          fields?: Json;
+          version?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      catalog_entries: {
+        Row: {
+          id: string;
+          tile_id: string;
+          data: Json;
+          match_key: string;
+          source_job_id: string | null;
+          last_updated_job_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tile_id: string;
+          data: Json;
+          match_key: string;
+          source_job_id?: string | null;
+          last_updated_job_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tile_id?: string;
+          data?: Json;
+          match_key?: string;
+          source_job_id?: string | null;
+          last_updated_job_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      catalog_entry_events: {
+        Row: {
+          id: string;
+          entry_id: string;
+          tile_id: string;
+          job_id: string | null;
+          event_type: string;
+          title: string;
+          description: string;
+          event_date: string | null;
+          source_url: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          entry_id: string;
+          tile_id: string;
+          job_id?: string | null;
+          event_type: string;
+          title: string;
+          description?: string;
+          event_date?: string | null;
+          source_url?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          entry_id?: string;
+          tile_id?: string;
+          job_id?: string | null;
+          event_type?: string;
+          title?: string;
+          description?: string;
+          event_date?: string | null;
+          source_url?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+      };
+      catalog_diffs: {
+        Row: {
+          id: string;
+          tile_id: string;
+          job_id: string | null;
+          added_entries: Json;
+          updated_entries: Json;
+          new_events: Json;
+          summary: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tile_id: string;
+          job_id?: string | null;
+          added_entries?: Json;
+          updated_entries?: Json;
+          new_events?: Json;
+          summary?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tile_id?: string;
+          job_id?: string | null;
+          added_entries?: Json;
+          updated_entries?: Json;
+          new_events?: Json;
+          summary?: string;
+          created_at?: string;
+        };
+      };
       tile_webhook_deliveries: {
         Row: {
           id: string;
@@ -932,6 +1071,14 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
     icon: "MessageSquare",
     description: "Read and analyze Slack channel messages",
   },
+  catalog: {
+    type: "catalog",
+    label: "Catalog",
+    color: "#10b981",
+    pattern: "dots",
+    icon: "Database",
+    description: "Build a persistent entity catalog",
+  },
 };
 
 // Tile Webhooks
@@ -986,6 +1133,50 @@ export interface SlackIntegrationMetadata {
   team_id: string;
   team_name: string;
   bot_user_id: string;
+}
+
+// Catalog types
+export type CatalogSchema =
+  Database["public"]["Tables"]["catalog_schemas"]["Row"];
+export type CatalogSchemaInsert =
+  Database["public"]["Tables"]["catalog_schemas"]["Insert"];
+export type CatalogSchemaUpdate =
+  Database["public"]["Tables"]["catalog_schemas"]["Update"];
+
+export type CatalogEntry =
+  Database["public"]["Tables"]["catalog_entries"]["Row"];
+export type CatalogEntryInsert =
+  Database["public"]["Tables"]["catalog_entries"]["Insert"];
+export type CatalogEntryUpdate =
+  Database["public"]["Tables"]["catalog_entries"]["Update"];
+
+export type CatalogEntryEvent =
+  Database["public"]["Tables"]["catalog_entry_events"]["Row"];
+export type CatalogEntryEventInsert =
+  Database["public"]["Tables"]["catalog_entry_events"]["Insert"];
+
+export type CatalogDiff = Database["public"]["Tables"]["catalog_diffs"]["Row"];
+export type CatalogDiffInsert =
+  Database["public"]["Tables"]["catalog_diffs"]["Insert"];
+
+export interface CatalogField {
+  name: string;
+  type: "string" | "number" | "boolean" | "date" | "url";
+  description: string;
+  is_key?: boolean;
+}
+
+export interface CatalogDiffPayload {
+  added_entries: { id: string; match_key: string; data: Json }[];
+  updated_entries: { id: string; changed_fields: string[] }[];
+  new_events: {
+    entry_id: string;
+    entry_name: string;
+    event_type: string;
+    title: string;
+  }[];
+  summary: string;
+  total_entries: number;
 }
 
 // Webhook payload structure

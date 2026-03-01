@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { analyzeContent } from "@/lib/ai/gemini";
+import { executeCatalogUpdate } from "@/lib/catalog/execute-catalog";
 import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
 import {
   createExecutionContext,
@@ -306,29 +307,48 @@ export async function POST(request: Request): Promise<Response> {
         );
       }
 
-      // Analyze with AI
-      const analysis = await analyzeContent(
-        fetchedContent,
-        typedTile.system_prompt || "",
-        typedTile.output_format,
-        typedTile.language,
-        typedTile.output_schema,
-      );
-
-      if (!analysis.success) {
-        throw new Error(analysis.error || "AI analysis failed");
-      }
-
       // Get source identifiers for report
       const sourceIdentifiers = getTileSourceIdentifiers(sourceResults);
       const sourceBreakdown = getTileSourceTypeBreakdown(sourceResults);
 
-      // Create report
+      let resultContent: import("@/types/database").Json;
+      let resultFormat = typedTile.output_format;
+      let slackContent: import("@/types/database").Json;
+
+      if (typedTile.tile_type === "catalog") {
+        const catalogResult = await executeCatalogUpdate(
+          tileId,
+          fetchedContent,
+          typedTile.system_prompt,
+          adminClient,
+          job.id,
+        );
+        resultContent = catalogResult.jobResultContent;
+        resultFormat = "json";
+        slackContent = catalogResult.diff.summary;
+      } else {
+        const analysis = await analyzeContent(
+          fetchedContent,
+          typedTile.system_prompt || "",
+          typedTile.output_format,
+          typedTile.language,
+          typedTile.output_schema,
+        );
+
+        if (!analysis.success) {
+          throw new Error(analysis.error || "AI analysis failed");
+        }
+
+        resultContent = analysis.content;
+        slackContent = resultContent;
+      }
+
+      // Save job result
       const reportInsert: TileJobResultInsert = {
         job_id: job.id,
         tile_id: tileId,
-        content: analysis.content,
-        format: typedTile.output_format,
+        content: resultContent,
+        format: resultFormat,
         source_urls: sourceIdentifiers,
       };
 
@@ -339,6 +359,11 @@ export async function POST(request: Request): Promise<Response> {
       if (reportError) {
         throw new Error("Failed to save report");
       }
+
+      // Deliver to Slack output channel
+      await deliverSlackOutput(adminClient, typedTile, {
+        content: slackContent,
+      });
 
       // Update job as completed
       const completedUpdate: TileJobUpdate = {
@@ -387,11 +412,6 @@ export async function POST(request: Request): Promise<Response> {
           err,
         ),
       );
-
-      // Deliver to Slack output channel
-      await deliverSlackOutput(adminClient, typedTile, {
-        content: analysis.content,
-      });
 
       return NextResponse.json({
         success: true,

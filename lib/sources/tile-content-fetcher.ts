@@ -819,7 +819,8 @@ export async function fetchConnectionContent(
       return searchKeywordsContent(linkedKeywords);
     }
     case "analyzer":
-    case "slack_reader": {
+    case "slack_reader":
+    case "catalog": {
       const results: TileSourceContent[] = [];
       for (const connection of connections) {
         const result = await fetchConnectedTileContent(

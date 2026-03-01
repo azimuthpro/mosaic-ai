@@ -3,6 +3,8 @@
 import type { TileWithSources } from "@/types/database";
 
 import type { TileDrawerState } from "../hooks/use-tile-drawer-state";
+import { CatalogBrowserPlugin } from "../plugins/output/catalog-browser-plugin";
+import { CatalogDiffPlugin } from "../plugins/output/catalog-diff-plugin";
 import { FormatPlugin } from "../plugins/output/format-plugin";
 import { HistoryPlugin } from "../plugins/output/history-plugin";
 import { SlackOutputPlugin } from "../plugins/output/slack-output-plugin";
@@ -21,6 +23,8 @@ export function OutputSection({
   state,
   disabled,
 }: OutputSectionProps) {
+  const isCatalog = tile.tile_type === "catalog";
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -31,19 +35,37 @@ export function OutputSection({
       </div>
 
       <div className="space-y-3">
-        <HistoryPlugin
-          tile={tile}
-          mosaicId={mosaicId}
-          state={state}
-          disabled={disabled}
-        />
-
-        <FormatPlugin
-          tile={tile}
-          mosaicId={mosaicId}
-          state={state}
-          disabled={disabled}
-        />
+        {isCatalog ? (
+          <>
+            <CatalogBrowserPlugin
+              tile={tile}
+              mosaicId={mosaicId}
+              state={state}
+              disabled={disabled}
+            />
+            <CatalogDiffPlugin
+              tile={tile}
+              mosaicId={mosaicId}
+              state={state}
+              disabled={disabled}
+            />
+          </>
+        ) : (
+          <>
+            <HistoryPlugin
+              tile={tile}
+              mosaicId={mosaicId}
+              state={state}
+              disabled={disabled}
+            />
+            <FormatPlugin
+              tile={tile}
+              mosaicId={mosaicId}
+              state={state}
+              disabled={disabled}
+            />
+          </>
+        )}
 
         <WebhooksPlugin
           tile={tile}

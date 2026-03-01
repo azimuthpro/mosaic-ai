@@ -22,6 +22,7 @@ export const TILE_TYPE_LABELS: Record<TileType, string> = {
   web_search: "Web Search",
   analyzer: "Analyzer",
   slack_reader: "Slack Reader",
+  catalog: "Catalog",
 };
 
 // Source type configuration for icons and colors
@@ -48,6 +49,7 @@ export const DEFAULT_SOURCE_TYPES: Record<TileType, SourceTypeKey> = {
   web_search: "web_search",
   analyzer: "tile_connection",
   slack_reader: "slack_channel",
+  catalog: "tile_connection",
 };
 
 // Plugin collapsed state storage key

@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Globe, MessageSquare, Search } from "lucide-react";
+import { Brain, Database, Globe, MessageSquare, Search } from "lucide-react";
 
 import {
   Card,
@@ -20,6 +20,7 @@ const TILE_ICONS = {
   web_search: Search,
   analyzer: Brain,
   slack_reader: MessageSquare,
+  catalog: Database,
 };
 
 export function TileTypePicker({ onSelect, disabled }: TileTypePickerProps) {

@@ -2,6 +2,7 @@
 
 import {
   Brain,
+  Database,
   Globe,
   Loader2,
   MessageSquare,
@@ -44,6 +45,7 @@ const TILE_ICONS: Record<TileType, React.ElementType> = {
   web_search: Search,
   analyzer: Brain,
   slack_reader: MessageSquare,
+  catalog: Database,
 };
 
 const TILE_TYPE_LABELS: Record<TileType, string> = {
@@ -51,6 +53,7 @@ const TILE_TYPE_LABELS: Record<TileType, string> = {
   web_search: "Web Search",
   analyzer: "Analyzer",
   slack_reader: "Slack Reader",
+  catalog: "Catalog",
 };
 
 function getPatternStyle(

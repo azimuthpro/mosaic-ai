@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Check, Globe, MessageSquare, Search, X } from "lucide-react";
+import { Brain, Check, Database, Globe, MessageSquare, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,11 +19,12 @@ interface TileSelectorProps {
   label?: string;
 }
 
-const TILE_ICONS = {
+const TILE_ICONS: Record<TileType, React.ElementType> = {
   url_reader: Globe,
   web_search: Search,
   analyzer: Brain,
   slack_reader: MessageSquare,
+  catalog: Database,
 };
 
 interface TileOption {

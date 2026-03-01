@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { analyzeContent } from "@/lib/ai/gemini";
+import { executeCatalogUpdate } from "@/lib/catalog/execute-catalog";
 import {
   createExecutionContext,
   DEFAULT_MAX_DEPTH,
@@ -264,32 +265,54 @@ async function processTile(
         throw new Error("No content fetched");
       }
 
-      // Analyze with AI
-      const analysis = await analyzeContent(
-        fetchedContent,
-        tile.system_prompt || "",
-        tile.output_format,
-        tile.language,
-      );
-
-      if (!analysis.success) {
-        throw new Error(analysis.error || "Analysis failed");
-      }
-
       // Get source identifiers for report
       const sourceIdentifiers = getTileSourceIdentifiers(sourceResults);
       const sourceBreakdown = getTileSourceTypeBreakdown(sourceResults);
 
-      // Create report
+      let resultContent: import("@/types/database").Json;
+      let resultFormat = tile.output_format;
+      let slackContent: import("@/types/database").Json;
+
+      if (tile.tile_type === "catalog") {
+        const catalogResult = await executeCatalogUpdate(
+          tile.id,
+          fetchedContent,
+          tile.system_prompt,
+          adminClient,
+          job.id,
+        );
+        resultContent = catalogResult.jobResultContent;
+        resultFormat = "json";
+        slackContent = catalogResult.diff.summary;
+      } else {
+        const analysis = await analyzeContent(
+          fetchedContent,
+          tile.system_prompt || "",
+          tile.output_format,
+          tile.language,
+        );
+
+        if (!analysis.success) {
+          throw new Error(analysis.error || "Analysis failed");
+        }
+
+        resultContent = analysis.content;
+        slackContent = resultContent;
+      }
+
       const reportInsert: TileJobResultInsert = {
         job_id: job.id,
         tile_id: tile.id,
-        content: analysis.content,
-        format: tile.output_format,
+        content: resultContent,
+        format: resultFormat,
         source_urls: sourceIdentifiers,
       };
 
       await adminClient.from("tile_job_results").insert(reportInsert as never);
+
+      await deliverSlackOutput(adminClient, tile, {
+        content: slackContent,
+      });
 
       // Mark job complete
       const completedUpdate: TileJobUpdate = {
@@ -336,11 +359,6 @@ async function processTile(
           err,
         ),
       );
-
-      // Deliver to Slack output channel
-      await deliverSlackOutput(adminClient, tile, {
-        content: analysis.content,
-      });
 
       return {
         tileId: tile.id,

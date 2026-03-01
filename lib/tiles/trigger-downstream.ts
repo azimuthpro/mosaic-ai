@@ -1,4 +1,5 @@
 import { analyzeContent } from "@/lib/ai/gemini";
+import { executeCatalogUpdate } from "@/lib/catalog/execute-catalog";
 import {
   createExecutionContext,
   DEFAULT_MAX_DEPTH,
@@ -196,8 +197,6 @@ async function processDownstreamTile(
     return;
   }
 
-  const rateLimitIncremented = true;
-
   try {
     const executionContext = createExecutionContext({
       rootAgentId: tile.id,
@@ -321,31 +320,45 @@ async function processDownstreamTile(
         throw new Error("No content fetched from sources");
       }
 
-      // Analyze with AI
-      const analysis = await analyzeContent(
-        fetchedContent,
-        tile.system_prompt || "",
-        tile.output_format,
-        tile.language,
-        tile.output_schema,
-      );
-
-      if (!analysis.success) {
-        throw new Error(analysis.error || "AI analysis failed");
-      }
-
       const sourceIdentifiers = getTileSourceIdentifiers(sourceResults);
       const sourceBreakdown = getTileSourceTypeBreakdown(sourceResults);
 
-      // Save result
+      let resultContent: import("@/types/database").Json;
+      let resultFormat = tile.output_format;
+
+      if (tile.tile_type === "catalog") {
+        const catalogResult = await executeCatalogUpdate(
+          tile.id,
+          fetchedContent,
+          tile.system_prompt,
+          adminClient,
+          job.id,
+        );
+        resultContent = catalogResult.jobResultContent;
+        resultFormat = "json";
+      } else {
+        const analysis = await analyzeContent(
+          fetchedContent,
+          tile.system_prompt || "",
+          tile.output_format,
+          tile.language,
+          tile.output_schema,
+        );
+
+        if (!analysis.success) {
+          throw new Error(analysis.error || "AI analysis failed");
+        }
+
+        resultContent = analysis.content;
+      }
+
       const resultInsert: TileJobResultInsert = {
         job_id: job.id,
         tile_id: tile.id,
-        content: analysis.content,
-        format: tile.output_format,
+        content: resultContent,
+        format: resultFormat,
         source_urls: sourceIdentifiers,
       };
-
       await adminClient.from("tile_job_results").insert(resultInsert as never);
 
       // Mark job completed
@@ -429,8 +442,6 @@ async function processDownstreamTile(
       );
     }
   } finally {
-    if (rateLimitIncremented) {
-      await decrementConcurrentCount(adminClient, userId);
-    }
+    await decrementConcurrentCount(adminClient, userId);
   }
 }

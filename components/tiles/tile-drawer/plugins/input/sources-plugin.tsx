@@ -136,6 +136,8 @@ function getConnectionBehaviorHint(tileType: TileType): string {
     case "analyzer":
     case "slack_reader":
       return "Full report content from the connected tile will be used as input";
+    case "catalog":
+      return "Full report content from the connected tile will be used for entity extraction";
   }
 }
 
