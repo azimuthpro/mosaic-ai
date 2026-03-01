@@ -152,8 +152,43 @@ export async function executeCatalogUpdate(
 
   for (const event of extraction.events) {
     const normalizedKey = normalizeMatchKey(event.entity_match_key);
-    const entry = entryMap.get(normalizedKey);
-    if (!entry) continue;
+    let entry = entryMap.get(normalizedKey);
+    if (!entry) {
+      // Auto-create entity for orphan event
+      if (entryMap.size >= MAX_CATALOG_ENTRIES) continue;
+
+      const { data: inserted } = await adminClient
+        .from("catalog_entries")
+        .insert({
+          tile_id: tileId,
+          match_key: normalizedKey,
+          data: { name: event.entity_match_key } as Json,
+          source_job_id: jobId,
+          last_updated_job_id: jobId,
+        } as never)
+        .select("id")
+        .single();
+
+      if (!inserted) continue;
+
+      const newEntry = {
+        id: (inserted as { id: string }).id,
+        tile_id: tileId,
+        match_key: normalizedKey,
+        data: { name: event.entity_match_key } as Json,
+        source_job_id: jobId,
+        last_updated_job_id: jobId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      entryMap.set(normalizedKey, newEntry);
+      addedEntries.push({
+        id: newEntry.id,
+        match_key: normalizedKey,
+        data: newEntry.data,
+      });
+      entry = newEntry;
+    }
 
     // Check event limit per entry
     const { count } = await adminClient

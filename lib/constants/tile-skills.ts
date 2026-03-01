@@ -341,20 +341,37 @@ Use tables for clear comparisons. Be specific with criteria.`,
   },
 ];
 
+// Catalog Skills
+const CATALOG_SKILLS: DefaultTileSkill[] = [
+  {
+    id: "catalog-entity-tracker",
+    name: "Entity Catalog",
+    description:
+      "Build a catalog of organizations with key people, events, and relationships",
+    category: "research",
+    tileType: "catalog",
+    prompt: `Extract organizations and companies as primary entities. For each entity, capture:
+
+1. **Key People**: Founders, executives, spokespersons, and other notable individuals associated with the entity
+2. **Events**: Funding rounds, acquisitions, product launches, partnerships, expansions, leadership changes, and other significant developments
+3. **Relationships**: Connections between entities — partnerships, investments, competitive dynamics, supply chain links
+
+Link people to the entities they belong to and the events they are mentioned in. Emphasize the relationships between entities and persons to build a connected intelligence map.`,
+  },
+];
+
 // Organized by tile type for easy access
 export const DEFAULT_TILE_SKILLS: Record<TileType, DefaultTileSkill[]> = {
   url_reader: URL_READER_SKILLS,
   web_search: WEB_SEARCH_SKILLS,
   analyzer: ANALYZER_SKILLS,
   slack_reader: ANALYZER_SKILLS,
-  catalog: [],
+  catalog: CATALOG_SKILLS,
 };
 
-// All skills flat array
+// All unique skills derived from the tile type record (deduplicates shared arrays like slack_reader → ANALYZER_SKILLS)
 export const ALL_DEFAULT_TILE_SKILLS: DefaultTileSkill[] = [
-  ...URL_READER_SKILLS,
-  ...WEB_SEARCH_SKILLS,
-  ...ANALYZER_SKILLS,
+  ...new Set(Object.values(DEFAULT_TILE_SKILLS).flat()),
 ];
 
 /**

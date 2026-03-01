@@ -174,12 +174,15 @@ export function CatalogBrowserPlugin({
           />
         </div>
         {fields.length > 0 && (
-          <Select value={sortField} onValueChange={setSortField}>
+          <Select
+            value={sortField || "__recent__"}
+            onValueChange={(v) => setSortField(v === "__recent__" ? "" : v)}
+          >
             <SelectTrigger className="w-[140px] h-9">
               <SelectValue placeholder="Sort by..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Recent</SelectItem>
+              <SelectItem value="__recent__">Recent</SelectItem>
               {fields.map((f) => (
                 <SelectItem key={f.name} value={f.name}>
                   {f.name}
