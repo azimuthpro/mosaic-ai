@@ -7,7 +7,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CreateTileDialog } from "@/components/tiles/create-tile-dialog";
 import { TileCard } from "@/components/tiles/tile-card";
 import { TileDrawer } from "@/components/tiles/tile-drawer";
-import { useSound } from "@/hooks/use-sound";
 import { getTileExecutionStatus } from "@/lib/actions/tile-execution";
 import { updateTilePosition } from "@/lib/actions/tiles";
 import {
@@ -29,7 +28,6 @@ const TILE_SIZE = 140;
 const GRID_GAP = 8;
 
 export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
-  const { playClick, playStop } = useSound();
   const searchParams = useSearchParams();
   const rawCreateTile = searchParams.get("create_tile");
   const createTileParam =
@@ -84,7 +82,6 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
 
   function handleTileSelect(tile: TileWithSources): void {
     if (!draggingTileId) {
-      playClick();
       setSelectedTileId(tile.id);
       setDrawerTileId(tile.id);
       setDrawerOpen(true);
@@ -92,14 +89,12 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   }
 
   function handleConfigure(tile: TileWithSources): void {
-    playClick();
     setDrawerTileId(tile.id);
     setDrawerOpen(true);
   }
 
   function handleEmptyCellClick(gridX: number, gridY: number): void {
     if (draggingTileId) return;
-    playClick();
     setCreateDialogPosition({ gridX, gridY });
     setCreateDialogOpen(true);
   }
@@ -107,7 +102,6 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   function handleDrawerOpenChange(open: boolean): void {
     setDrawerOpen(open);
     if (!open) {
-      playStop();
       setSelectedTileId(null);
     }
   }
