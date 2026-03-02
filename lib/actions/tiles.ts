@@ -236,7 +236,7 @@ export async function createTile(params: CreateTileParams) {
 
   // Create Slack channel sources for slack_reader tiles
   if (params.slackChannels && params.slackChannels.length > 0) {
-    const hoursBack = (params.slackTimeWindowDays ?? 1) * 24;
+    const daysBack = params.slackTimeWindowDays ?? 7;
     const slackSourceData: TileSourceInsert[] = params.slackChannels.map(
       (ch) => ({
         tile_id: tile.id,
@@ -246,9 +246,9 @@ export async function createTile(params: CreateTileParams) {
         config: {
           channel_id: ch.channel_id,
           channel_name: ch.channel_name,
-          max_messages: 50,
+          max_messages: 100,
           include_threads: true,
-          hours_back: hoursBack,
+          days_back: daysBack,
         } as unknown as Json,
       }),
     );

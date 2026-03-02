@@ -163,6 +163,24 @@ export function getCalendarRange(
 }
 
 /**
+ * Computes a rolling time range: now − N days → now.
+ * Used by the `days_back` config option on Slack sources.
+ */
+export function getDaysBackRange(days: number): {
+  oldest: string;
+  latest: string;
+  label: string;
+} {
+  const now = new Date();
+  const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  return {
+    oldest: toUnixSeconds(start),
+    latest: toUnixSeconds(now),
+    label: `last ${days}d`,
+  };
+}
+
+/**
  * Fetches recent messages from a channel, optionally with thread replies.
  * Returns a formatted markdown string for LLM consumption.
  *

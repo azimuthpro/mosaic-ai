@@ -21,7 +21,8 @@ export interface SlackSourceConfig {
   channel_name: string;
   max_messages?: number;
   include_threads?: boolean;
-  timeframe?: SlackTimeframe;
+  days_back?: number;
+  timeframe?: SlackTimeframe; // Legacy — kept for backward compat
   hours_back?: number; // Legacy — kept for backward compat
   team_id?: string;
   team_name?: string;

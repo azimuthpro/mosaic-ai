@@ -13,6 +13,7 @@ import {
   fetchChannelMetadata,
   formatChannelMetadata,
   getCalendarRange,
+  getDaysBackRange,
 } from "@/lib/slack/client";
 import { resolveSlackToken } from "@/lib/slack/integration";
 import { extractKeywordsFromContent } from "@/lib/tiles/extract-keywords-from-job";
@@ -408,6 +409,18 @@ async function buildTimeRangeOptions(
     includeThreads: config.include_threads,
   };
 
+  // days_back: rolling window (preferred)
+  if (config.days_back) {
+    const range = getDaysBackRange(config.days_back);
+    return {
+      ...base,
+      oldest: range.oldest,
+      latest: range.latest,
+      rangeLabel: range.label,
+    };
+  }
+
+  // Legacy: calendar-based timeframe
   if (config.timeframe) {
     const timezone = await getMosaicTimezone(adminClient, tileId);
     const range = getCalendarRange(config.timeframe, timezone);
@@ -419,6 +432,7 @@ async function buildTimeRangeOptions(
     };
   }
 
+  // Legacy: hours_back rolling window
   if (config.hours_back) {
     return { ...base, hoursBack: config.hours_back };
   }

@@ -34,7 +34,6 @@ import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
 import { formatRelativeTime } from "@/lib/utils/format";
 import type {
   FetchMode,
-  SlackTimeframe,
   TileConnection,
   TileType,
 } from "@/types/database";
@@ -413,22 +412,37 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                     }}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Time window</Label>
-                  <Select
-                    value={sourceForm.slackTimeframe}
-                    onValueChange={(v) =>
-                      updateSourceField("slackTimeframe", v as SlackTimeframe)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="last_day">Last day</SelectItem>
-                      <SelectItem value="last_week">Last week</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Time frame (days)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={sourceForm.slackDaysBack}
+                      onChange={(e) =>
+                        updateSourceField(
+                          "slackDaysBack",
+                          Math.min(30, Math.max(1, parseInt(e.target.value) || 7)),
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Messages limit</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={sourceForm.slackMaxMessages}
+                      onChange={(e) =>
+                        updateSourceField(
+                          "slackMaxMessages",
+                          Math.min(1000, Math.max(1, parseInt(e.target.value) || 100)),
+                        )
+                      }
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
                   <div>
@@ -492,7 +506,9 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                 const urlConfig = source.config as {
                   extract_depth?: string;
                   query?: string;
-                  timeframe?: SlackTimeframe;
+                  days_back?: number;
+                  max_messages?: number;
+                  timeframe?: string;
                   hours_back?: number;
                   include_threads?: boolean;
                   channel_name?: string;
@@ -524,25 +540,37 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label>Time window</Label>
-                        <Select
-                          value={editForm.slackTimeframe}
-                          onValueChange={(v) =>
-                            updateEditField(
-                              "slackTimeframe",
-                              v as SlackTimeframe,
-                            )
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="last_day">Last day</SelectItem>
-                            <SelectItem value="last_week">Last week</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Time frame (days)</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={30}
+                            value={editForm.slackDaysBack}
+                            onChange={(e) =>
+                              updateEditField(
+                                "slackDaysBack",
+                                Math.min(30, Math.max(1, parseInt(e.target.value) || 7)),
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Messages limit</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={1000}
+                            value={editForm.slackMaxMessages}
+                            onChange={(e) =>
+                              updateEditField(
+                                "slackMaxMessages",
+                                Math.min(1000, Math.max(1, parseInt(e.target.value) || 100)),
+                              )
+                            }
+                          />
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
@@ -717,10 +745,10 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                             {urlConfig?.team_name
                               ? `${urlConfig.team_name} \u00B7 `
                               : ""}
-                            {urlConfig?.timeframe === "last_week"
-                              ? "Last week"
-                              : "Last day"}{" "}
-                            &middot;{" "}
+                            {urlConfig?.days_back ?? (urlConfig?.timeframe === "last_week" ? 7 : 1)}d
+                            {" \u00B7 "}
+                            {urlConfig?.max_messages ?? 100} msgs
+                            {" \u00B7 "}
                             {urlConfig?.include_threads !== false
                               ? "threads"
                               : "no threads"}

@@ -19,7 +19,7 @@ import {
   updateTileConnection,
   updateTileSource,
 } from "@/lib/actions/tiles";
-import type { SlackTimeframe, TileWithSources } from "@/types/database";
+import type { TileWithSources } from "@/types/database";
 
 import {
   type ApiKey,
@@ -82,7 +82,8 @@ export function useTileDrawerState({
     slackChannelName: "",
     slackTeamId: "",
     slackTeamName: "",
-    slackTimeframe: "last_day",
+    slackMaxMessages: 100,
+    slackDaysBack: 7,
     slackIncludeThreads: true,
   });
 
@@ -116,7 +117,8 @@ export function useTileDrawerState({
     searchQuery: "",
     extractDepth: "basic",
     isActive: true,
-    slackTimeframe: "last_day",
+    slackMaxMessages: 100,
+    slackDaysBack: 7,
     slackIncludeThreads: true,
   });
   const [isSavingSource, setIsSavingSource] = useState(false);
@@ -228,7 +230,8 @@ export function useTileDrawerState({
         slackChannelName: "",
         slackTeamId: "",
         slackTeamName: "",
-        slackTimeframe: "last_day",
+        slackMaxMessages: 100,
+        slackDaysBack: 7,
         slackIncludeThreads: true,
       });
 
@@ -315,7 +318,8 @@ export function useTileDrawerState({
       slackChannelName: "",
       slackTeamId: "",
       slackTeamName: "",
-      slackTimeframe: "last_day",
+      slackMaxMessages: 100,
+      slackDaysBack: 7,
       slackIncludeThreads: true,
     });
   }, [tile]);
@@ -414,9 +418,9 @@ export function useTileDrawerState({
         params.slackConfig = {
           channel_id: sourceForm.slackChannelId,
           channel_name: sourceForm.slackChannelName,
-          max_messages: 500,
+          max_messages: sourceForm.slackMaxMessages,
           include_threads: sourceForm.slackIncludeThreads,
-          timeframe: sourceForm.slackTimeframe,
+          days_back: sourceForm.slackDaysBack,
           ...(sourceForm.slackTeamId && {
             team_id: sourceForm.slackTeamId,
             team_name: sourceForm.slackTeamName,
@@ -488,13 +492,24 @@ export function useTileDrawerState({
       const config = source.config as {
         extract_depth?: string;
         query?: string;
-        timeframe?: SlackTimeframe;
+        days_back?: number;
+        max_messages?: number;
+        timeframe?: string;
         hours_back?: number;
         include_threads?: boolean;
         team_id?: string;
         team_name?: string;
       } | null;
       setEditingSourceId(source.id);
+
+      // Migrate legacy timeframe/hours_back to days_back
+      let daysBack = config?.days_back ?? 7;
+      if (!config?.days_back) {
+        if (config?.timeframe === "last_day") daysBack = 1;
+        else if (config?.timeframe === "last_week") daysBack = 7;
+        else if (config?.hours_back) daysBack = Math.max(1, Math.round(config.hours_back / 24));
+      }
+
       setEditForm({
         url: source.url || "",
         name: source.name || "",
@@ -502,7 +517,8 @@ export function useTileDrawerState({
         extractDepth:
           (config?.extract_depth as "basic" | "advanced") || "basic",
         isActive: source.is_active,
-        slackTimeframe: config?.timeframe ?? "last_day",
+        slackMaxMessages: config?.max_messages ?? 100,
+        slackDaysBack: daysBack,
         slackIncludeThreads: config?.include_threads ?? true,
       });
     },
@@ -552,10 +568,13 @@ export function useTileDrawerState({
         params.config = { query: editForm.searchQuery };
       } else if (source.type === "slack_channel") {
         const existingConfig = (source.config || {}) as Record<string, unknown>;
+        // Write new fields, remove legacy timeframe/hours_back
+        const { timeframe: _tf, hours_back: _hb, ...cleanConfig } = existingConfig;
         params.config = {
-          ...existingConfig,
+          ...cleanConfig,
           include_threads: editForm.slackIncludeThreads,
-          timeframe: editForm.slackTimeframe,
+          days_back: editForm.slackDaysBack,
+          max_messages: editForm.slackMaxMessages,
         };
       }
 
