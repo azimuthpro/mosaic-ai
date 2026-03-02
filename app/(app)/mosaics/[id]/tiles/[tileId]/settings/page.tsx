@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { MemberList } from "@/components/mosaic/member-list";
+import { AdvancedScheduler } from "@/components/tiles/advanced-scheduler";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,14 +17,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -51,13 +44,6 @@ interface OwnerInfo {
   full_name: string | null;
 }
 
-const SCHEDULE_OPTIONS = [
-  { value: "none", label: "No schedule (manual only)" },
-  { value: "0 9 * * *", label: "Daily at 9 AM" },
-  { value: "0 9 * * 1", label: "Weekly on Monday at 9 AM" },
-  { value: "0 9 1 * *", label: "Monthly on the 1st at 9 AM" },
-];
-
 export default function TileSettingsPage() {
   const params = useParams();
   const router = useRouter();
@@ -69,6 +55,7 @@ export default function TileSettingsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [members, setMembers] = useState<MemberWithUser[]>([]);
   const [userRole, setUserRole] = useState<MemberRole | "owner" | null>(null);
+  const [scheduleCron, setScheduleCron] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -86,6 +73,7 @@ export default function TileSettingsPage() {
       getUserMosaicRole(mosaicId),
     ]);
     setTile(tileData);
+    setScheduleCron(tileData?.schedule_cron ?? null);
     setOwner(ownerData);
     setCurrentUserId(userId);
     setMembers(membersData);
@@ -108,8 +96,6 @@ export default function TileSettingsPage() {
     const name = formData.get("name") as string;
     const description = formData.get("description") as string;
     const systemPrompt = formData.get("systemPrompt") as string;
-    const scheduleCronRaw = formData.get("scheduleCron") as string;
-    const scheduleCron = scheduleCronRaw === "none" ? null : scheduleCronRaw;
     const isActive = formData.get("isActive") === "true";
 
     const result = await updateTile(tileId, {
@@ -125,7 +111,6 @@ export default function TileSettingsPage() {
       return;
     }
 
-    // Update is_active separately if needed
     if (tile && tile.is_active !== isActive) {
       await toggleTileActive(tileId);
     }
@@ -245,25 +230,11 @@ export default function TileSettingsPage() {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="scheduleCron">Schedule</Label>
-              <Select
-                name="scheduleCron"
-                defaultValue={tile.schedule_cron || "none"}
-                disabled={isSaving}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a schedule" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SCHEDULE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <AdvancedScheduler
+              value={scheduleCron}
+              onChange={setScheduleCron}
+              disabled={isSaving}
+            />
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
@@ -291,18 +262,15 @@ export default function TileSettingsPage() {
         </Card>
       </form>
 
-      {/* Members Section */}
       <Card>
         <CardHeader>
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Members
-            </CardTitle>
-            <CardDescription>
-              People who have access to this mosaic
-            </CardDescription>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Members
+          </CardTitle>
+          <CardDescription>
+            People who have access to this mosaic
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <MemberList
@@ -314,8 +282,6 @@ export default function TileSettingsPage() {
           />
         </CardContent>
       </Card>
-
-      <Separator />
 
       <Card className="border-destructive">
         <CardHeader>

@@ -1,7 +1,7 @@
 "use client";
 
-import { Calendar, Clock, Hand, Timer, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { Clock, Hand, Timer, X } from "lucide-react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 
 type ScheduleMode = "preset" | "custom";
-type PresetType = "manual" | "hourly" | "daily" | "weekly";
+type PresetType = "manual" | "hourly";
 
 interface ScheduleConfig {
   mode: ScheduleMode;
@@ -40,20 +40,6 @@ const PRESET_OPTIONS = [
     description: "Run every hour",
     cron: "0 * * * *",
     icon: Timer,
-  },
-  {
-    value: "daily" as const,
-    label: "Daily",
-    description: "Run daily at 9 AM",
-    cron: "0 9 * * *",
-    icon: Clock,
-  },
-  {
-    value: "weekly" as const,
-    label: "Weekly",
-    description: "Run every Monday at 9 AM",
-    cron: "0 9 * * 1",
-    icon: Calendar,
   },
 ];
 
@@ -101,7 +87,6 @@ function parseCronToConfig(cron: string | null): ScheduleConfig {
     return { mode: "preset", preset: "manual" };
   }
 
-  // Check if it matches a preset
   const presetMatch = PRESET_OPTIONS.find((p) => p.cron === cron);
   if (presetMatch) {
     return { mode: "preset", preset: presetMatch.value };
@@ -174,101 +159,70 @@ export function AdvancedScheduler({
   onChange,
   disabled,
 }: AdvancedSchedulerProps) {
-  const initialConfig = useMemo(() => parseCronToConfig(value), [value]);
-  const [config, setConfig] = useState<ScheduleConfig>(initialConfig);
-
-  const updateConfig = useCallback(
-    (newConfig: ScheduleConfig) => {
-      setConfig(newConfig);
-      onChange(configToCron(newConfig));
-    },
-    [onChange],
+  const [config, setConfig] = useState<ScheduleConfig>(() =>
+    parseCronToConfig(value),
   );
 
-  const handlePresetChange = useCallback(
-    (preset: string) => {
-      if (preset === "custom") {
-        updateConfig({
-          mode: "custom",
-          custom: { hours: [9], daysOfWeek: [1, 2, 3, 4, 5] },
-        });
-      } else {
-        updateConfig({ mode: "preset", preset: preset as PresetType });
-      }
-    },
-    [updateConfig],
-  );
+  function updateConfig(newConfig: ScheduleConfig): void {
+    setConfig(newConfig);
+    onChange(configToCron(newConfig));
+  }
 
-  const handleAddHour = useCallback(
-    (hour: string) => {
-      if (!config.custom) return;
-      const hourNum = parseInt(hour, 10);
-      if (config.custom.hours.includes(hourNum)) return;
-      updateConfig({
-        ...config,
-        custom: {
-          ...config.custom,
-          hours: [...config.custom.hours, hourNum].sort((a, b) => a - b),
-        },
-      });
-    },
-    [config, updateConfig],
-  );
-
-  const handleRemoveHour = useCallback(
-    (hour: number) => {
-      if (!config.custom) return;
-      updateConfig({
-        ...config,
-        custom: {
-          ...config.custom,
-          hours: config.custom.hours.filter((h) => h !== hour),
-        },
-      });
-    },
-    [config, updateConfig],
-  );
-
-  const handleToggleDay = useCallback(
-    (day: number) => {
-      if (!config.custom) return;
-      const newDays = config.custom.daysOfWeek.includes(day)
-        ? config.custom.daysOfWeek.filter((d) => d !== day)
-        : [...config.custom.daysOfWeek, day];
-      updateConfig({
-        ...config,
-        custom: {
-          ...config.custom,
-          daysOfWeek: newDays,
-        },
-      });
-    },
-    [config, updateConfig],
-  );
-
-  const handleSetAllDays = useCallback(() => {
-    if (!config.custom) return;
-    const allDays = [0, 1, 2, 3, 4, 5, 6];
-    const hasAll = allDays.every((d) => config.custom!.daysOfWeek.includes(d));
-    updateConfig({
-      ...config,
-      custom: {
-        ...config.custom,
-        daysOfWeek: hasAll ? [] : allDays,
-      },
-    });
-  }, [config, updateConfig]);
-
-  const handleSetWeekdays = useCallback(() => {
+  function updateCustom(
+    fields: Partial<NonNullable<ScheduleConfig["custom"]>>,
+  ): void {
     if (!config.custom) return;
     updateConfig({
       ...config,
-      custom: {
-        ...config.custom,
-        daysOfWeek: [1, 2, 3, 4, 5],
-      },
+      custom: { ...config.custom, ...fields },
     });
-  }, [config, updateConfig]);
+  }
+
+  function handlePresetChange(preset: string): void {
+    if (preset === "custom") {
+      updateConfig({
+        mode: "custom",
+        custom: { hours: [9], daysOfWeek: [1, 2, 3, 4, 5] },
+      });
+    } else {
+      updateConfig({ mode: "preset", preset: preset as PresetType });
+    }
+  }
+
+  function handleAddHour(hour: string): void {
+    if (!config.custom) return;
+    const hourNum = parseInt(hour, 10);
+    if (config.custom.hours.includes(hourNum)) return;
+    updateCustom({
+      hours: [...config.custom.hours, hourNum].sort((a, b) => a - b),
+    });
+  }
+
+  function handleRemoveHour(hour: number): void {
+    updateCustom({
+      hours: config.custom?.hours.filter((h) => h !== hour) ?? [],
+    });
+  }
+
+  function handleToggleDay(day: number): void {
+    if (!config.custom) return;
+    const { daysOfWeek } = config.custom;
+    updateCustom({
+      daysOfWeek: daysOfWeek.includes(day)
+        ? daysOfWeek.filter((d) => d !== day)
+        : [...daysOfWeek, day],
+    });
+  }
+
+  function handleSetAllDays(): void {
+    if (!config.custom) return;
+    const allSelected = config.custom.daysOfWeek.length === 7;
+    updateCustom({ daysOfWeek: allSelected ? [] : [0, 1, 2, 3, 4, 5, 6] });
+  }
+
+  function handleSetWeekdays(): void {
+    updateCustom({ daysOfWeek: [1, 2, 3, 4, 5] });
+  }
 
   const currentValue =
     config.mode === "preset" ? (config.preset ?? "manual") : "custom";
@@ -317,7 +271,6 @@ export function AdvancedScheduler({
 
       {config.mode === "custom" && config.custom && (
         <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-4">
-          {/* Hour picker */}
           <div className="space-y-2">
             <Label className="text-sm">Run at hours</Label>
             <div className="flex items-center gap-2">
@@ -339,7 +292,6 @@ export function AdvancedScheduler({
               </Select>
             </div>
 
-            {/* Selected hours badges */}
             {config.custom.hours.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {config.custom.hours.map((hour) => (
@@ -358,7 +310,6 @@ export function AdvancedScheduler({
             )}
           </div>
 
-          {/* Day of week toggles */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm">On days</Label>
@@ -411,7 +362,6 @@ export function AdvancedScheduler({
         </div>
       )}
 
-      {/* Preview */}
       <p className="text-sm text-muted-foreground">
         {getSchedulePreview(config)}
       </p>
@@ -419,5 +369,4 @@ export function AdvancedScheduler({
   );
 }
 
-// Export utility functions for external use
 export { configToCron, parseCronToConfig };
