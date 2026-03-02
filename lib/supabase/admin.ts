@@ -2,6 +2,38 @@ import { createClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/database";
 
+const SUPABASE_FETCH_TIMEOUT_MS = 15_000;
+
+/**
+ * Fetch wrapper that adds a 15-second timeout via AbortController.
+ * Prevents any single Supabase call from hanging indefinitely.
+ */
+function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SUPABASE_FETCH_TIMEOUT_MS);
+
+  // Merge with any existing signal from the caller
+  const callerSignal = init?.signal;
+  if (callerSignal) {
+    if (callerSignal.aborted) {
+      controller.abort(callerSignal.reason);
+    } else {
+      callerSignal.addEventListener(
+        "abort",
+        () => controller.abort(callerSignal.reason),
+        { once: true },
+      );
+    }
+  }
+
+  return fetch(input, { ...init, signal: controller.signal }).finally(() =>
+    clearTimeout(timer),
+  );
+}
+
 // Admin client with service role for server-side operations
 // WARNING: This bypasses RLS - use with caution
 export function createAdminClient() {
@@ -12,6 +44,9 @@ export function createAdminClient() {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
+      },
+      global: {
+        fetch: fetchWithTimeout,
       },
     },
   );
@@ -28,11 +63,7 @@ export async function isEmailAllowed(email: string): Promise<boolean> {
     .eq("is_active", true)
     .single();
 
-  if (error || !data) {
-    return false;
-  }
-
-  return true;
+  return !error && !!data;
 }
 
 // Add an email to the allowlist (default to inactive)

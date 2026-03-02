@@ -5,6 +5,7 @@ import {
   DEFAULT_MAX_DEPTH,
   DEFAULT_TIMEOUT_MS,
 } from "@/lib/execution/context";
+import { withTimeout } from "@/lib/execution/timeout";
 import {
   checkAndIncrementRateLimit,
   decrementConcurrentCount,
@@ -20,6 +21,7 @@ import {
 import type { createAdminClient } from "@/lib/supabase/admin";
 import {
   formatSupabaseError,
+  getErrorMessage,
   supabaseErrorMetadata,
 } from "@/lib/supabase/errors";
 import type {
@@ -107,18 +109,23 @@ export async function triggerDownstreamTiles(
     tile_sources: TileSource[];
   })[];
 
-  // Process each eligible downstream tile
+  // Process each eligible downstream tile with hard timeout per tile
   await Promise.allSettled(
-    typedTiles.map((tile) =>
-      processDownstreamTile(adminClient, tile, {
-        completedTileId,
-        completedJobId,
-        mosaicId,
-        userId,
-        depth,
-        visitedTileIds,
-      }),
-    ),
+    typedTiles.map((tile) => {
+      const timeoutMs = tile.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS;
+      return withTimeout(
+        processDownstreamTile(adminClient, tile, {
+          completedTileId,
+          completedJobId,
+          mosaicId,
+          userId,
+          depth,
+          visitedTileIds,
+        }),
+        timeoutMs,
+        `processDownstreamTile(${tile.id})`,
+      );
+    }),
   );
 }
 
@@ -205,8 +212,8 @@ async function processDownstreamTile(
       timeoutMs: tile.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS,
     });
 
-    // Log execution start
-    await logTileJobExecutionEvent(adminClient, {
+    // Log execution start (fire-and-forget to avoid blocking critical path)
+    logTileJobExecutionEvent(adminClient, {
       executionId: executionContext.executionId,
       tileId: tile.id,
       eventType: "started",
@@ -217,7 +224,12 @@ async function processDownstreamTile(
         cascadeDepth: depth + 1,
         tileType: tile.tile_type,
       },
-    });
+    }).catch((err) =>
+      console.error(
+        `[trigger-downstream] Failed to log started event for tile ${tile.id}:`,
+        err,
+      ),
+    );
 
     // Create job
     const jobInsert: TileJobInsert = {
@@ -408,8 +420,7 @@ async function processDownstreamTile(
         visitedTileIds: nextVisited,
       });
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = getErrorMessage(error);
 
       const failedUpdate: TileJobUpdate = {
         status: "failed",
@@ -430,8 +441,6 @@ async function processDownstreamTile(
         metadata: {
           trigger: "source_update",
           error: errorMessage,
-          errorName: error instanceof Error ? error.name : undefined,
-          errorStack: error instanceof Error ? error.stack : undefined,
           durationMs: Date.now() - executionContext.startTime,
         },
       });

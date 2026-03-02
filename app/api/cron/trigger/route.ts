@@ -8,6 +8,7 @@ import {
   DEFAULT_TIMEOUT_MS,
   ExecutionGuardError,
 } from "@/lib/execution/context";
+import { TimeoutError, withTimeout } from "@/lib/execution/timeout";
 import { deliverSlackOutput } from "@/lib/outputs/slack-output";
 import {
   checkAndIncrementRateLimit,
@@ -160,8 +161,8 @@ async function processTile(
   });
 
   try {
-    // Log execution start
-    await logTileJobExecutionEvent(adminClient, {
+    // Log execution start (fire-and-forget to avoid blocking critical path)
+    logTileJobExecutionEvent(adminClient, {
       executionId: executionContext.executionId,
       tileId: tile.id,
       eventType: "started",
@@ -172,7 +173,12 @@ async function processTile(
         timeoutMs: executionContext.timeoutMs,
         sourceCount: tile.tile_sources.length,
       },
-    });
+    }).catch((err) =>
+      console.error(
+        `[cron/trigger] Failed to log started event for tile ${tile.id}:`,
+        err,
+      ),
+    );
 
     // Create job with execution tracking
     const jobInsert: TileJobInsert = {
@@ -290,6 +296,7 @@ async function processTile(
           tile.system_prompt || "",
           tile.output_format,
           tile.language,
+          tile.output_schema,
         );
 
         if (!analysis.success) {
@@ -498,20 +505,46 @@ export async function GET(request: Request): Promise<Response> {
       });
     }
 
-    // Process all scheduled tiles
-    const results = await Promise.allSettled(
-      scheduledTiles.map((tile) => processTile(adminClient, tile)),
-    );
+    // Process tiles in batches of 3 to limit concurrent Supabase connections
+    const BATCH_SIZE = 3;
+    const processedResults: TileResult[] = [];
 
-    // Extract results from Promise.allSettled
-    const processedResults: TileResult[] = results.map((result) =>
-      result.status === "fulfilled"
-        ? result.value
-        : { tileId: "unknown", error: getErrorMessage(result.reason) },
-    );
+    for (let i = 0; i < scheduledTiles.length; i += BATCH_SIZE) {
+      const batch = scheduledTiles.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((tile) => {
+          const timeoutMs = tile.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS;
+          return withTimeout(
+            processTile(adminClient, tile),
+            timeoutMs,
+            `processTile(${tile.id})`,
+          ).catch((err): TileResult => {
+            if (err instanceof TimeoutError) {
+              return { tileId: tile.id, error: `Hard timeout: ${err.message}` };
+            }
+            throw err;
+          });
+        }),
+      );
 
-    const successful = processedResults.filter((r) => r.success).length;
-    const failed = processedResults.filter((r) => r.error).length;
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          processedResults.push(result.value);
+        } else {
+          processedResults.push({
+            tileId: "unknown",
+            error: getErrorMessage(result.reason),
+          });
+        }
+      }
+    }
+
+    let successful = 0;
+    let failed = 0;
+    for (const r of processedResults) {
+      if (r.success) successful++;
+      if (r.error) failed++;
+    }
 
     const cleanup = await runDataRetentionCleanup(adminClient);
 
