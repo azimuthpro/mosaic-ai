@@ -33,6 +33,25 @@ import {
   type TileConfigState,
 } from "../types";
 
+/**
+ * Converts legacy timeframe/hours_back config fields to a days_back value.
+ * Returns the existing days_back if present, otherwise migrates from legacy fields.
+ */
+function resolveLegacyDaysBack(
+  config: {
+    days_back?: number;
+    timeframe?: string;
+    hours_back?: number;
+  } | null,
+): number {
+  if (config?.days_back != null) return config.days_back;
+  if (config?.timeframe === "last_day") return 1;
+  if (config?.timeframe === "last_week") return 7;
+  if (config?.hours_back)
+    return Math.max(1, Math.round(config.hours_back / 24));
+  return 7;
+}
+
 interface UseTileDrawerStateProps {
   tile: TileWithSources | null;
   mosaicId: string;
@@ -82,6 +101,7 @@ export function useTileDrawerState({
     slackChannelName: "",
     slackTeamId: "",
     slackTeamName: "",
+    slackMode: "messages",
     slackMaxMessages: 100,
     slackDaysBack: 7,
     slackIncludeThreads: true,
@@ -117,6 +137,7 @@ export function useTileDrawerState({
     searchQuery: "",
     extractDepth: "basic",
     isActive: true,
+    slackMode: "messages",
     slackMaxMessages: 100,
     slackDaysBack: 7,
     slackIncludeThreads: true,
@@ -230,6 +251,7 @@ export function useTileDrawerState({
         slackChannelName: "",
         slackTeamId: "",
         slackTeamName: "",
+        slackMode: "messages",
         slackMaxMessages: 100,
         slackDaysBack: 7,
         slackIncludeThreads: true,
@@ -318,6 +340,7 @@ export function useTileDrawerState({
       slackChannelName: "",
       slackTeamId: "",
       slackTeamName: "",
+      slackMode: "messages",
       slackMaxMessages: 100,
       slackDaysBack: 7,
       slackIncludeThreads: true,
@@ -415,12 +438,15 @@ export function useTileDrawerState({
       } else if (sourceForm.type === "web_search") {
         params.config = { query: sourceForm.searchQuery };
       } else if (sourceForm.type === "slack_channel") {
+        const modeConfig =
+          sourceForm.slackMode === "messages"
+            ? { max_messages: sourceForm.slackMaxMessages }
+            : { days_back: sourceForm.slackDaysBack };
         params.slackConfig = {
           channel_id: sourceForm.slackChannelId,
           channel_name: sourceForm.slackChannelName,
-          max_messages: sourceForm.slackMaxMessages,
           include_threads: sourceForm.slackIncludeThreads,
-          days_back: sourceForm.slackDaysBack,
+          ...modeConfig,
           ...(sourceForm.slackTeamId && {
             team_id: sourceForm.slackTeamId,
             team_name: sourceForm.slackTeamName,
@@ -502,13 +528,14 @@ export function useTileDrawerState({
       } | null;
       setEditingSourceId(source.id);
 
-      // Migrate legacy timeframe/hours_back to days_back
-      let daysBack = config?.days_back ?? 7;
-      if (!config?.days_back) {
-        if (config?.timeframe === "last_day") daysBack = 1;
-        else if (config?.timeframe === "last_week") daysBack = 7;
-        else if (config?.hours_back) daysBack = Math.max(1, Math.round(config.hours_back / 24));
-      }
+      // Resolve days_back from current or legacy config fields
+      const daysBack = resolveLegacyDaysBack(config);
+
+      // days_back without max_messages means days mode; everything else defaults to messages
+      const slackMode =
+        config?.days_back != null && config?.max_messages == null
+          ? "days"
+          : "messages";
 
       setEditForm({
         url: source.url || "",
@@ -517,7 +544,8 @@ export function useTileDrawerState({
         extractDepth:
           (config?.extract_depth as "basic" | "advanced") || "basic",
         isActive: source.is_active,
-        slackMaxMessages: config?.max_messages ?? 100,
+        slackMode,
+        slackMaxMessages: Math.min(500, config?.max_messages ?? 100),
         slackDaysBack: daysBack,
         slackIncludeThreads: config?.include_threads ?? true,
       });
@@ -567,14 +595,24 @@ export function useTileDrawerState({
       } else if (source.type === "web_search") {
         params.config = { query: editForm.searchQuery };
       } else if (source.type === "slack_channel") {
-        const existingConfig = (source.config || {}) as Record<string, unknown>;
-        // Write new fields, remove legacy timeframe/hours_back
-        const { timeframe: _tf, hours_back: _hb, ...cleanConfig } = existingConfig;
+        const existing = (source.config || {}) as Record<string, unknown>;
+        const legacyKeys = [
+          "timeframe",
+          "hours_back",
+          "days_back",
+          "max_messages",
+        ];
+        const cleanConfig = Object.fromEntries(
+          Object.entries(existing).filter(([k]) => !legacyKeys.includes(k)),
+        );
+        const modeConfig =
+          editForm.slackMode === "messages"
+            ? { max_messages: editForm.slackMaxMessages }
+            : { days_back: editForm.slackDaysBack };
         params.config = {
           ...cleanConfig,
           include_threads: editForm.slackIncludeThreads,
-          days_back: editForm.slackDaysBack,
-          max_messages: editForm.slackMaxMessages,
+          ...modeConfig,
         };
       }
 

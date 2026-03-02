@@ -32,13 +32,10 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
 import { formatRelativeTime } from "@/lib/utils/format";
-import type {
-  FetchMode,
-  TileConnection,
-  TileType,
-} from "@/types/database";
+import type { FetchMode, TileConnection, TileType } from "@/types/database";
 
 import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
+import type { SlackMode } from "../../types";
 import type { PluginBaseProps, SourceTypeKey } from "../../types";
 import { SOURCE_TYPE_CONFIG } from "../../types";
 import { PluginCard } from "../plugin-card";
@@ -123,6 +120,140 @@ function getSourceDisplayName(source: {
     source.url ||
     config?.query ||
     "Unnamed source"
+  );
+}
+
+function clampInt(
+  value: string,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  return Math.min(max, Math.max(min, parseInt(value) || fallback));
+}
+
+function getSlackSourceSummary(
+  config: {
+    days_back?: number;
+    max_messages?: number;
+    include_threads?: boolean;
+    team_name?: string;
+  } | null,
+): string {
+  const parts: string[] = [];
+
+  if (config?.team_name) {
+    parts.push(config.team_name);
+  }
+
+  if (config?.days_back != null && config?.max_messages == null) {
+    parts.push(`${config.days_back}d`);
+  } else {
+    parts.push(`${config?.max_messages ?? 100} msgs`);
+  }
+
+  parts.push(config?.include_threads !== false ? "threads" : "no threads");
+
+  return parts.join(" \u00B7 ");
+}
+
+interface SlackModeFieldsProps {
+  mode: SlackMode;
+  maxMessages: number;
+  daysBack: number;
+  includeThreads: boolean;
+  onModeChange: (mode: SlackMode) => void;
+  onMaxMessagesChange: (value: number) => void;
+  onDaysBackChange: (value: number) => void;
+  onIncludeThreadsChange: (value: boolean) => void;
+}
+
+function SlackModeFields({
+  mode,
+  maxMessages,
+  daysBack,
+  includeThreads,
+  onModeChange,
+  onMaxMessagesChange,
+  onDaysBackChange,
+  onIncludeThreadsChange,
+}: SlackModeFieldsProps): React.ReactNode {
+  return (
+    <>
+      <div className="space-y-3">
+        <Label>Fetch mode</Label>
+        <div className="flex rounded-lg border border-border overflow-hidden">
+          <button
+            type="button"
+            className={`flex-1 px-3 py-1.5 text-sm font-medium transition-colors ${
+              mode === "messages"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted/30 text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => onModeChange("messages")}
+          >
+            Messages
+          </button>
+          <button
+            type="button"
+            className={`flex-1 px-3 py-1.5 text-sm font-medium transition-colors ${
+              mode === "days"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted/30 text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => onModeChange("days")}
+          >
+            Days
+          </button>
+        </div>
+        {mode === "messages" ? (
+          <div className="space-y-2">
+            <Label>Messages limit</Label>
+            <Input
+              type="number"
+              min={1}
+              max={500}
+              value={maxMessages}
+              onChange={(e) =>
+                onMaxMessagesChange(clampInt(e.target.value, 1, 500, 100))
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Fetch up to {maxMessages} most recent messages
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label>Days to look back</Label>
+            <Input
+              type="number"
+              min={1}
+              max={30}
+              value={daysBack}
+              onChange={(e) =>
+                onDaysBackChange(clampInt(e.target.value, 1, 30, 7))
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Fetch messages from the last {daysBack} day
+              {daysBack !== 1 ? "s" : ""}
+            </p>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
+        <div>
+          <Label className="text-sm">Include threads</Label>
+          <p className="text-xs text-muted-foreground">
+            Include threaded replies from channel messages
+          </p>
+        </div>
+        <Switch
+          checked={includeThreads}
+          onCheckedChange={onIncludeThreadsChange}
+        />
+      </div>
+    </>
   );
 }
 
@@ -412,52 +543,22 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                     }}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Time frame (days)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={30}
-                      value={sourceForm.slackDaysBack}
-                      onChange={(e) =>
-                        updateSourceField(
-                          "slackDaysBack",
-                          Math.min(30, Math.max(1, parseInt(e.target.value) || 7)),
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Messages limit</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={1000}
-                      value={sourceForm.slackMaxMessages}
-                      onChange={(e) =>
-                        updateSourceField(
-                          "slackMaxMessages",
-                          Math.min(1000, Math.max(1, parseInt(e.target.value) || 100)),
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
-                  <div>
-                    <Label className="text-sm">Include threads</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Include threaded replies from channel messages
-                    </p>
-                  </div>
-                  <Switch
-                    checked={sourceForm.slackIncludeThreads}
-                    onCheckedChange={(v) =>
-                      updateSourceField("slackIncludeThreads", v)
-                    }
-                  />
-                </div>
+                <SlackModeFields
+                  mode={sourceForm.slackMode}
+                  maxMessages={sourceForm.slackMaxMessages}
+                  daysBack={sourceForm.slackDaysBack}
+                  includeThreads={sourceForm.slackIncludeThreads}
+                  onModeChange={(v) => updateSourceField("slackMode", v)}
+                  onMaxMessagesChange={(v) =>
+                    updateSourceField("slackMaxMessages", v)
+                  }
+                  onDaysBackChange={(v) =>
+                    updateSourceField("slackDaysBack", v)
+                  }
+                  onIncludeThreadsChange={(v) =>
+                    updateSourceField("slackIncludeThreads", v)
+                  }
+                />
               </div>
             )}
 
@@ -540,53 +641,22 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label>Time frame (days)</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={30}
-                            value={editForm.slackDaysBack}
-                            onChange={(e) =>
-                              updateEditField(
-                                "slackDaysBack",
-                                Math.min(30, Math.max(1, parseInt(e.target.value) || 7)),
-                              )
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Messages limit</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={1000}
-                            value={editForm.slackMaxMessages}
-                            onChange={(e) =>
-                              updateEditField(
-                                "slackMaxMessages",
-                                Math.min(1000, Math.max(1, parseInt(e.target.value) || 100)),
-                              )
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
-                        <div>
-                          <Label className="text-sm">Include threads</Label>
-                          <p className="text-xs text-muted-foreground">
-                            Include threaded replies from channel messages
-                          </p>
-                        </div>
-                        <Switch
-                          checked={editForm.slackIncludeThreads}
-                          onCheckedChange={(v) =>
-                            updateEditField("slackIncludeThreads", v)
-                          }
-                        />
-                      </div>
+                      <SlackModeFields
+                        mode={editForm.slackMode}
+                        maxMessages={editForm.slackMaxMessages}
+                        daysBack={editForm.slackDaysBack}
+                        includeThreads={editForm.slackIncludeThreads}
+                        onModeChange={(v) => updateEditField("slackMode", v)}
+                        onMaxMessagesChange={(v) =>
+                          updateEditField("slackMaxMessages", v)
+                        }
+                        onDaysBackChange={(v) =>
+                          updateEditField("slackDaysBack", v)
+                        }
+                        onIncludeThreadsChange={(v) =>
+                          updateEditField("slackIncludeThreads", v)
+                        }
+                      />
 
                       <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3">
                         <Label className="text-sm">Active</Label>
@@ -741,18 +811,7 @@ export function SourcesPlugin({ tile, disabled, state }: SourcesPluginProps) {
                           <span>Query: {urlConfig?.query}</span>
                         )}
                         {source.type === "slack_channel" && (
-                          <span>
-                            {urlConfig?.team_name
-                              ? `${urlConfig.team_name} \u00B7 `
-                              : ""}
-                            {urlConfig?.days_back ?? (urlConfig?.timeframe === "last_week" ? 7 : 1)}d
-                            {" \u00B7 "}
-                            {urlConfig?.max_messages ?? 100} msgs
-                            {" \u00B7 "}
-                            {urlConfig?.include_threads !== false
-                              ? "threads"
-                              : "no threads"}
-                          </span>
+                          <span>{getSlackSourceSummary(urlConfig)}</span>
                         )}
                       </p>
                       {source.last_scraped_at && (

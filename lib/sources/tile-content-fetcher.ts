@@ -405,7 +405,8 @@ async function buildTimeRangeOptions(
   tileId: string,
 ): Promise<Parameters<typeof fetchChannelMessages>[2]> {
   const base = {
-    maxMessages: config.max_messages,
+    // When in days mode (days_back set, max_messages absent), use hard limit 1000
+    maxMessages: config.max_messages ?? (config.days_back ? 1000 : undefined),
     includeThreads: config.include_threads,
   };
 

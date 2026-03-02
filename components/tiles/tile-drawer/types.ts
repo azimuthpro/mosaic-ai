@@ -78,6 +78,9 @@ export interface ApiKey {
   created_at: string;
 }
 
+// Slack source mode: fetch by message count or by days
+export type SlackMode = "messages" | "days";
+
 // Source form state
 export interface SourceFormState {
   type: SourceTypeKey;
@@ -93,6 +96,7 @@ export interface SourceFormState {
   slackChannelName: string;
   slackTeamId: string;
   slackTeamName: string;
+  slackMode: SlackMode;
   slackMaxMessages: number;
   slackDaysBack: number;
   slackIncludeThreads: boolean;
@@ -105,6 +109,7 @@ export interface SourceEditFormState {
   searchQuery: string;
   extractDepth: "basic" | "advanced";
   isActive: boolean;
+  slackMode: SlackMode;
   slackMaxMessages: number;
   slackDaysBack: number;
   slackIncludeThreads: boolean;
