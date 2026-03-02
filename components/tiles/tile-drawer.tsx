@@ -63,6 +63,7 @@ export function TileDrawer({
 }: TileDrawerProps) {
   const state = useTileDrawerState({ tile, mosaicId, open });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRunConfirm, setShowRunConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleRun = async () => {
@@ -134,7 +135,7 @@ export function TileDrawer({
                 onChange={(e) =>
                   state.updateConfigField("name", e.target.value)
                 }
-                className="h-7 px-2 text-lg font-semibold border-transparent hover:border-border focus:border-primary bg-transparent"
+                className="h-7 px-0 text-lg font-semibold border-transparent hover:border-none focus:border-none ring-0 bg-transparent"
               />
               <DrawerDescription className="text-left">
                 {TILE_TYPE_LABELS[tile.tile_type]} · Last run:{" "}
@@ -174,7 +175,7 @@ export function TileDrawer({
             <Button
               variant="outline"
               size="sm"
-              onClick={handleRun}
+              onClick={() => setShowRunConfirm(true)}
               disabled={state.isRunning || !state.configState.isActive}
             >
               {state.isRunning ? (
@@ -263,6 +264,43 @@ export function TileDrawer({
           </div>
         </Tabs>
       </DrawerContent>
+
+      <Dialog open={showRunConfirm} onOpenChange={setShowRunConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Run tile</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to run &ldquo;{tile.name}&rdquo;? This will
+              execute the tile and consume API credits.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowRunConfirm(false)}
+              disabled={state.isRunning}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setShowRunConfirm(false);
+                handleRun();
+              }}
+              disabled={state.isRunning}
+            >
+              {state.isRunning ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              Run
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent className="sm:max-w-md">

@@ -22,12 +22,6 @@ export function InputSection({
 }: InputSectionProps) {
   return (
     <div className="space-y-4">
-      {/* Section header with accent */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <div className="h-2 w-2 rounded-full bg-cyan-500" />
-        <span>Input plugins control how data flows into this tile</span>
-      </div>
-
       {/* Plugins */}
       <div className="space-y-3">
         <SourcesPlugin

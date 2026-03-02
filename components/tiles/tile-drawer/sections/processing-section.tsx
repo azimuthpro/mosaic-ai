@@ -20,12 +20,6 @@ export function ProcessingSection({
 }: ProcessingSectionProps) {
   return (
     <div className="space-y-4">
-      {/* Section header with accent */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <div className="h-2 w-2 rounded-full bg-purple-500" />
-        <span>Processing plugins control how data is analyzed</span>
-      </div>
-
       {/* Plugins */}
       <div className="space-y-3">
         <InstructionsPlugin

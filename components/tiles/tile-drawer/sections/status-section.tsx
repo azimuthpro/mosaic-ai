@@ -21,10 +21,6 @@ export function StatusSection({ tile, state }: StatusSectionProps) {
   return (
     <div className="space-y-4">
       {/* Section header with accent */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <div className="h-2 w-2 rounded-full bg-amber-500" />
-        <span>Status plugins show tile health and execution history</span>
-      </div>
 
       {isLoadingStatus ? (
         <div className="flex items-center justify-center py-8">

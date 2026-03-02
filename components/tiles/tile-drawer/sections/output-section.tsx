@@ -27,13 +27,6 @@ export function OutputSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <div className="h-2 w-2 rounded-full bg-green-500" />
-        <span>
-          Output plugins control how results are formatted and delivered
-        </span>
-      </div>
-
       <div className="space-y-3">
         {isCatalog ? (
           <>
