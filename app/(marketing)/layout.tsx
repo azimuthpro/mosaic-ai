@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { Bot, Github, Linkedin, Twitter } from "lucide-react";
+import { Bot } from "lucide-react";
 import Link from "next/link";
 
 import { Header } from "@/components/layout/header";
@@ -20,7 +20,7 @@ export default async function MarketingLayout({
 
       <footer className="border-t border-slate-900 bg-slate-950/50 pt-16 pb-8">
         <div className="container max-w-6xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-12 mb-16">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-2">
               <Link href="/" className="flex items-center space-x-2 mb-6">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/20">
@@ -31,29 +31,10 @@ export default async function MarketingLayout({
                 </span>
               </Link>
               <p className="max-w-xs text-sm text-slate-500 leading-relaxed">
-                Empowering the next generation of analysts with automated
-                intelligence pipelines. Turn the web into your private database.
+                Automated intelligence gathering and analysis. Connect scattered
+                data sources into pipelines that deliver actionable insights on
+                your schedule.
               </p>
-              <div className="flex items-center space-x-4 mt-6">
-                <Link
-                  href="#"
-                  className="text-slate-600 hover:text-cyan-400 transition-colors"
-                >
-                  <Twitter className="h-5 w-5" />
-                </Link>
-                <Link
-                  href="#"
-                  className="text-slate-600 hover:text-cyan-400 transition-colors"
-                >
-                  <Github className="h-5 w-5" />
-                </Link>
-                <Link
-                  href="#"
-                  className="text-slate-600 hover:text-cyan-400 transition-colors"
-                >
-                  <Linkedin className="h-5 w-5" />
-                </Link>
-              </div>
             </div>
 
             <div>
@@ -66,7 +47,7 @@ export default async function MarketingLayout({
                     href="#use-cases"
                     className="hover:text-cyan-400 transition-colors"
                   >
-                    Market Analysts
+                    Close the Loop
                   </Link>
                 </li>
                 <li>
@@ -74,7 +55,7 @@ export default async function MarketingLayout({
                     href="#use-cases"
                     className="hover:text-cyan-400 transition-colors"
                   >
-                    OSINT & Researchers
+                    Market Monitoring
                   </Link>
                 </li>
                 <li>
@@ -82,7 +63,7 @@ export default async function MarketingLayout({
                     href="#use-cases"
                     className="hover:text-cyan-400 transition-colors"
                   >
-                    Sales Teams
+                    Morning Intelligence
                   </Link>
                 </li>
                 <li>
@@ -90,7 +71,7 @@ export default async function MarketingLayout({
                     href="#use-cases"
                     className="hover:text-cyan-400 transition-colors"
                   >
-                    AI Engineers
+                    Entity Tracking
                   </Link>
                 </li>
               </ul>
@@ -103,74 +84,34 @@ export default async function MarketingLayout({
               <ul className="space-y-4 text-sm">
                 <li>
                   <Link
-                    href="#reliability"
+                    href="#features"
                     className="hover:text-cyan-400 transition-colors"
                   >
-                    Anti-bot evasion
+                    Tile Pipelines
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href="#reliability"
+                    href="#features"
                     className="hover:text-cyan-400 transition-colors"
                   >
-                    Semantic parsing
+                    Scheduled Execution
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href="#reliability"
+                    href="#features"
                     className="hover:text-cyan-400 transition-colors"
                   >
-                    Fact reconciliation
+                    Slack Integration
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href="#how-it-works"
+                    href="#features"
                     className="hover:text-cyan-400 transition-colors"
                   >
-                    Multi-step Pipelines
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-bold mb-6 text-sm uppercase tracking-widest">
-                Legal & Support
-              </h4>
-              <ul className="space-y-4 text-sm">
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-cyan-400 transition-colors"
-                  >
-                    Documentation
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-cyan-400 transition-colors"
-                  >
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-cyan-400 transition-colors"
-                  >
-                    Terms of Service
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#"
-                    className="hover:text-cyan-400 transition-colors"
-                  >
-                    Contact
+                    REST API & Webhooks
                   </Link>
                 </li>
               </ul>
@@ -179,7 +120,7 @@ export default async function MarketingLayout({
 
           <div className="pt-8 border-t border-slate-900 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-xs text-slate-600 font-mono italic">
-              Built by Azimuth PRO • v0.4.0
+              Built by Azimuth PRO • v1.3.0
             </p>
             <p className="text-xs text-slate-600 font-mono">
               © 2026 Azimuth PRO. High-fidelity intelligence pipelines.

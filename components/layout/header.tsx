@@ -17,18 +17,12 @@ interface HeaderProps {
 export function Header({ user }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Close menu when clicking an anchor link
-  const handleLinkClick = () => {
+  function handleLinkClick(): void {
     setIsMenuOpen(false);
-  };
+  }
 
-  // Prevent scrolling when menu is open
   useEffect(() => {
-    if (isMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
+    document.body.style.overflow = isMenuOpen ? "hidden" : "unset";
   }, [isMenuOpen]);
 
   return (
@@ -56,16 +50,16 @@ export function Header({ user }: HeaderProps) {
               Use Cases
             </Link>
             <Link
-              href="/#how-it-works"
+              href="/#features"
               className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
             >
-              How it works
+              Features
             </Link>
             <Link
-              href="/#reliability"
+              href="/#api"
               className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
             >
-              Reliability
+              API
             </Link>
           </nav>
         </div>
@@ -96,7 +90,6 @@ export function Header({ user }: HeaderProps) {
             )}
           </div>
 
-          {/* Mobile Menu Toggle */}
           <button
             className="flex md:hidden items-center justify-center h-10 w-10 text-slate-400 hover:text-white"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -111,7 +104,6 @@ export function Header({ user }: HeaderProps) {
         </div>
       </div>
 
-      {/* Mobile Navigation Overlay */}
       <div
         className={cn(
           "fixed inset-x-0 top-16 h-[calc(100vh-64px)] z-[100] md:hidden bg-slate-950 transition-all duration-500 ease-in-out px-10 pt-16 text-center shadow-2xl",
@@ -130,22 +122,30 @@ export function Header({ user }: HeaderProps) {
             Use Cases
           </Link>
           <Link
-            href="/#how-it-works"
+            href="/#features"
             className="text-3xl font-black text-white tracking-tighter hover:text-cyan-400 transition-colors"
             onClick={handleLinkClick}
           >
-            How it works
+            Features
           </Link>
           <Link
-            href="/#reliability"
+            href="/#api"
             className="text-3xl font-black text-white tracking-tighter hover:text-cyan-400 transition-colors"
             onClick={handleLinkClick}
           >
-            Reliability
+            API
           </Link>
 
           <div className="pt-12 border-t border-slate-900 flex flex-col items-center space-y-8">
-            {!user && (
+            {user ? (
+              <Link
+                href="/mosaics"
+                className="text-xl font-bold text-slate-400 hover:text-white transition-colors"
+                onClick={handleLinkClick}
+              >
+                Go to Mosaics
+              </Link>
+            ) : (
               <>
                 <Link
                   href="/signin"
@@ -165,15 +165,6 @@ export function Header({ user }: HeaderProps) {
                   </Link>
                 </Button>
               </>
-            )}
-            {user && (
-              <Link
-                href="/mosaics"
-                className="text-xl font-bold text-slate-400 hover:text-white transition-colors"
-                onClick={handleLinkClick}
-              >
-                Go to Mosaics
-              </Link>
             )}
           </div>
         </nav>

@@ -3,16 +3,13 @@ import {
   Bot,
   CheckCircle2,
   ChevronRight,
-  Database,
+  Clock,
   Globe,
-  LineChart,
+  Layers,
   MessageSquare,
   RefreshCw,
-  Search,
-  Settings,
-  ShieldCheck,
   Sparkles,
-  Target,
+  Users,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
@@ -37,26 +34,26 @@ export default function HomePage() {
             className="group inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/5 px-4 py-1.5 text-sm font-medium text-cyan-400 transition-all hover:bg-cyan-500/10 hover:border-cyan-500/40 relative overflow-hidden"
           >
             <div className="absolute inset-0 bg-linear-to-r from-cyan-500/0 via-white/5 to-cyan-500/0 -translate-x-full group-hover:animate-shimmer" />
-            <Zap className="h-4 w-4 fill-current text-[#CCFF00]" />
+            <Zap className="h-4 w-4 fill-current" />
             <span className="flex items-center gap-1.5">
-              Mosaic v2 <span className="text-white/20">•</span>{" "}
-              <span className="text-[#CCFF00]">Race-Ready</span>
+              Private Beta <span className="text-white/20">•</span>{" "}
+              <span className="text-slate-300">Intelligence Automation</span>
             </span>
             <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>
 
           <h1 className="text-balance text-5xl font-extrabold leading-[1.1] tracking-tight md:text-7xl lg:text-8xl text-white">
-            Structure the web
+            Turn information chaos
             <br />
             <span className="bg-linear-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent italic">
-              in 30 seconds.
+              into action.
             </span>
           </h1>
 
           <p className="text-pretty max-w-[750px] text-lg text-slate-400 sm:text-xl lg:text-2xl leading-relaxed">
-            Stop scraping. Deploy autonomous agents that bypass anti-bots,
-            verify claims, and deliver structured intelligence directly to your
-            stack via API.
+            Mosaic connects your scattered data sources — web pages, Slack
+            channels, news feeds — into automated pipelines that deliver morning
+            intelligence reports and concrete recommendations.
           </p>
         </div>
 
@@ -66,7 +63,7 @@ export default function HomePage() {
             className="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black h-14 px-10 rounded-2xl text-lg group transition-all shadow-[0_0_30px_rgba(34,211,238,0.3)] active:scale-95"
           >
             <Link href="/signup">
-              Deploy your first Agent
+              Create your first Mosaic
               <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
             </Link>
           </Button>
@@ -81,10 +78,10 @@ export default function HomePage() {
 
           <div className="space-y-8 relative z-10">
             <h2 className="text-balance text-4xl font-black text-white leading-tight">
-              Stop fighting HTML.
+              Stop chasing information.
               <br />
               <span className="text-cyan-400 italic">
-                Start receiving facts.
+                Start receiving answers.
               </span>
             </h2>
             <div className="space-y-6">
@@ -93,8 +90,8 @@ export default function HomePage() {
                   <RefreshCw className="h-4 w-4" />
                 </div>
                 <p className="text-pretty text-slate-400 text-lg">
-                  Mosaic handles residential proxies, headless browsers, and
-                  rotating UAs automatically.
+                  Tasks get lost in Slack threads. Logs pile up. The big picture
+                  drowns in noise across 5+ disconnected tools.
                 </p>
               </div>
               <div className="flex gap-4 items-start">
@@ -102,8 +99,9 @@ export default function HomePage() {
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
                 <p className="text-pretty text-slate-400 text-lg">
-                  Verified output against multiple sources. If the data is
-                  conflicting, we flag it.
+                  Mosaic connects the dots automatically — scraping pages,
+                  reading Slack, tracking entities — and delivers a prioritized
+                  morning report to your team.
                 </p>
               </div>
             </div>
@@ -111,77 +109,90 @@ export default function HomePage() {
 
           <div className="relative group perspective-1000">
             <div className="grid grid-cols-1 gap-4 lg:gap-8 translate-z-10 transition-transform duration-700">
-              {/* Dirty HTML Part */}
+              {/* Scattered Info */}
               <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/50 p-1 opacity-60 scale-95 blur-[2px] hover:blur-0 transition-all group-hover:opacity-40 select-none pointer-events-none">
                 <div className="flex items-center gap-1.5 p-3 border-b border-slate-800/50 px-4">
                   <div className="h-2 w-2 rounded-full bg-red-500/50" />
                   <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-                    Fragile HTML Scrape
+                    Scattered Information
                   </span>
                 </div>
                 <pre className="p-4 font-mono text-[10px] text-slate-600 overflow-hidden leading-tight">
-                  {`<div>
-  <section class="p-4 flex-col md:hidden">
-    <h1 id="price-v2" class="text-4xl">
-      &nbsp;&nbsp;$199.99
-    </h1>
-    <!-- Layout changes break selectors -->
-    <span class="discount-label">
-      Save 20%
-    </span>
-  </section>
-</div>`}
+                  {`#dev-ops: "deployment failed at 3am"
+#sales: "Acme Corp wants updated pricing"
+Tab 12: competitor launched new feature
+Email: investor update pending
+// Who's connecting all this?`}
                 </pre>
               </div>
 
-              {/* Clean JSON Part */}
+              {/* Clean Mosaic Output */}
               <div className="relative -mt-12 lg:-mt-20 overflow-hidden rounded-2xl border border-cyan-500/30 bg-slate-950 shadow-2xl shadow-cyan-500/10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
                 <div className="flex items-center justify-between p-3 border-b border-cyan-500/10 bg-cyan-500/5 px-4 font-mono text-[10px]">
                   <div className="flex items-center gap-1.5 ">
                     <div className="h-2 w-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,1)]" />
                     <span className="text-cyan-400 uppercase tracking-widest font-bold font-mono">
-                      Verified Intelligence Output
+                      Mosaic Intelligence Output
                     </span>
                   </div>
                   <span className="text-slate-500 uppercase tracking-widest text-[9px]">
-                    JSON Format • Confidence: 98%
+                    JSON Format
                   </span>
                 </div>
                 <pre className="p-6 font-mono text-xs md:text-sm leading-relaxed overflow-x-auto bg-slate-950/50 transition-colors">
                   <div className="space-y-1">
                     <div>{"{"}</div>
                     <div className="pl-4">
-                      <span className="text-pink-400">&quot;product&quot;</span>
+                      <span className="text-pink-400">
+                        &quot;tile&quot;
+                      </span>
                       :{" "}
                       <span className="text-cyan-400">
-                        &quot;Advanced Intelligence Engine&quot;
+                        &quot;Morning Intelligence&quot;
                       </span>
                       ,
                     </div>
                     <div className="pl-4">
-                      <span className="text-pink-400">&quot;price&quot;</span>:{" "}
-                      <span className="text-cyan-400">159.99</span>,
+                      <span className="text-pink-400">
+                        &quot;type&quot;
+                      </span>
+                      :{" "}
+                      <span className="text-cyan-400">
+                        &quot;analyzer&quot;
+                      </span>
+                      ,
                     </div>
                     <div className="pl-4">
                       <span className="text-pink-400">
-                        &quot;currency&quot;
+                        &quot;sources_processed&quot;
                       </span>
-                      : <span className="text-cyan-400">&quot;USD&quot;</span>,
+                      : <span className="text-cyan-400">5</span>,
                     </div>
                     <div className="pl-4">
                       <span className="text-pink-400">
-                        &quot;verified&quot;
+                        &quot;schedule&quot;
                       </span>
-                      : <span className="text-cyan-400">true</span>,
+                      :{" "}
+                      <span className="text-cyan-400">
+                        &quot;daily at 8:00 AM&quot;
+                      </span>
+                      ,
                     </div>
-                    <div className="pl-4 group/item">
+                    <div className="pl-4">
                       <span className="text-pink-400">
-                        &quot;source_integrity&quot;
+                        &quot;output_to&quot;
                       </span>
-                      : <span className="text-cyan-400">0.98</span>,
-                      <span className="ml-2 px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[10px] font-bold border border-cyan-500/20 group-hover/item:bg-cyan-500/20 transition-colors">
-                        FACT CHECKED
+                      :{" "}
+                      <span className="text-cyan-400">
+                        &quot;#team-intel&quot;
                       </span>
+                      ,
+                    </div>
+                    <div className="pl-4">
+                      <span className="text-pink-400">
+                        &quot;recommendations&quot;
+                      </span>
+                      : <span className="text-cyan-400">3</span>
                     </div>
                     <div>{"}"}</div>
                   </div>
@@ -193,7 +204,7 @@ export default function HomePage() {
       </section>
 
       {/* Bento Grid Features */}
-      <section id="ai-stack" className="container max-w-6xl py-24">
+      <section id="features" className="container max-w-6xl py-24">
         <div className="mx-auto flex flex-col items-center gap-4 text-center mb-16 px-4">
           <h2 className="text-balance text-3xl font-black tracking-tighter sm:text-6xl text-white">
             Automate{" "}
@@ -202,50 +213,59 @@ export default function HomePage() {
             </span>
           </h2>
           <p className="text-pretty text-slate-500 text-lg max-w-2xl">
-            Mosaic replaces fragile scraping logic with autonomous reasoning
-            agents.
+            Five tile types, connected pipelines, and AI-powered analysis.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-6">
-          {/* Large Card: Stealth Browsing */}
+          {/* Large Card: Five Tile Types */}
           <div className="md:col-span-3 lg:col-span-7 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 lg:p-12 transition-all hover:bg-slate-900/80 group overflow-hidden relative">
             <div className="absolute top-0 right-0 p-8 text-slate-700/50 group-hover:text-cyan-500/20 transition-colors">
-              <ShieldCheck className="h-32 w-32 rotate-12" />
+              <Layers className="h-32 w-32 rotate-12" />
             </div>
             <div className="relative z-10 h-full flex flex-col">
               <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
                 <Zap className="h-6 w-6 fill-current" />
               </div>
               <h3 className="text-2xl font-black text-white mb-4">
-                Evade detection by default.
+                Five tile types for every source.
               </h3>
               <p className="text-pretty text-slate-400 leading-relaxed text-lg flex-1">
-                Mosaic rotates residential proxies and spoofs headless browsers
-                automatically. No more CAPTCHAs, no more IP bans.
+                URL Reader scrapes web pages. Web Search finds what you need.
+                Analyzer processes data with AI. Slack Reader pulls from your
+                channels. Catalog tracks entities over time.
               </p>
-              <div className="mt-8 pt-8 border-t border-slate-800/50 flex gap-4 overflow-hidden">
+              <div className="mt-8 pt-8 border-t border-slate-800/50 flex gap-4 overflow-hidden flex-wrap">
                 <div className="px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-[10px] font-monospace text-slate-500">
-                  RESIDENTIAL_PROXY_V2
+                  URL_READER
                 </div>
                 <div className="px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-[10px] font-monospace text-slate-500">
-                  STEALTH_JS_RUNTIME
+                  WEB_SEARCH
+                </div>
+                <div className="px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-[10px] font-monospace text-slate-500">
+                  ANALYZER
+                </div>
+                <div className="px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-[10px] font-monospace text-slate-500">
+                  SLACK_READER
+                </div>
+                <div className="px-3 py-1 rounded-full bg-slate-950 border border-slate-800 text-[10px] font-monospace text-slate-500">
+                  CATALOG
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Tall Card: Fact Reconciliation */}
+          {/* Tall Card: Tile Connections */}
           <div className="md:col-span-3 lg:col-span-5 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 lg:p-12 transition-all hover:bg-slate-900/80 overflow-hidden group">
             <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
               <Globe className="h-6 w-6" />
             </div>
             <h3 className="text-2xl font-black text-white mb-4">
-              Reconcile facts.
+              Connect tiles into pipelines.
             </h3>
             <p className="text-pretty text-slate-400 leading-relaxed text-lg mb-8">
-              Agents cross-verify claims against multiple sources. We score data
-              integrity so you can trust every byte.
+              Any-to-any connections with automatic extraction — URLs, keywords,
+              or full reports. Downstream tiles auto-trigger when sources update.
             </p>
             <div className="relative h-32 w-full bg-slate-950/50 rounded-2xl border border-slate-800 p-4">
               <div className="space-y-3">
@@ -259,61 +279,64 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Square Card: Agent Reasoners */}
+          {/* Square Card: AI-Powered Analysis */}
           <div className="md:col-span-3 lg:col-span-4 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group">
             <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
               <Bot className="h-6 w-6" />
             </div>
             <h3 className="text-xl font-bold text-white mb-3">
-              Reasoning over CSS.
+              AI-Powered Analysis.
             </h3>
             <p className="text-pretty text-slate-400 text-sm leading-relaxed">
-              Mosaic agents interpret the page like a human analyst. No more
-              fragile CSS selectors.
+              Google Gemini 3 Flash processes your data with custom instructions.
+              Get text summaries or structured JSON output.
             </p>
           </div>
 
-          {/* Square Card: Context Understanding */}
+          {/* Square Card: Scheduled Execution */}
           <div className="md:col-span-3 lg:col-span-4 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group">
             <div className="h-12 w-12 rounded-2xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20 text-pink-400 mb-8">
-              <Sparkles className="h-6 w-6" />
+              <Clock className="h-6 w-6" />
             </div>
             <h3 className="text-xl font-bold text-white mb-3">
-              Contextual Search.
+              Scheduled Execution.
             </h3>
             <p className="text-pretty text-slate-400 text-sm leading-relaxed">
-              Our agents don&apos;t just crawl, they search for intent and
-              meaning in every paragraph.
+              Run tiles manually, hourly, or on a custom cron schedule with
+              specific hours and days. Timezone-aware per mosaic.
             </p>
           </div>
 
-          {/* Square Card: Scale Orchestration */}
+          {/* Square Card: Slack Integration */}
           <div className="md:col-span-6 lg:col-span-4 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group">
-            <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500 mb-8">
-              <Settings className="h-6 w-6" />
+            <div className="h-12 w-12 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-400 mb-8">
+              <MessageSquare className="h-6 w-6" />
             </div>
             <h3 className="text-xl font-bold text-white mb-3">
-              Auto-Orchestration.
+              Slack Integration.
             </h3>
             <p className="text-pretty text-slate-400 text-sm leading-relaxed">
-              Self-healing pipelines that adapt to UI changes without a single
-              line of code.
+              Connect via OAuth. Read messages from any channel. Deliver
+              analysis results directly to your team&apos;s Slack.
             </p>
           </div>
 
-          {/* Wide Card: Deep Web Discovery */}
+          {/* Wide Card: AI Skills & Prompt Editor */}
           <div className="md:col-span-6 lg:col-span-8 bg-slate-900/50 rounded-[2.5rem] border border-slate-800 p-8 transition-all hover:bg-slate-900/80 group relative overflow-hidden">
             <div className="flex flex-col md:flex-row gap-8 items-center">
               <div className="flex-1">
                 <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-6">
-                  <Search className="h-6 w-6" />
+                  <Sparkles className="h-6 w-6" />
                 </div>
                 <h3 className="text-2xl font-black text-white mb-4">
-                  Discovery Engine.
+                  AI Skills & Prompt Editor.
                 </h3>
                 <p className="text-pretty text-slate-400 leading-relaxed text-lg">
-                  Traverse the deep web. Mosaic agents find hidden APIs,
-                  portals, and data points that standard crawlers miss.
+                  Built-in skills library with pre-built templates for news
+                  monitoring, competitor analysis, price tracking, and more.
+                  AI-powered prompt editor: describe what you want and get a
+                  production-ready prompt. Community marketplace via skills.sh
+                  coming soon.
                 </p>
               </div>
               <div className="flex-1 w-full flex justify-end">
@@ -328,38 +351,45 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Last Square Card: Vector DB Integration */}
+          {/* Last Square Card: API, Webhooks & Sharing */}
           <div className="md:col-span-6 lg:col-span-4 bg-cyan-500/5 rounded-[2.5rem] border border-cyan-500/20 p-8 transition-all hover:bg-cyan-500/10 group">
             <div className="h-12 w-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 mb-8">
-              <Database className="h-6 w-6" />
+              <Users className="h-6 w-6" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-3">RAG Ready.</h3>
+            <h3 className="text-xl font-bold text-white mb-3">
+              API, Webhooks & Sharing.
+            </h3>
             <p className="text-pretty text-slate-400 text-sm leading-relaxed">
-              Output optimized for vector databases and LLM context windows. No
-              cleanup required.
+              REST API with SSE streaming, webhook notifications, per-mosaic API
+              keys, and role-based team access.
             </p>
           </div>
         </div>
       </section>
 
       {/* Code Section */}
-      <section className="container max-w-6xl py-24 border-t border-slate-900">
+      <section
+        id="api"
+        className="container max-w-6xl py-24 border-t border-slate-900"
+      >
         <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
           <div>
             <h2 className="text-balance text-4xl font-extrabold tracking-tight text-white mb-6 leading-tight">
-              One API call.
+              REST API.
               <br />
-              <span className="text-cyan-400 italic">Total Control.</span>
+              <span className="text-cyan-400 italic">
+                Real-time streaming.
+              </span>
             </h2>
             <p className="text-pretty text-slate-400 text-lg leading-relaxed mb-8">
-              Send a URL and a schema. Mosaic delivers verified facts. No
-              complex pipelines, no middleware.
+              Trigger any tile programmatically. Get streaming progress via
+              Server-Sent Events. Manage API keys per mosaic.
             </p>
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="h-5 w-5 text-cyan-400" />
                 <span className="text-slate-300 font-medium">
-                  Type-safe TypeScript SDK
+                  Per-mosaic API keys
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -381,40 +411,73 @@ export default function HomePage() {
                   <div className="h-3 w-3 rounded-full bg-slate-800" />
                 </div>
                 <span className="text-slate-500 uppercase tracking-widest text-[10px] font-bold italic">
-                  Mosaic AI Intelligence Request
+                  Mosaic AI — Tile Execution API
                 </span>
               </div>
               <div className="p-6 font-mono text-[11px] md:text-sm leading-relaxed text-slate-300 overflow-x-auto">
                 <div className="space-y-1 text-slate-400">
                   <div>
                     <span className="text-slate-500 italic">
-                      {"// Deployment request"}
+                      {"// Run a tile via API"}
                     </span>
                   </div>
                   <div>
-                    <span className="text-pink-400 font-bold italic">
-                      await
-                    </span>{" "}
-                    <span className="text-cyan-400 font-bold group-hover:text-cyan-300 transition-colors">
-                      mosaic
-                    </span>
-                    .<span className="text-cyan-400">extract</span>({"{"}
+                    <span className="text-pink-400 font-bold">curl</span>{" "}
+                    <span className="text-cyan-400">-X POST</span> \
                   </div>
                   <div className="pl-4">
-                    url:{" "}
                     <span className="text-cyan-400">
-                      &quot;https://competitor.com/pricing&quot;
-                    </span>
-                    ,
+                      https://app.mosaic.ai/api/v1/tiles/{"{tileId}"}/run
+                    </span>{" "}
+                    \
                   </div>
                   <div className="pl-4">
-                    schema: {"{"} product:{" "}
-                    <span className="text-cyan-400">&quot;string&quot;</span>,
-                    price:{" "}
-                    <span className="text-cyan-400">&quot;number&quot;</span>{" "}
-                    {"}"}
+                    <span className="text-slate-500">-H</span>{" "}
+                    <span className="text-cyan-400">
+                      &quot;Authorization: Bearer msk_your_api_key&quot;
+                    </span>
                   </div>
-                  <div>{"}"});</div>
+                  <div className="mt-4">
+                    <span className="text-slate-500 italic">
+                      {"// Server-Sent Events response"}
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <span className="text-pink-400 font-bold">event:</span>{" "}
+                    <span className="text-white">started</span>
+                  </div>
+                  <div>
+                    <span className="text-pink-400 font-bold">data:</span>{" "}
+                    <span className="text-cyan-400">
+                      {
+                        '{"job_id":"...","tile_id":"..."}'
+                      }
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <span className="text-pink-400 font-bold">event:</span>{" "}
+                    <span className="text-white">result</span>
+                  </div>
+                  <div>
+                    <span className="text-pink-400 font-bold">data:</span>{" "}
+                    <span className="text-cyan-400">
+                      {
+                        '{"job_id":"...","report":{...}}'
+                      }
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <span className="text-pink-400 font-bold">event:</span>{" "}
+                    <span className="text-white">done</span>
+                  </div>
+                  <div>
+                    <span className="text-pink-400 font-bold">data:</span>{" "}
+                    <span className="text-cyan-400">
+                      {
+                        '{"job_id":"..."}'
+                      }
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -435,58 +498,61 @@ export default function HomePage() {
 
         <div className="grid gap-8 md:grid-cols-3">
           <div className="relative p-10 rounded-[2.5rem] border border-slate-800 bg-slate-900/30 hover:bg-slate-900/50 transition-colors group">
-            <MessageSquare className="h-10 w-10 text-cyan-400 mb-8 transition-transform group-hover:scale-110" />
+            <Layers className="h-10 w-10 text-cyan-400 mb-8 transition-transform group-hover:scale-110" />
             <h3 className="text-2xl font-black text-white mb-4">
-              AI Engineers
+              Close the Loop
             </h3>
             <p className="text-pretty text-sm text-slate-400 leading-relaxed mb-8">
-              Feed your models with high-fidelity markdown. Stop post-processing
-              garbage data and start receiving model-ready context.
+              Collect streams from Slack, GitHub, and web sources. Get morning
+              reports with concrete recommendations. Tasks from conversations
+              get tracked and auto-resolved.
             </p>
             <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800/50">
               <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
-                RAG Optimized
+                SLACK_READER
               </span>
               <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
-                Clean MDR
+                ANALYZER
               </span>
             </div>
           </div>
 
           <div className="relative p-10 rounded-[2.5rem] border border-slate-800 bg-slate-900/30 hover:bg-slate-900/50 transition-colors group">
-            <LineChart className="h-10 w-10 text-cyan-400 mb-8 transition-transform group-hover:scale-110" />
+            <Globe className="h-10 w-10 text-cyan-400 mb-8 transition-transform group-hover:scale-110" />
             <h3 className="text-2xl font-black text-white mb-4">
-              Market Analysts
+              Market Monitoring
             </h3>
             <p className="text-pretty text-sm text-slate-400 leading-relaxed mb-8">
-              Monitor competitors silently. Track price changes, new product
-              launches, and industry shifts in real-time.
+              Track competitors, news, and industry shifts. Catalog tiles build
+              living databases of companies and people. Detect threats and
+              opportunities before anyone else.
             </p>
             <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800/50">
               <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
-                Pricing Feed
+                CATALOG
               </span>
               <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
-                Signal Alerts
+                WEB_SEARCH
               </span>
             </div>
           </div>
 
           <div className="relative p-10 rounded-[2.5rem] border border-slate-800 bg-slate-900/30 hover:bg-slate-900/50 transition-colors group">
-            <Target className="h-10 w-10 text-pink-400 mb-8 transition-transform group-hover:scale-110" />
+            <MessageSquare className="h-10 w-10 text-purple-400 mb-8 transition-transform group-hover:scale-110" />
             <h3 className="text-2xl font-black text-white mb-4">
-              Sales Operations
+              Morning Intelligence
             </h3>
             <p className="text-pretty text-sm text-slate-400 leading-relaxed mb-8">
-              Enrich leads automatically. Extract intent signals from news and
-              directories the moment they happen.
+              Replace Slack scrolling with structured daily reports. Prioritized
+              action items, flagged issues, and summarized discussions delivered
+              to your channel every morning.
             </p>
             <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800/50">
               <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
-                Intent Signals
+                SCHEDULED
               </span>
               <span className="text-[10px] font-monospace text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase tracking-widest">
-                CRM Sync
+                SLACK_OUTPUT
               </span>
             </div>
           </div>
@@ -494,31 +560,40 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="container max-w-6xl pt-12 pb-24 md:pt-16 md:pb-40">
+      <section
+        id="cta"
+        className="container max-w-6xl pt-12 pb-24 md:pt-16 md:pb-40"
+      >
         <div className="w-full flex flex-col items-center justify-center gap-12 text-center bg-slate-950/40 border border-slate-800 px-8 py-24 md:p-24 rounded-[3rem] md:rounded-[5rem] relative overflow-hidden backdrop-blur-xl transition-all hover:bg-slate-900/40 group">
           {/* Mercedes-style Horizon Glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-500/10 blur-[120px] pointer-events-none group-hover:bg-cyan-500/15 transition-colors" />
           <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-cyan-500/50 to-transparent opacity-30" />
 
           <h2 className="text-balance text-5xl font-black tracking-tighter sm:text-6xl lg:text-7xl text-white group-hover:scale-[1.01] transition-transform duration-700 leading-tight">
-            Ready to structure the web?
+            Ready to turn chaos into action?
           </h2>
           <p className="text-pretty max-w-[600px] text-slate-400 text-xl md:text-2xl leading-relaxed font-bold">
-            Join the automated intelligence network. No credit card required.
-            Private beta access.
+            Start building intelligence pipelines in minutes. No credit card
+            required.
           </p>
           <div className="w-full flex justify-center max-w-2xl">
             <InviteForm />
           </div>
           <div className="pt-4 flex flex-col items-center gap-4">
             <p className="text-[10px] text-cyan-500/60 font-black uppercase tracking-[0.4em]">
-              Secure • Verifiable • Autonomous
+              Scrape . Search . Analyze . Deliver
             </p>
+            <div className="flex flex-col items-center gap-2 mt-4 text-xs text-slate-600 font-mono">
+              <span>You have 5+ tools whose data nobody connects</span>
+              <span>
+                Tasks escape from conversations and nobody closes them
+              </span>
+              <span>You learn about problems too late</span>
+            </div>
             <div className="flex items-center gap-4 mt-2">
               <p className="text-xs text-slate-500 font-monospace uppercase tracking-[0.2em] font-bold">
                 Built with Mosaic AI
               </p>
-              <div className="h-1 w-8 bg-[#CCFF00] rounded-full" />
             </div>
           </div>
         </div>

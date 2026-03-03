@@ -39,7 +39,6 @@ function SignupForm(): React.ReactElement {
     () => !!invitationToken,
   );
 
-  // Fetch invitation details when token is present
   useEffect(() => {
     if (!invitationToken) return;
 
@@ -53,7 +52,6 @@ function SignupForm(): React.ReactElement {
           setError(data.error);
         } else {
           setInvitation(data);
-          // Pre-fill email from invitation if not already set
           if (data.email) {
             setEmail((prev) => prev || data.email);
           }
@@ -78,7 +76,6 @@ function SignupForm(): React.ReactElement {
     setError(null);
     setIsLoading(true);
 
-    // First check if email is allowed (via API endpoint)
     const checkResponse = await fetch("/api/auth/check-allowlist", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -167,7 +164,7 @@ function SignupForm(): React.ReactElement {
         </>
       );
     }
-    return "Join the automated intelligence network. Invite only.";
+    return "Mosaic is in private beta. You need an invitation to sign up.";
   }
 
   return (
@@ -240,6 +237,19 @@ function SignupForm(): React.ReactElement {
               </div>
             )}
           </Button>
+          {!invitation && (
+            <div className="rounded-xl bg-slate-800/50 border border-slate-700 p-4 text-center">
+              <p className="text-sm text-slate-400">
+                Don&apos;t have an invitation?{" "}
+                <Link
+                  href="/#cta"
+                  className="text-cyan-400 hover:text-cyan-300 transition-colors underline underline-offset-4 decoration-cyan-500/30 hover:decoration-cyan-400"
+                >
+                  Join the waitlist
+                </Link>
+              </p>
+            </div>
+          )}
           <p className="text-center text-sm text-slate-500 font-medium">
             Already have an account?{" "}
             <Link
