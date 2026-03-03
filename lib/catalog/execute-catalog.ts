@@ -16,6 +16,7 @@ const model = google("gemini-flash-latest");
 const MAX_CATALOG_ENTRIES = 500;
 const MAX_ENTRIES_IN_AI_CONTEXT = 200;
 const MAX_EVENTS_PER_ENTRY = 100;
+const MAX_RECENT_EVENTS_PER_ENTRY = 10;
 
 interface AIEntity {
   match_key: string;
@@ -80,6 +81,7 @@ export async function executeCatalogUpdate(
     systemPrompt,
     currentSchema,
     existingEntries,
+    adminClient,
   );
 
   // 4. Merge/dedup
@@ -150,7 +152,19 @@ export async function executeCatalogUpdate(
   // 5. Insert events (with dedup)
   const newEvents: CatalogDiffPayload["new_events"] = [];
 
-  for (const event of extraction.events) {
+  // In-batch dedup: remove near-identical events within the same AI response
+  const seenEventKeys = new Set<string>();
+  const dedupedEvents = extraction.events.filter((event) => {
+    const key = `${normalizeMatchKey(event.entity_match_key)}::${normalizeEventTitle(event.title)}`;
+    if (seenEventKeys.has(key)) return false;
+    seenEventKeys.add(key);
+    return true;
+  });
+
+  // Cache of existing normalized event titles per entry_id (lazy-loaded)
+  const existingEventTitlesCache = new Map<string, Set<string>>();
+
+  for (const event of dedupedEvents) {
     const normalizedKey = normalizeMatchKey(event.entity_match_key);
     let entry = entryMap.get(normalizedKey);
     if (!entry) {
@@ -198,16 +212,21 @@ export async function executeCatalogUpdate(
 
     if ((count ?? 0) >= MAX_EVENTS_PER_ENTRY) continue;
 
-    // Dedup: check for existing event with same title + entry_id
-    const { data: existingEvent } = await adminClient
-      .from("catalog_entry_events")
-      .select("id")
-      .eq("entry_id", entry.id)
-      .eq("title", event.title)
-      .limit(1)
-      .maybeSingle();
+    // Dedup: check for existing event with normalized title match
+    if (!existingEventTitlesCache.has(entry.id)) {
+      const { data: existingEvents } = await adminClient
+        .from("catalog_entry_events")
+        .select("title")
+        .eq("entry_id", entry.id);
+      const titles = (existingEvents ?? []).map((e: { title: string }) =>
+        normalizeEventTitle(e.title),
+      );
+      existingEventTitlesCache.set(entry.id, new Set(titles));
+    }
 
-    if (existingEvent) continue;
+    const normalizedTitle = normalizeEventTitle(event.title);
+    const cachedTitles = existingEventTitlesCache.get(entry.id)!;
+    if (cachedTitles.has(normalizedTitle)) continue;
 
     await adminClient.from("catalog_entry_events").insert({
       entry_id: entry.id,
@@ -219,6 +238,9 @@ export async function executeCatalogUpdate(
       event_date: event.event_date || null,
       source_url: event.source_url || null,
     } as never);
+
+    // Update cache so subsequent events in this batch dedup correctly
+    cachedTitles.add(normalizedTitle);
 
     newEvents.push({
       entry_id: entry.id,
@@ -294,6 +316,64 @@ function entryDisplayName(data: unknown, matchKey: string): string {
 
 function normalizeMatchKey(key: string): string {
   return key.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function normalizeEventTitle(title: string): string {
+  return normalizeMatchKey(title).replace(/[.,;:!?]+$/g, "");
+}
+
+async function buildRecentEventsContext(
+  existingEntries: CatalogEntry[],
+  adminClient: SupabaseClient<Database>,
+): Promise<string> {
+  const entries = existingEntries.slice(0, 50);
+  if (entries.length === 0) return "";
+
+  const { data: recentEvents } = await adminClient
+    .from("catalog_entry_events")
+    .select("entry_id, title, event_type")
+    .in(
+      "entry_id",
+      entries.map((e) => e.id),
+    )
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (!recentEvents || recentEvents.length === 0) return "";
+
+  // Group by entry, limit per entry
+  const entryById = new Map(entries.map((e) => [e.id, e]));
+  const eventsByEntry = new Map<
+    string,
+    { title: string; event_type: string }[]
+  >();
+  for (const ev of recentEvents as {
+    entry_id: string;
+    title: string;
+    event_type: string;
+  }[]) {
+    let list = eventsByEntry.get(ev.entry_id);
+    if (!list) {
+      list = [];
+      eventsByEntry.set(ev.entry_id, list);
+    }
+    if (list.length < MAX_RECENT_EVENTS_PER_ENTRY) {
+      list.push({ title: ev.title, event_type: ev.event_type });
+    }
+  }
+
+  const lines: string[] = [];
+  for (const [entryId, events] of eventsByEntry) {
+    const entry = entryById.get(entryId);
+    if (!entry) continue;
+    const name = entryDisplayName(entry.data, entry.match_key);
+    for (const ev of events) {
+      lines.push(`- ${name}: ${ev.title} (${ev.event_type})`);
+    }
+  }
+
+  if (lines.length === 0) return "";
+  return `\nRecent events already recorded (DO NOT duplicate these):\n${lines.join("\n")}\n`;
 }
 
 async function loadSchema(
@@ -393,6 +473,7 @@ async function extractEntitiesAndEvents(
   systemPrompt: string | null,
   schema: CatalogSchema,
   existingEntries: CatalogEntry[],
+  adminClient: SupabaseClient<Database>,
 ): Promise<AIExtractionResult> {
   const fields = schema.fields as unknown as CatalogField[];
   const fieldDescriptions = fields
@@ -416,6 +497,12 @@ async function extractEntitiesAndEvents(
       return { id: e.id, match_key: e.match_key, ...keyFields };
     });
 
+  // Fetch recent events for existing entries so the AI can avoid duplicates
+  const recentEventsContext = await buildRecentEventsContext(
+    existingEntries,
+    adminClient,
+  );
+
   const prompt = `You are extracting structured entities and events from source data for a ${schema.entity_type} catalog.
 
 ${systemPrompt ? `User instructions: ${systemPrompt}\n` : ""}
@@ -427,7 +514,7 @@ ${
     ? `Existing entities in the catalog (${entryIndex.length} entries):
 ${JSON.stringify(entryIndex, null, 1)}`
     : "This is an empty catalog — all entities will be new."
-}
+}${recentEventsContext}
 
 Instructions:
 - Extract all ${schema.entity_type} entities mentioned in the source data
@@ -437,6 +524,8 @@ Instructions:
 - Set status to "existing" if it exists and has no changes
 - Also extract any events/news about entities (funding, hiring, product launches, expansions, etc.)
 - NEVER invent entities or events — only extract what's explicitly in the source data
+- Do NOT create multiple events for the same underlying fact. Merge duplicates into one event with the most specific event_type.
+- Check existing events listed above — skip any event already recorded.
 
 Respond with ONLY a valid JSON object:
 {
