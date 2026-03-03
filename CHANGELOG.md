@@ -8,19 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- URL source modal with real-time validation and accessibility checking
-- Automatic page title extraction from URLs during validation
-- URL source limit counter (40 per tile) displayed in modal
-- SSRF protection with backend validation for URL sources
+- Persistent entity catalog tile type with AI-detected schema, diffs, and events
+- Slack `slack_reader` tile type for reading channel messages
+- Bidirectional Slack integration (input via slack_reader, output via channel delivery)
+- Multi-workspace Slack support with per-workspace OAuth tokens
+- Slack channel metadata in AI prompt context
+- Configurable Slack messages limit and time frame with calendar presets
+- AI-powered prompt improvement suggestions
+- URL validation modal with auto-title fetch and SSRF protection
+- Batch URL extraction with 20 URL limit
+- Advanced scheduler on tile settings page
+- Run confirmation dialog for manual tile execution
 
 ### Changed
-- URL sources now added via dedicated modal instead of inline form
-- Select components aligned to left for better readability
+- Updated AI SDK and switched to gemini-flash-latest model
+- Removed all UI sounds
+- Synced documentation (CLAUDE.md, README.md) with current codebase state
 
-### Improved
-- URL source dialog code simplified and optimized (421 → 398 lines)
-- Extracted reusable validation status component
-- Fixed React 19 FormEvent deprecation warning
+### Fixed
+- Hard timeouts and batched tile processing in cron
+- Slack output message delivery reliability (await deliverSlackOutput)
+- Slack mrkdwn table and list formatting
+- Dialog state preservation across Slack OAuth flow
+- Owner included in mosaic member count
+- Enriched tile execution error logs with Supabase details
+- Domain name fallback for URL source titles
+- Keyword extraction for wrapped content
 
 ## [1.3.0] - 2026-02-13
 

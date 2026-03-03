@@ -1,6 +1,6 @@
 # Mosaic AI
 
-Automated intelligence gathering and analysis platform. Create visual workspaces with tiles that scrape web pages, perform AI-powered searches, and process data through configurable pipelines.
+Automated intelligence gathering and analysis platform. Create visual workspaces with tiles that scrape web pages, perform AI-powered searches, read Slack channels, and process data through configurable pipelines.
 
 ## Tech Stack
 

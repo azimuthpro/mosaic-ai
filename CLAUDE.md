@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Mosaic AI is an automated intelligence gathering and analysis platform. Users create **Mosaics** (workspaces) containing visual **Tiles** that periodically scrape web pages using Firecrawl, perform web searches via Tavily, and process data with AI (Google Gemini). Results are stored in a database with optional Google Sheets integration.
+Mosaic AI is an automated intelligence gathering and analysis platform. Users create **Mosaics** (workspaces) containing visual **Tiles** that periodically scrape web pages using Firecrawl, perform web searches via Tavily, read Slack channels, and process data with AI (Google Gemini). Results are stored in a database with optional Slack output and Google Sheets integration.
 
 ## Development Commands
 
@@ -36,6 +36,8 @@ npm run lint     # Run ESLint
   - `url_reader`: Web pages scraped via Firecrawl. With connections: extracts URLs from connected tile data and scrapes them.
   - `web_search`: AI-powered web search via Tavily API. With connections: extracts keywords from connected tile data and uses them as search queries.
   - `analyzer`: Process and analyze connected tile data. Receives full report content from connections.
+  - `slack_reader`: Reads messages from connected Slack channels. Config: channel_id, max_messages, include_threads, hours_back.
+  - `catalog`: Persistent entity catalog with AI-detected schema. Tracks entities across executions with diffs and events.
 - **Tile Connections**: Universal data flow links between tiles. Any tile type can receive connections, with type-specific extraction of data from connected tiles.
 - **Tile Sources**: Data inputs for tiles (URLs, search queries, or referenced tiles)
 - **Mosaic Sharing**: Role-based access control (owner/admin/member) at mosaic level
@@ -59,7 +61,8 @@ npm run lint     # Run ESLint
 7. Structured result stored in Supabase
 8. Webhooks triggered on job events (started, completed, failed)
 9. If downstream tiles have `trigger_on_source_update` enabled, they automatically execute (cascading)
-10. Data optionally appended to user's Google Sheet
+10. Slack output delivered if enabled on the tile
+11. Data optionally appended to user's Google Sheet
 
 ### Database Schema (Supabase)
 
@@ -89,6 +92,15 @@ npm run lint     # Run ESLint
 **Skills Tables:**
 - `tile_skills` - Reusable skill/prompt templates for tiles
 
+**Integration Tables:**
+- `user_integrations` - OAuth tokens for external services (e.g., Slack); keyed by (user_id, provider, provider_team_id)
+
+**Catalog Tables:**
+- `catalog_schemas` - AI-detected entity schema per catalog tile
+- `catalog_entries` - Persistent entities tracked across executions
+- `catalog_entry_events` - Chronological events per entity
+- `catalog_diffs` - Change summary per execution (added/updated entries, new events)
+
 ### Key Utilities
 
 - `lib/sources/tile-content-fetcher.ts` - Content fetching for tile sources
@@ -101,11 +113,24 @@ npm run lint     # Run ESLint
 - `lib/email/sendgrid.ts` - Email sending with Mosaic AI branding
 - `lib/tiles/extract-urls-from-job.ts` - URL extraction from connected tile job results
 - `lib/tiles/extract-keywords-from-job.ts` - Keyword extraction from connected tile job results
+- `lib/tiles/trigger-downstream.ts` - Cascading tile execution
+- `lib/slack/client.ts` - Slack API client
+- `lib/slack/integration.ts` - Slack integration helpers
+- `lib/slack/oauth.ts` - Slack OAuth flow
+- `lib/outputs/slack-output.ts` - Slack message delivery after tile execution
+- `lib/catalog/execute-catalog.ts` - Catalog tile execution logic
+- `lib/execution/context.ts` - Execution context management
+- `lib/execution/timeout.ts` - Execution timeout handling
 
 ### Key API Routes
 
+- `/api/ai/improve-prompt` - AI-powered prompt improvement suggestions
 - `/api/cron/trigger` - Protected endpoint for scheduled job execution (hourly, respects mosaic timezone)
 - `/api/tiles/run` - Manual tile execution endpoint
+- `/api/slack/channels` - List Slack channels for connected workspaces
+- `/api/auth/slack/connect` - Initiate Slack OAuth flow
+- `/api/auth/slack/callback` - Handle Slack OAuth callback
+- `/api/v1/sources/validate-url` - URL validation endpoint
 - `/api/v1/tiles/[tileId]/run` - V1 API tile execution with SSE streaming
 - `/api/v1/tiles/[tileId]/status` - V1 API tile status endpoint
 - `/api/v1/tiles/[tileId]/data` - V1 API tile data endpoint
