@@ -61,14 +61,14 @@ export async function POST(request: Request): Promise<Response> {
       team_id;
 
     if (isUserMessage && /mosaic/i.test(event.text!)) {
-      // Fire-and-forget: don't block the 200 response
-      handleMosaicMention(team_id!, event.channel!, event.ts!).catch((err) => {
+      try {
+        await handleMosaicMention(team_id!, event.channel!, event.ts!);
+      } catch (err) {
         console.error("[slack-events] handleMosaicMention error:", err);
-      });
+      }
     }
   }
 
-  // Always respond 200 promptly to avoid Slack retries
   return new Response(null, { status: 200 });
 }
 
@@ -77,13 +77,22 @@ async function handleMosaicMention(
   channel: string,
   messageTs: string,
 ): Promise<void> {
+  console.log("[slack-events] mention detected", { teamId, channel, messageTs });
+
   const admin = createAdminClient();
 
   const monitored = await isChannelMonitored(admin, channel);
-  if (!monitored) return;
+  if (!monitored) {
+    console.log("[slack-events] channel not monitored, skipping", { channel });
+    return;
+  }
 
   const token = await resolveTokenForTeam(admin, teamId);
-  if (!token) return;
+  if (!token) {
+    console.log("[slack-events] no token for team, skipping", { teamId });
+    return;
+  }
 
   await addReaction(token, channel, messageTs, "eyes");
+  console.log("[slack-events] reaction added", { channel, messageTs });
 }
