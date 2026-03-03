@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { addReaction } from "@/lib/slack/client";
-import {
-  isChannelMonitored,
-  resolveTokenForTeam,
-} from "@/lib/slack/events/monitor-check";
+import { resolveTokenForTeam } from "@/lib/slack/events/monitor-check";
 import { verifySlackSignature } from "@/lib/slack/verify-signature";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -43,6 +40,15 @@ export async function POST(request: Request): Promise<Response> {
 
   const payload = JSON.parse(body) as SlackEventPayload;
 
+  console.log("[slack-events] received", {
+    type: payload.type,
+    eventType: payload.event?.type,
+    subtype: payload.event?.subtype,
+    hasBotId: !!payload.event?.bot_id,
+    text: payload.event?.text?.slice(0, 100),
+    channel: payload.event?.channel,
+  });
+
   // Handle Slack URL verification challenge (one-time setup)
   if (payload.type === "url_verification") {
     return NextResponse.json({ challenge: payload.challenge });
@@ -60,11 +66,24 @@ export async function POST(request: Request): Promise<Response> {
       event.ts &&
       team_id;
 
-    if (isUserMessage && /mosaic/i.test(event.text!)) {
-      try {
-        await handleMosaicMention(team_id!, event.channel!, event.ts!);
-      } catch (err) {
-        console.error("[slack-events] handleMosaicMention error:", err);
+    if (isUserMessage) {
+      // Extract all @mentions from the message text
+      const mentionedIds = Array.from(
+        event.text!.matchAll(/<@([A-Z0-9]+)>/g),
+        (m) => m[1],
+      );
+
+      if (mentionedIds.length > 0) {
+        try {
+          await reactIfMosaicBotMentioned(
+            team_id!,
+            event.channel!,
+            event.ts!,
+            mentionedIds,
+          );
+        } catch (err) {
+          console.error("[slack-events] reactIfMosaicBotMentioned error:", err);
+        }
       }
     }
   }
@@ -72,20 +91,23 @@ export async function POST(request: Request): Promise<Response> {
   return new Response(null, { status: 200 });
 }
 
-async function handleMosaicMention(
+/**
+ * Resolves a token for the team, checks if any mentioned user is the Mosaic bot,
+ * and adds an "eyes" reaction if so.
+ */
+async function reactIfMosaicBotMentioned(
   teamId: string,
   channel: string,
   messageTs: string,
+  mentionedIds: string[],
 ): Promise<void> {
-  console.log("[slack-events] mention detected", { teamId, channel, messageTs });
+  console.log("[slack-events] checking mentions", {
+    teamId,
+    channel,
+    mentionedIds,
+  });
 
   const admin = createAdminClient();
-
-  const monitored = await isChannelMonitored(admin, channel);
-  if (!monitored) {
-    console.log("[slack-events] channel not monitored, skipping", { channel });
-    return;
-  }
 
   const token = await resolveTokenForTeam(admin, teamId);
   if (!token) {
@@ -93,6 +115,46 @@ async function handleMosaicMention(
     return;
   }
 
+  const mentioned = await includesMosaicBot(token, mentionedIds);
+  if (!mentioned) {
+    console.log("[slack-events] no Mosaic bot in mentions, skipping");
+    return;
+  }
+
   await addReaction(token, channel, messageTs, "eyes");
   console.log("[slack-events] reaction added", { channel, messageTs });
+}
+
+interface SlackUserInfoResponse {
+  ok: boolean;
+  user?: { is_bot?: boolean; real_name?: string; name?: string };
+}
+
+/**
+ * Checks if any of the mentioned user IDs is a bot whose name contains "Mosaic".
+ */
+async function includesMosaicBot(
+  token: string,
+  userIds: string[],
+): Promise<boolean> {
+  for (const userId of userIds) {
+    try {
+      const res = await fetch(
+        `https://slack.com/api/users.info?user=${userId}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const data = (await res.json()) as SlackUserInfoResponse;
+      const user = data.user;
+      if (
+        data.ok &&
+        user?.is_bot &&
+        /mosaic/i.test(user.real_name ?? user.name ?? "")
+      ) {
+        return true;
+      }
+    } catch {
+      // skip unresolvable users
+    }
+  }
+  return false;
 }
