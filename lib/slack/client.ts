@@ -483,3 +483,26 @@ export async function postMessage(
     },
   });
 }
+
+/**
+ * Adds a reaction emoji to a message.
+ * Silently succeeds if the reaction was already added (idempotent).
+ */
+export async function addReaction(
+  token: string,
+  channel: string,
+  timestamp: string,
+  name: string,
+): Promise<void> {
+  try {
+    await slackFetch(token, "reactions.add", {
+      body: { channel, timestamp, name },
+    });
+  } catch (err) {
+    // "already_reacted" is expected on Slack retries — swallow it
+    const message = err instanceof Error ? err.message : "";
+    if (!message.includes("already_reacted")) {
+      throw err;
+    }
+  }
+}
