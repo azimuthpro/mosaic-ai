@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Updated AI SDK and switched to gemini-flash-latest model
 - Removed all UI sounds
-- Synced documentation (CLAUDE.md, README.md) with current codebase state
+- Synced documentation (CLAUDE.md, README.md, CHANGELOG.md) with current codebase state
 
 ### Fixed
 - Hard timeouts and batched tile processing in cron

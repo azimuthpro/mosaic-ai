@@ -50,6 +50,5 @@ npm run lint     # Run ESLint
 
 ## Documentation
 
-- [Project Specification](docs/specification.md) - Detailed technical overview
 - [CLAUDE.md](CLAUDE.md) - Architecture and codebase guide
 - [CHANGELOG.md](CHANGELOG.md) - Version history

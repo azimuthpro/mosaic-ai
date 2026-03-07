@@ -21,7 +21,7 @@ npm run lint     # Run ESLint
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS v4
 - **Auth & Database**: Supabase (PostgreSQL with RLS, Magic Link auth)
-- **AI**: Vercel AI SDK with Google Gemini 3 Flash
+- **AI**: Vercel AI SDK with Google Gemini Flash
 - **Web Scraping**: Firecrawl
 - **Web Search**: Tavily API
 - **Scheduling**: Vercel Cron Jobs
@@ -121,6 +121,11 @@ npm run lint     # Run ESLint
 - `lib/catalog/execute-catalog.ts` - Catalog tile execution logic
 - `lib/execution/context.ts` - Execution context management
 - `lib/execution/timeout.ts` - Execution timeout handling
+- `lib/ai/gemini.ts` - Gemini model configuration and content analysis
+- `lib/search/tavily.ts` - Tavily web search client
+- `lib/slack/verify-signature.ts` - Slack request signature verification
+- `lib/actions/catalog.ts` - Server actions for catalog CRUD
+- `lib/actions/integrations.ts` - Server actions for user integrations (OAuth tokens)
 
 ### Key API Routes
 
@@ -139,6 +144,7 @@ npm run lint     # Run ESLint
 - `/api/v1/tiles/[tileId]/webhooks/[webhookId]/test` - Webhook test delivery
 - `/api/v1/tiles/[tileId]/webhooks/[webhookId]/deliveries` - Webhook delivery history
 - `/api/v1/mosaics/[mosaicId]/keys` - API key management
+- `/api/slack/events` - Slack Events API handler (bot mentions, signature verification)
 - `/api/auth/check-allowlist` - Email allowlist verification for signup
 - `/api/auth/invitation` - Mosaic invitation handling
 
