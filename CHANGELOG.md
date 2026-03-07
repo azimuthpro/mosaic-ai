@@ -7,11 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-03-07
+
 ### Added
 - Persistent entity catalog tile type with AI-detected schema, diffs, and events
 - Slack `slack_reader` tile type for reading channel messages
 - Bidirectional Slack integration (input via slack_reader, output via channel delivery)
 - Multi-workspace Slack support with per-workspace OAuth tokens
+- Slack Events API with bot mention reactions
 - Slack channel metadata in AI prompt context
 - Configurable Slack messages limit and time frame with calendar presets
 - AI-powered prompt improvement suggestions
@@ -33,7 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Owner included in mosaic member count
 - Enriched tile execution error logs with Supabase details
 - Domain name fallback for URL source titles
-- Keyword extraction for wrapped content
+- Duplicate event detection in catalog tiles
+- Slack bot trigger on @mention instead of keyword
 
 ## [1.3.0] - 2026-02-13
 
