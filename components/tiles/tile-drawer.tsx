@@ -18,20 +18,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { deleteTile } from "@/lib/actions/tiles";
@@ -116,12 +109,15 @@ export function TileDrawer({
   if (!tile) return null;
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
-        <DrawerHeader className="flex flex-row items-center justify-between border-b border-border px-6 pb-4">
-          <DrawerTitle className="sr-only">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        hideClose
+        className="sm:max-w-[95vw] sm:max-h-[95vh] w-full h-full max-w-full max-h-full flex flex-col p-0"
+      >
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <DialogTitle className="sr-only">
             {tile.name || "Tile Settings"}
-          </DrawerTitle>
+          </DialogTitle>
           <div className="flex items-center gap-3">
             <div
               className="flex h-10 w-10 items-center justify-center rounded-lg"
@@ -140,12 +136,12 @@ export function TileDrawer({
                 }
                 className="h-7 px-0 text-lg font-semibold border-transparent hover:border-none focus:border-none ring-0 bg-transparent"
               />
-              <DrawerDescription className="text-left">
+              <DialogDescription className="text-left">
                 {TILE_TYPE_LABELS[tile.tile_type]} · Last run:{" "}
                 {state.executionStatus?.lastJob
                   ? formatRelativeTime(state.executionStatus.lastJob.created_at)
                   : "Never"}
-              </DrawerDescription>
+              </DialogDescription>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -198,18 +194,18 @@ export function TileDrawer({
             >
               <Trash2 className="h-4 w-4" />
             </Button>
-            <DrawerClose asChild>
+            <DialogClose asChild>
               <Button variant="ghost" size="sm" title="Close">
                 <X className="h-4 w-4" />
               </Button>
-            </DrawerClose>
+            </DialogClose>
           </div>
-        </DrawerHeader>
+        </div>
 
         <Tabs
           value={state.activeSection}
           onValueChange={(v) => state.setActiveSection(v as DrawerSection)}
-          className="flex-1"
+          className="flex-1 flex flex-col min-h-0"
         >
           <div className="border-b border-border px-6">
             <TabsList className="h-12 w-full justify-start gap-1 bg-transparent p-0">
@@ -244,7 +240,7 @@ export function TileDrawer({
             </TabsList>
           </div>
 
-          <div className="overflow-y-auto p-6 max-h-[60vh]">
+          <div className="flex-1 overflow-y-auto p-6">
             <TabsContent value="status" className="m-0">
               <StatusSection tile={tile} state={state} />
             </TabsContent>
@@ -266,7 +262,7 @@ export function TileDrawer({
             </TabsContent>
           </div>
         </Tabs>
-      </DrawerContent>
+      </DialogContent>
 
       <Dialog open={showRunConfirm} onOpenChange={setShowRunConfirm}>
         <DialogContent className="sm:max-w-md">
@@ -278,30 +274,30 @@ export function TileDrawer({
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 pt-2">
-            <button
+            <Button
+              variant="outline"
               onClick={() => setRunMode("normal")}
               className={cn(
-                "flex-1 rounded-md border px-3 py-2 text-sm transition-colors",
-                runMode === "normal"
-                  ? "border-amber-500 bg-amber-500/10 text-amber-400"
-                  : "border-border bg-muted/20 text-muted-foreground hover:bg-muted/40",
+                "flex-1",
+                runMode === "normal" &&
+                  "border-amber-500 bg-amber-500/10 text-amber-400",
               )}
             >
-              <Play className="h-3.5 w-3.5 inline mr-1.5" />
+              <Play className="h-3.5 w-3.5" />
               Normal
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => setRunMode("debug")}
               className={cn(
-                "flex-1 rounded-md border px-3 py-2 text-sm transition-colors",
-                runMode === "debug"
-                  ? "border-purple-500 bg-purple-500/10 text-purple-400"
-                  : "border-border bg-muted/20 text-muted-foreground hover:bg-muted/40",
+                "flex-1",
+                runMode === "debug" &&
+                  "border-purple-500 bg-purple-500/10 text-purple-400",
               )}
             >
-              <Bug className="h-3.5 w-3.5 inline mr-1.5" />
+              <Bug className="h-3.5 w-3.5" />
               Debug
-            </button>
+            </Button>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
@@ -366,6 +362,6 @@ export function TileDrawer({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Drawer>
+    </Dialog>
   );
 }
