@@ -21,6 +21,30 @@ interface SlackUser {
   profile?: { display_name?: string; real_name?: string };
 }
 
+interface SlackReaction {
+  name: string;
+  count: number;
+  users: string[];
+}
+
+interface SlackAttachment {
+  fallback?: string;
+  title?: string;
+  text?: string;
+  pretext?: string;
+  title_link?: string;
+  from_url?: string;
+  service_name?: string;
+}
+
+interface SlackFile {
+  name: string;
+  title?: string;
+  mimetype?: string;
+  url_private?: string;
+  filetype?: string;
+}
+
 interface SlackMessage {
   ts: string;
   user?: string;
@@ -28,6 +52,13 @@ interface SlackMessage {
   thread_ts?: string;
   reply_count?: number;
   replies?: SlackMessage[];
+  subtype?: string;
+  bot_id?: string;
+  bot_profile?: { name: string };
+  reactions?: SlackReaction[];
+  attachments?: SlackAttachment[];
+  files?: SlackFile[];
+  edited?: { user: string; ts: string };
 }
 
 interface SlackApiResponse {
@@ -114,6 +145,15 @@ export async function listChannels(
   return channels;
 }
 
+/** Subtypes that represent channel housekeeping noise, not real messages. */
+const SKIP_SUBTYPES = new Set([
+  "channel_join",
+  "channel_leave",
+  "channel_purpose",
+  "channel_topic",
+  "channel_name",
+]);
+
 /** Converts a Date to a Unix timestamp string (seconds). */
 function toUnixSeconds(date: Date): string {
   return String(Math.floor(date.getTime() / 1000));
@@ -178,6 +218,27 @@ export function getDaysBackRange(days: number): {
     latest: toUnixSeconds(now),
     label: `last ${days}d`,
   };
+}
+
+function formatReactions(reactions: SlackReaction[]): string {
+  return reactions.map((r) => `${r.name}×${r.count}`).join(", ");
+}
+
+function formatAttachments(attachments: SlackAttachment[]): string[] {
+  const lines: string[] = [];
+  for (const att of attachments) {
+    if (att.pretext) lines.push(`  > ${att.pretext}`);
+    if (att.title) {
+      const service = att.service_name ? ` (${att.service_name})` : "";
+      lines.push(`  > *${att.title}*${service}`);
+    }
+    if (att.text) {
+      for (const textLine of att.text.split("\n").slice(0, 5)) {
+        lines.push(`  > ${textLine}`);
+      }
+    }
+  }
+  return lines;
 }
 
 /**
@@ -253,34 +314,59 @@ export async function fetchChannelMessages(
     }
   }
 
-  // Collect all unique user IDs from messages and thread replies
-  const allMessages = messages.concat(
+  const filteredMessages = messages.filter(
+    (msg) => !msg.subtype || !SKIP_SUBTYPES.has(msg.subtype),
+  );
+
+  // Collect all unique user IDs from messages and thread replies (skip bots)
+  const allMessages = filteredMessages.concat(
     Array.from(threadReplies.values()).flat(),
   );
   const userIds = new Set(
-    allMessages.map((msg) => msg.user).filter(Boolean) as string[],
+    allMessages
+      .filter((msg) => msg.user && !msg.bot_id)
+      .map((msg) => msg.user) as string[],
   );
 
   // Batch-resolve all user IDs to display names
   const entries = await Promise.all(
-    Array.from(userIds).map(async (id) =>
-      [id, await resolveUserName(token, id)] as const,
+    Array.from(userIds).map(
+      async (id) => [id, await resolveUserName(token, id)] as const,
     ),
   );
   const userNames = new Map(entries);
 
-  function authorName(userId: string | undefined): string {
-    if (!userId) return "Unknown";
-    return userNames.get(userId) ?? userId;
+  function resolveAuthorName(msg: SlackMessage): string {
+    if (msg.bot_id) return msg.bot_profile?.name ?? "Bot";
+    if (!msg.user) return "Unknown";
+    return userNames.get(msg.user) ?? msg.user;
   }
 
   function formatLine(msg: SlackMessage, indent = ""): string {
     const time = new Date(parseFloat(msg.ts) * 1000).toISOString();
-    return `${indent}[${time}] **${authorName(msg.user)}**: ${msg.text ?? ""}`;
+    const name = resolveAuthorName(msg);
+    const botTag = msg.bot_id ? " [bot]" : "";
+    const editedTag = msg.edited ? " (edited)" : "";
+    const parts: string[] = [
+      `${indent}[${time}] **${name}**${botTag}: ${msg.text ?? ""}${editedTag}`,
+    ];
+
+    if (msg.reactions?.length) {
+      parts.push(`${indent}  Reactions: ${formatReactions(msg.reactions)}`);
+    }
+    if (msg.attachments?.length) {
+      parts.push(...formatAttachments(msg.attachments).map((l) => indent + l));
+    }
+    if (msg.files?.length) {
+      const fileNames = msg.files.map((f) => f.title || f.name).join(", ");
+      parts.push(`${indent}  Files: ${fileNames}`);
+    }
+
+    return parts.join("\n");
   }
 
   // Format messages with author names and inline thread replies
-  const formatted = messages.map((msg) => {
+  const formatted = filteredMessages.map((msg) => {
     const line = formatLine(msg);
     const replies = threadReplies.get(msg.ts);
     if (!replies) return line;

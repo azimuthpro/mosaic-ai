@@ -8,6 +8,7 @@ const SLACK_SCOPES = [
   "groups:history",
   "chat:write",
   "users:read",
+  "reactions:read",
   "reactions:write",
 ].join(",");
 
