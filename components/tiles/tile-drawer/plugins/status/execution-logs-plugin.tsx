@@ -146,8 +146,6 @@ export function ExecutionLogsPlugin({ tile, state }: ExecutionLogsPluginProps) {
     };
   }, [tile.id, collapsed, executionStatus]);
 
-  if (!isLoading && logs.length === 0 && collapsed) return null;
-
   return (
     <PluginCard
       id="execution-logs"
