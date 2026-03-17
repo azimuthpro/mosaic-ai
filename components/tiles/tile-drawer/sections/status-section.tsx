@@ -9,7 +9,6 @@ import { CurrentRunPlugin } from "../plugins/status/current-run-plugin";
 import { ExecutionLogsPlugin } from "../plugins/status/execution-logs-plugin";
 import { LastResultPreviewPlugin } from "../plugins/status/last-result-preview-plugin";
 import { QuickStatsPlugin } from "../plugins/status/quick-stats-plugin";
-import { RecentExecutionsPlugin } from "../plugins/status/recent-executions-plugin";
 
 interface StatusSectionProps {
   tile: TileWithSources;
@@ -29,7 +28,6 @@ export function StatusSection({ tile, state }: StatusSectionProps) {
         <div className="space-y-3">
           <CurrentRunPlugin state={state} />
           <QuickStatsPlugin tile={tile} state={state} />
-          <RecentExecutionsPlugin state={state} />
           <ExecutionLogsPlugin tile={tile} state={state} />
           <LastResultPreviewPlugin state={state} />
         </div>

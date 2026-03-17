@@ -73,6 +73,7 @@ export async function getTileExecutionStatus(
 
 export interface ExecutionLogEntry {
   id: string;
+  job_id: string;
   event_type: string;
   metadata: Record<string, unknown>;
   created_at: string;
@@ -93,7 +94,7 @@ export async function getTileExecutionLogs(
 
   const { data, error } = await supabase
     .from("tile_job_execution_logs")
-    .select("id, event_type, metadata, created_at")
+    .select("id, job_id, event_type, metadata, created_at")
     .eq("job_id", jobId)
     .order("created_at", { ascending: true });
 
@@ -135,7 +136,7 @@ export async function getTileAllExecutionLogs(
 
   const { data, error } = await supabase
     .from("tile_job_execution_logs")
-    .select("id, event_type, metadata, created_at")
+    .select("id, job_id, event_type, metadata, created_at")
     .in("job_id", jobIds)
     .order("created_at", { ascending: false })
     .limit(limit);

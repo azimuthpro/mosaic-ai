@@ -2,6 +2,7 @@
 
 import {
   ArrowDown,
+  Bug,
   CheckCircle2,
   ChevronDown,
   Clock,
@@ -113,6 +114,260 @@ function getInlineSummary(
   }
 }
 
+function MetadataRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between text-xs text-muted-foreground">
+      <span>{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+}
+
+function MetadataDetails({
+  eventType,
+  metadata,
+}: {
+  eventType: string;
+  metadata: Record<string, unknown>;
+}) {
+  switch (eventType) {
+    case "started":
+      return (
+        <div className="space-y-1">
+          {metadata.trigger !== undefined && (
+            <MetadataRow label="Trigger" value={String(metadata.trigger)} />
+          )}
+          {metadata.tile_type !== undefined && (
+            <MetadataRow label="Tile type" value={String(metadata.tile_type)} />
+          )}
+          {metadata.source_count !== undefined && (
+            <MetadataRow
+              label="Source count"
+              value={String(metadata.source_count)}
+            />
+          )}
+          {metadata.max_cascade_depth !== undefined && (
+            <MetadataRow
+              label="Max depth"
+              value={String(metadata.max_cascade_depth)}
+            />
+          )}
+          {metadata.timeout_ms !== undefined && (
+            <MetadataRow
+              label="Timeout"
+              value={formatDuration(Number(metadata.timeout_ms))}
+            />
+          )}
+        </div>
+      );
+
+    case "completed":
+      return (
+        <div className="space-y-1">
+          {metadata.duration_ms !== undefined && (
+            <MetadataRow
+              label="Duration"
+              value={formatDuration(Number(metadata.duration_ms))}
+            />
+          )}
+          {metadata.successful_sources !== undefined &&
+            metadata.total_sources !== undefined && (
+              <MetadataRow
+                label="Sources"
+                value={`${metadata.successful_sources} / ${metadata.total_sources} succeeded`}
+              />
+            )}
+          {metadata.trigger !== undefined && (
+            <MetadataRow label="Trigger" value={String(metadata.trigger)} />
+          )}
+        </div>
+      );
+
+    case "failed":
+    case "timeout": {
+      const errorMsg =
+        metadata.error_message ?? metadata.error ?? metadata.message;
+      return (
+        <div className="space-y-1">
+          {errorMsg !== undefined && (
+            <div className="rounded bg-red-500/10 p-2 text-xs text-red-400">
+              {String(errorMsg)}
+            </div>
+          )}
+          {metadata.duration_ms !== undefined && (
+            <MetadataRow
+              label="Duration"
+              value={formatDuration(Number(metadata.duration_ms))}
+            />
+          )}
+          {metadata.trigger !== undefined && (
+            <MetadataRow label="Trigger" value={String(metadata.trigger)} />
+          )}
+        </div>
+      );
+    }
+
+    case "cycle_detected":
+      return (
+        <div className="space-y-1">
+          {metadata.visited_count !== undefined && (
+            <MetadataRow
+              label="Visited tiles"
+              value={String(metadata.visited_count)}
+            />
+          )}
+          {metadata.cascade_depth !== undefined && (
+            <MetadataRow
+              label="Cascade depth"
+              value={String(metadata.cascade_depth)}
+            />
+          )}
+          {metadata.triggered_by_tile_id !== undefined && (
+            <MetadataRow
+              label="Triggered by"
+              value={String(metadata.triggered_by_tile_id)}
+            />
+          )}
+        </div>
+      );
+
+    case "depth_exceeded":
+      return (
+        <div className="space-y-1">
+          {metadata.cascade_depth !== undefined && (
+            <MetadataRow
+              label="Cascade depth"
+              value={String(metadata.cascade_depth)}
+            />
+          )}
+          {metadata.max_cascade_depth !== undefined && (
+            <MetadataRow
+              label="Max cascade depth"
+              value={String(metadata.max_cascade_depth)}
+            />
+          )}
+        </div>
+      );
+
+    case "rate_limited":
+      return (
+        <div className="space-y-1">
+          {metadata.reason !== undefined && (
+            <MetadataRow label="Reason" value={String(metadata.reason)} />
+          )}
+          {metadata.current_count !== undefined &&
+            metadata.max_count !== undefined && (
+              <MetadataRow
+                label="Count"
+                value={`${metadata.current_count} / ${metadata.max_count}`}
+              />
+            )}
+          {metadata.cascade_depth !== undefined && (
+            <MetadataRow
+              label="Cascade depth"
+              value={String(metadata.cascade_depth)}
+            />
+          )}
+        </div>
+      );
+
+    default:
+      return (
+        <pre className="text-[11px] leading-relaxed text-muted-foreground whitespace-pre-wrap break-words max-h-48 overflow-auto rounded bg-muted/30 p-2">
+          {JSON.stringify(metadata, null, 2)}
+        </pre>
+      );
+  }
+}
+
+interface SourceDetail {
+  identifier: string;
+  type: string;
+  success: boolean;
+  contentLength: number;
+  error?: string;
+}
+
+function DebugInfoSection({ debug }: { debug: Record<string, unknown> }) {
+  const hasAiInfo = debug.modelId !== undefined;
+  const sourceDetails = debug.sourceDetails as SourceDetail[] | undefined;
+
+  return (
+    <div className="mt-2 space-y-1.5 border-t border-border pt-2">
+      <div className="flex items-center gap-1.5 text-xs text-purple-400 font-medium">
+        <Bug className="h-3 w-3" />
+        Debug Info
+      </div>
+
+      {hasAiInfo && (
+        <>
+          <MetadataRow label="Model" value={String(debug.modelId)} />
+          <MetadataRow
+            label="Tokens (prompt / completion / total)"
+            value={`${String(debug.promptTokens)} / ${String(debug.completionTokens)} / ${String(debug.totalTokens)}`}
+          />
+          <MetadataRow
+            label="Finish reason"
+            value={String(debug.finishReason)}
+          />
+        </>
+      )}
+
+      <MetadataRow
+        label="Source fetch"
+        value={`${String(debug.sourceFetchDurationMs)}ms`}
+      />
+      <MetadataRow
+        label="AI analysis"
+        value={`${String(debug.aiAnalysisDurationMs)}ms`}
+      />
+      <MetadataRow label="Total" value={`${String(debug.totalDurationMs)}ms`} />
+
+      {hasAiInfo && typeof debug.fullPrompt === "string" && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Full prompt
+          </summary>
+          <pre className="mt-1 max-h-48 overflow-auto rounded bg-muted/30 p-2 text-[11px] leading-relaxed whitespace-pre-wrap break-words">
+            {debug.fullPrompt}
+          </pre>
+        </details>
+      )}
+
+      {sourceDetails && sourceDetails.length > 0 && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Source details ({sourceDetails.length})
+          </summary>
+          <div className="mt-1 space-y-1 text-xs">
+            {sourceDetails.map((src, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "rounded px-2 py-1",
+                  src.success ? "bg-muted/30" : "bg-red-500/10",
+                )}
+              >
+                <div className="flex justify-between">
+                  <span className="truncate max-w-[70%]">{src.identifier}</span>
+                  <span className="text-muted-foreground">{src.type}</span>
+                </div>
+                {src.success ? (
+                  <span className="text-muted-foreground">
+                    {src.contentLength.toLocaleString()} chars
+                  </span>
+                ) : (
+                  <span className="text-red-400">{src.error}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 interface ExecutionLogsPluginProps {
   tile: TileWithSources;
   state: TileDrawerState;
@@ -146,6 +401,17 @@ export function ExecutionLogsPlugin({ tile, state }: ExecutionLogsPluginProps) {
     };
   }, [tile.id, collapsed, executionStatus]);
 
+  // Build a map of job_id -> debug metadata from recentJobs
+  const recentJobs = executionStatus?.recentJobs ?? [];
+  const debugByJobId = new Map<string, Record<string, unknown>>();
+  for (const job of recentJobs) {
+    const meta = job.metadata as Record<string, unknown> | null;
+    const debug = meta?.debug as Record<string, unknown> | undefined;
+    if (debug) {
+      debugByJobId.set(job.id, debug);
+    }
+  }
+
   return (
     <PluginCard
       id="execution-logs"
@@ -175,6 +441,11 @@ export function ExecutionLogsPlugin({ tile, state }: ExecutionLogsPluginProps) {
             const config = EVENT_CONFIG[log.event_type] || DEFAULT_CONFIG;
             const isExpanded = expandedLogId === log.id;
             const summary = getInlineSummary(log.event_type, log.metadata);
+            const debug =
+              (log.event_type === "completed" || log.event_type === "failed") &&
+              log.job_id
+                ? debugByJobId.get(log.job_id)
+                : undefined;
 
             return (
               <div
@@ -207,10 +478,12 @@ export function ExecutionLogsPlugin({ tile, state }: ExecutionLogsPluginProps) {
                   </div>
                 </button>
                 {isExpanded && (
-                  <div className="border-t border-border px-3 py-2">
-                    <pre className="text-[11px] leading-relaxed text-muted-foreground whitespace-pre-wrap break-words max-h-48 overflow-auto rounded bg-muted/30 p-2">
-                      {JSON.stringify(log.metadata, null, 2)}
-                    </pre>
+                  <div className="border-t border-border px-3 py-2 space-y-1">
+                    <MetadataDetails
+                      eventType={log.event_type}
+                      metadata={log.metadata}
+                    />
+                    {debug && <DebugInfoSection debug={debug} />}
                   </div>
                 )}
               </div>
