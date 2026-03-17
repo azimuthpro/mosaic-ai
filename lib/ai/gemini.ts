@@ -6,11 +6,21 @@ import type { Json, LanguageCode, OutputFormat } from "@/types/database";
 
 const model = google("gemini-flash-latest");
 
+export interface DebugInfo {
+  fullPrompt: string;
+  modelId: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  finishReason: string;
+}
+
 interface AnalysisResult {
   success: boolean;
   content: Json;
   rawText?: string;
   error?: string;
+  debugInfo?: DebugInfo;
 }
 
 function stripCodeFences(text: string): string {
@@ -81,17 +91,27 @@ Here is the content to analyze:
 
 ${combinedContent}`;
 
-    const { text } = await generateText({
+    const { text, usage, finishReason } = await generateText({
       model,
       prompt: fullPrompt,
     });
 
     const content = parseResponseContent(text, outputFormat);
+    const promptTokens = usage.inputTokens ?? 0;
+    const completionTokens = usage.outputTokens ?? 0;
 
     return {
       success: true,
       content,
       rawText: text,
+      debugInfo: {
+        fullPrompt,
+        modelId: "gemini-flash-latest",
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        finishReason: finishReason ?? "unknown",
+      },
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

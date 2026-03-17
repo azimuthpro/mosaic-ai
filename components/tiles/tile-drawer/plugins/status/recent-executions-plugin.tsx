@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bug,
   CheckCircle2,
   ChevronDown,
   Clock,
@@ -15,6 +16,14 @@ import { formatDuration, formatRelativeTime } from "@/lib/utils/format";
 
 import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
 import { PluginCard } from "../plugin-card";
+
+interface SourceDetail {
+  identifier: string;
+  type: string;
+  success: boolean;
+  contentLength: number;
+  error?: string;
+}
 
 const STATUS_ICONS = {
   pending: <Clock className="h-3.5 w-3.5 text-muted-foreground" />,
@@ -114,6 +123,7 @@ export function RecentExecutionsPlugin({ state }: RecentExecutionsPluginProps) {
                       {job.error_message}
                     </div>
                   )}
+                  <DebugInfoSection metadata={metadata} />
                 </div>
               )}
             </div>
@@ -121,5 +131,101 @@ export function RecentExecutionsPlugin({ state }: RecentExecutionsPluginProps) {
         })}
       </div>
     </PluginCard>
+  );
+}
+
+function DebugInfoSection({
+  metadata,
+}: {
+  metadata: Record<string, unknown> | null;
+}) {
+  const debug = metadata?.debug as Record<string, unknown> | undefined;
+  if (!debug) return null;
+
+  const hasAiInfo = debug.modelId !== undefined;
+  const sourceDetails = debug.sourceDetails as SourceDetail[] | undefined;
+
+  return (
+    <div className="mt-2 space-y-2 border-t border-border pt-2">
+      <div className="flex items-center gap-1.5 text-purple-400 font-medium">
+        <Bug className="h-3 w-3" />
+        Debug Info
+      </div>
+
+      {hasAiInfo && (
+        <>
+          <div className="flex justify-between text-muted-foreground">
+            <span>Model</span>
+            <span>{String(debug.modelId)}</span>
+          </div>
+          <div className="flex justify-between text-muted-foreground">
+            <span>Tokens (prompt / completion / total)</span>
+            <span>
+              {String(debug.promptTokens)} / {String(debug.completionTokens)} /{" "}
+              {String(debug.totalTokens)}
+            </span>
+          </div>
+          <div className="flex justify-between text-muted-foreground">
+            <span>Finish reason</span>
+            <span>{String(debug.finishReason)}</span>
+          </div>
+        </>
+      )}
+
+      <div className="flex justify-between text-muted-foreground">
+        <span>Source fetch</span>
+        <span>{String(debug.sourceFetchDurationMs)}ms</span>
+      </div>
+      <div className="flex justify-between text-muted-foreground">
+        <span>AI analysis</span>
+        <span>{String(debug.aiAnalysisDurationMs)}ms</span>
+      </div>
+      <div className="flex justify-between text-muted-foreground">
+        <span>Total</span>
+        <span>{String(debug.totalDurationMs)}ms</span>
+      </div>
+
+      {hasAiInfo && typeof debug.fullPrompt === "string" && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
+            Full prompt
+          </summary>
+          <pre className="mt-1 max-h-48 overflow-auto rounded bg-muted/30 p-2 text-[11px] leading-relaxed whitespace-pre-wrap break-words">
+            {debug.fullPrompt}
+          </pre>
+        </details>
+      )}
+
+      {sourceDetails && sourceDetails.length > 0 && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
+            Source details ({sourceDetails.length})
+          </summary>
+          <div className="mt-1 space-y-1">
+            {sourceDetails.map((src, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "rounded px-2 py-1",
+                  src.success ? "bg-muted/30" : "bg-red-500/10",
+                )}
+              >
+                <div className="flex justify-between">
+                  <span className="truncate max-w-[70%]">{src.identifier}</span>
+                  <span className="text-muted-foreground">{src.type}</span>
+                </div>
+                {src.success ? (
+                  <span className="text-muted-foreground">
+                    {src.contentLength.toLocaleString()} chars
+                  </span>
+                ) : (
+                  <span className="text-red-400">{src.error}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
   );
 }

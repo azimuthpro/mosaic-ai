@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowRight,
   Braces,
+  Bug,
   Loader2,
   Pause,
   Play,
@@ -34,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { deleteTile } from "@/lib/actions/tiles";
+import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils/format";
 import type { TileWithSources } from "@/types/database";
 
@@ -65,6 +67,7 @@ export function TileDrawer({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRunConfirm, setShowRunConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [runMode, setRunMode] = useState<"normal" | "debug">("normal");
 
   const handleRun = async () => {
     if (!tile) return;
@@ -76,7 +79,7 @@ export function TileDrawer({
         const response = await fetch("/api/tiles/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tileId: tile.id }),
+          body: JSON.stringify({ tileId: tile.id, debug: runMode === "debug" }),
         });
         const data = await response.json();
         if (!response.ok) {
@@ -274,6 +277,32 @@ export function TileDrawer({
               execute the tile and consume API credits.
             </DialogDescription>
           </DialogHeader>
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => setRunMode("normal")}
+              className={cn(
+                "flex-1 rounded-md border px-3 py-2 text-sm transition-colors",
+                runMode === "normal"
+                  ? "border-amber-500 bg-amber-500/10 text-amber-400"
+                  : "border-border bg-muted/20 text-muted-foreground hover:bg-muted/40",
+              )}
+            >
+              <Play className="h-3.5 w-3.5 inline mr-1.5" />
+              Normal
+            </button>
+            <button
+              onClick={() => setRunMode("debug")}
+              className={cn(
+                "flex-1 rounded-md border px-3 py-2 text-sm transition-colors",
+                runMode === "debug"
+                  ? "border-purple-500 bg-purple-500/10 text-purple-400"
+                  : "border-border bg-muted/20 text-muted-foreground hover:bg-muted/40",
+              )}
+            >
+              <Bug className="h-3.5 w-3.5 inline mr-1.5" />
+              Debug
+            </button>
+          </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"

@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
-import { analyzeContent } from "@/lib/ai/gemini";
+import { analyzeContent, type DebugInfo } from "@/lib/ai/gemini";
 import { executeCatalogUpdate } from "@/lib/catalog/execute-catalog";
 import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
 import {
@@ -58,7 +58,7 @@ export async function POST(request: Request): Promise<Response> {
 
     userId = user.id;
 
-    const { tileId, urls } = await request.json();
+    const { tileId, urls, debug } = await request.json();
 
     if (!tileId) {
       return NextResponse.json(
@@ -229,6 +229,8 @@ export async function POST(request: Request): Promise<Response> {
       let sourceResults: TileSourceContent[];
       let sourceMode: "runtime" | "configured" | "linked" | "connection";
 
+      const sourceFetchStart = Date.now();
+
       if (hasRuntimeUrls) {
         sourceMode = "runtime";
         sourceResults = await fetchRuntimeUrlsContent(
@@ -284,6 +286,8 @@ export async function POST(request: Request): Promise<Response> {
         sourceMode = "configured";
       }
 
+      const sourceFetchDurationMs = Date.now() - sourceFetchStart;
+
       // Collect successful fetches
       const successfulFetches = sourceResults.filter(
         (r) => r.success && r.content,
@@ -314,6 +318,9 @@ export async function POST(request: Request): Promise<Response> {
       let resultContent: import("@/types/database").Json;
       let resultFormat = typedTile.output_format;
       let slackContent: import("@/types/database").Json;
+      let analysisDebugInfo: DebugInfo | undefined;
+
+      const aiAnalysisStart = Date.now();
 
       if (typedTile.tile_type === "catalog") {
         const catalogResult = await executeCatalogUpdate(
@@ -341,7 +348,10 @@ export async function POST(request: Request): Promise<Response> {
 
         resultContent = analysis.content;
         slackContent = resultContent;
+        analysisDebugInfo = analysis.debugInfo;
       }
+
+      const aiAnalysisDurationMs = Date.now() - aiAnalysisStart;
 
       // Save job result
       const reportInsert: TileJobResultInsert = {
@@ -366,6 +376,26 @@ export async function POST(request: Request): Promise<Response> {
       });
 
       // Update job as completed
+      const totalDurationMs = Date.now() - executionContext.startTime;
+
+      const debugMetadata = debug
+        ? {
+            debug: {
+              ...analysisDebugInfo,
+              sourceFetchDurationMs,
+              aiAnalysisDurationMs,
+              totalDurationMs,
+              sourceDetails: sourceResults.map((r) => ({
+                identifier: r.identifier,
+                type: r.sourceType,
+                success: r.success,
+                contentLength: r.content?.length ?? 0,
+                error: r.error,
+              })),
+            },
+          }
+        : {};
+
       const completedUpdate: TileJobUpdate = {
         status: "completed",
         completed_at: new Date().toISOString(),
@@ -377,6 +407,7 @@ export async function POST(request: Request): Promise<Response> {
           sources_succeeded: successfulFetches.length,
           sources_failed: sourceResults.length - successfulFetches.length,
           ...sourceBreakdown,
+          ...debugMetadata,
         },
       };
 
