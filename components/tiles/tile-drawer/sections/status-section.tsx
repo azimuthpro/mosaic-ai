@@ -6,6 +6,7 @@ import type { TileWithSources } from "@/types/database";
 
 import type { TileDrawerState } from "../hooks/use-tile-drawer-state";
 import { CurrentRunPlugin } from "../plugins/status/current-run-plugin";
+import { ExecutionLogsPlugin } from "../plugins/status/execution-logs-plugin";
 import { LastResultPreviewPlugin } from "../plugins/status/last-result-preview-plugin";
 import { QuickStatsPlugin } from "../plugins/status/quick-stats-plugin";
 import { RecentExecutionsPlugin } from "../plugins/status/recent-executions-plugin";
@@ -20,8 +21,6 @@ export function StatusSection({ tile, state }: StatusSectionProps) {
 
   return (
     <div className="space-y-4">
-      {/* Section header with accent */}
-
       {isLoadingStatus ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -31,6 +30,7 @@ export function StatusSection({ tile, state }: StatusSectionProps) {
           <CurrentRunPlugin state={state} />
           <QuickStatsPlugin tile={tile} state={state} />
           <RecentExecutionsPlugin state={state} />
+          <ExecutionLogsPlugin tile={tile} state={state} />
           <LastResultPreviewPlugin state={state} />
         </div>
       )}
