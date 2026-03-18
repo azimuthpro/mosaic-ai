@@ -107,7 +107,7 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   }
 
   const handleRunTile = useCallback(
-    async (tileId: string) => {
+    async (tileId: string, debug: boolean) => {
       setRunningTileIds((prev) => new Set(prev).add(tileId));
 
       // Pre-compute downstream tiles that will auto-trigger after this tile completes
@@ -127,7 +127,7 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
         const response = await fetch("/api/tiles/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tileId }),
+          body: JSON.stringify({ tileId, debug }),
         });
         const data = await response.json();
         if (!response.ok) {
@@ -428,7 +428,6 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
         mosaicId={mosaic.id}
         open={drawerOpen}
         onOpenChange={handleDrawerOpenChange}
-        onRunTile={handleRunTile}
       />
     </div>
   );

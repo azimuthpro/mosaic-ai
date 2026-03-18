@@ -7,7 +7,6 @@ import type { TileWithSources } from "@/types/database";
 import type { TileDrawerState } from "../hooks/use-tile-drawer-state";
 import { CurrentRunPlugin } from "../plugins/status/current-run-plugin";
 import { ExecutionLogsPlugin } from "../plugins/status/execution-logs-plugin";
-import { LastResultPreviewPlugin } from "../plugins/status/last-result-preview-plugin";
 import { QuickStatsPlugin } from "../plugins/status/quick-stats-plugin";
 
 interface StatusSectionProps {
@@ -29,7 +28,6 @@ export function StatusSection({ tile, state }: StatusSectionProps) {
           <CurrentRunPlugin state={state} />
           <QuickStatsPlugin tile={tile} state={state} />
           <ExecutionLogsPlugin tile={tile} state={state} />
-          <LastResultPreviewPlugin state={state} />
         </div>
       )}
     </div>

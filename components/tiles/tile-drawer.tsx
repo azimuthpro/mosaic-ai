@@ -4,7 +4,6 @@ import {
   Activity,
   ArrowRight,
   Braces,
-  Bug,
   Loader2,
   Pause,
   Play,
@@ -15,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { RunConfirmDialog } from "@/components/tiles/run-confirm-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -44,7 +44,6 @@ interface TileDrawerProps {
   mosaicId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRunTile?: (tileId: string) => Promise<void>;
   onDeleteTile?: (tileId: string) => void;
 }
 
@@ -53,31 +52,25 @@ export function TileDrawer({
   mosaicId,
   open,
   onOpenChange,
-  onRunTile,
   onDeleteTile,
 }: TileDrawerProps) {
   const state = useTileDrawerState({ tile, mosaicId, open });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRunConfirm, setShowRunConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [runMode, setRunMode] = useState<"normal" | "debug">("normal");
 
-  const handleRun = async () => {
+  async function handleRun(debug: boolean): Promise<void> {
     if (!tile) return;
     state.setIsRunning(true);
     try {
-      if (onRunTile) {
-        await onRunTile(tile.id);
-      } else {
-        const response = await fetch("/api/tiles/run", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tileId: tile.id, debug: runMode === "debug" }),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          alert(data.error || "Failed to run tile");
-        }
+      const response = await fetch("/api/tiles/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tileId: tile.id, debug }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || "Failed to run tile");
       }
     } catch {
       alert("Failed to run tile");
@@ -85,9 +78,9 @@ export function TileDrawer({
       state.setIsRunning(false);
       state.refreshData();
     }
-  };
+  }
 
-  const handleDelete = async () => {
+  async function handleDelete(): Promise<void> {
     if (!tile) return;
     setIsDeleting(true);
     try {
@@ -104,7 +97,7 @@ export function TileDrawer({
     } finally {
       setIsDeleting(false);
     }
-  };
+  }
 
   if (!tile) return null;
 
@@ -264,68 +257,13 @@ export function TileDrawer({
         </Tabs>
       </DialogContent>
 
-      <Dialog open={showRunConfirm} onOpenChange={setShowRunConfirm}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Run tile</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to run &ldquo;{tile.name}&rdquo;? This will
-              execute the tile and consume API credits.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-2 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => setRunMode("normal")}
-              className={cn(
-                "flex-1",
-                runMode === "normal" &&
-                  "border-amber-500 bg-amber-500/10 text-amber-400",
-              )}
-            >
-              <Play className="h-3.5 w-3.5" />
-              Normal
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setRunMode("debug")}
-              className={cn(
-                "flex-1",
-                runMode === "debug" &&
-                  "border-purple-500 bg-purple-500/10 text-purple-400",
-              )}
-            >
-              <Bug className="h-3.5 w-3.5" />
-              Debug
-            </Button>
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowRunConfirm(false)}
-              disabled={state.isRunning}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                setShowRunConfirm(false);
-                handleRun();
-              }}
-              disabled={state.isRunning}
-            >
-              {state.isRunning ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-              Run
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RunConfirmDialog
+        open={showRunConfirm}
+        onOpenChange={setShowRunConfirm}
+        tileName={tile.name}
+        isRunning={state.isRunning}
+        onConfirm={handleRun}
+      />
 
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent className="sm:max-w-md">

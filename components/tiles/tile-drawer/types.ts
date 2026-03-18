@@ -65,7 +65,6 @@ export interface TileDrawerProps {
   mosaicId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRunTile?: (tileId: string) => Promise<void>;
 }
 
 // API Key interface

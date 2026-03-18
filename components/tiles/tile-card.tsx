@@ -14,16 +14,9 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { RunConfirmDialog } from "@/components/tiles/run-confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +28,8 @@ import { deleteTile, toggleTileActive } from "@/lib/actions/tiles";
 import { cn } from "@/lib/utils";
 import type { TilePattern, TileType, TileWithSources } from "@/types/database";
 
+import { TILE_TYPE_LABELS } from "./tile-drawer/types";
+
 interface TileCardProps {
   tile: TileWithSources;
   onSelect?: (tile: TileWithSources) => void;
@@ -45,7 +40,7 @@ interface TileCardProps {
   compact?: boolean;
   isDragging?: boolean;
   isRunning?: boolean;
-  onRun?: (tileId: string) => void;
+  onRun?: (tileId: string, debug: boolean) => void;
 }
 
 const TILE_ICONS: Record<TileType, React.ElementType> = {
@@ -54,14 +49,6 @@ const TILE_ICONS: Record<TileType, React.ElementType> = {
   analyzer: Brain,
   slack_reader: MessageSquare,
   catalog: Database,
-};
-
-const TILE_TYPE_LABELS: Record<TileType, string> = {
-  url_reader: "URL Reader",
-  web_search: "Web Search",
-  analyzer: "Analyzer",
-  slack_reader: "Slack Reader",
-  catalog: "Catalog",
 };
 
 function getPatternStyle(
@@ -117,9 +104,9 @@ export function TileCard({
     setShowRunConfirm(true);
   }
 
-  function handleRunConfirm(): void {
+  function handleRunConfirm(debug: boolean): void {
     setShowRunConfirm(false);
-    onRun?.(tile.id);
+    onRun?.(tile.id, debug);
   }
 
   async function handleDelete(): Promise<void> {
@@ -134,46 +121,17 @@ export function TileCard({
     await toggleTileActive(tile.id);
   }
 
-  const runConfirmDialog = (
-    <Dialog open={showRunConfirm} onOpenChange={setShowRunConfirm}>
-      <DialogContent
-        className="sm:max-w-md"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <DialogHeader>
-          <DialogTitle>Run tile</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to run &ldquo;{tile.name}&rdquo;? This will
-            execute the tile and consume API credits.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowRunConfirm(false)}
-            disabled={isRunning}
-          >
-            Cancel
-          </Button>
-          <Button size="sm" onClick={handleRunConfirm} disabled={isRunning}>
-            {isRunning ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-            Run
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-
   // Compact square tile for mosaic grid (MPC pad style)
   if (compact) {
     return (
       <>
-        {runConfirmDialog}
+        <RunConfirmDialog
+          open={showRunConfirm}
+          onOpenChange={setShowRunConfirm}
+          tileName={tile.name}
+          isRunning={isRunning}
+          onConfirm={handleRunConfirm}
+        />
         <div
           className={cn(
             "group relative flex h-full w-full flex-col overflow-hidden rounded-lg mpc-pad transition-all",
@@ -296,7 +254,13 @@ export function TileCard({
   // Full-size card (original layout)
   return (
     <>
-      {runConfirmDialog}
+      <RunConfirmDialog
+        open={showRunConfirm}
+        onOpenChange={setShowRunConfirm}
+        tileName={tile.name}
+        isRunning={isRunning}
+        onConfirm={handleRunConfirm}
+      />
       <div
         className={cn(
           "group relative cursor-pointer overflow-hidden rounded-lg border bg-card shadow-sm transition-all hover:shadow-md",

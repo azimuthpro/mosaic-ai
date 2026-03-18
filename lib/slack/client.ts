@@ -45,6 +45,17 @@ interface SlackFile {
   filetype?: string;
 }
 
+interface SlackBlockText {
+  type: string;
+  text: string;
+}
+
+interface SlackBlock {
+  type: string;
+  text?: SlackBlockText;
+  elements?: SlackBlockText[];
+}
+
 interface SlackMessage {
   ts: string;
   user?: string;
@@ -59,6 +70,7 @@ interface SlackMessage {
   attachments?: SlackAttachment[];
   files?: SlackFile[];
   edited?: { user: string; ts: string };
+  blocks?: SlackBlock[];
 }
 
 interface SlackApiResponse {
@@ -224,6 +236,19 @@ function formatReactions(reactions: SlackReaction[]): string {
   return reactions.map((r) => `${r.name}×${r.count}`).join(", ");
 }
 
+function extractBlockText(blocks: SlackBlock[]): string {
+  return blocks
+    .map((block) => {
+      if (block.type === "section") return block.text?.text ?? "";
+      if (block.type === "context") {
+        return (block.elements ?? []).map((el) => el.text).join(" ");
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
 function formatAttachments(attachments: SlackAttachment[]): string[] {
   const lines: string[] = [];
   for (const att of attachments) {
@@ -347,8 +372,17 @@ export async function fetchChannelMessages(
     const name = resolveAuthorName(msg);
     const botTag = msg.bot_id ? " [bot]" : "";
     const editedTag = msg.edited ? " (edited)" : "";
+    let displayText = msg.text ?? "";
+    if (
+      msg.blocks?.length &&
+      (!displayText || displayText.startsWith("Mosaic result from "))
+    ) {
+      const blockText = extractBlockText(msg.blocks);
+      if (blockText) displayText = blockText;
+    }
+
     const parts: string[] = [
-      `${indent}[${time}] **${name}**${botTag}: ${msg.text ?? ""}${editedTag}`,
+      `${indent}[${time}] **${name}**${botTag}: ${displayText}${editedTag}`,
     ];
 
     if (msg.reactions?.length) {
@@ -474,6 +508,7 @@ export function formatChannelMetadata(meta: SlackChannelMetadata): string {
 
 const SECTION_MAX_LENGTH = 3000;
 const MAX_BLOCKS = 50;
+const FALLBACK_TEXT_MAX_LENGTH = 4000;
 
 /**
  * Splits text into chunks that fit within Slack's section block limit.
@@ -564,7 +599,7 @@ export async function postMessage(
   await slackFetch(token, "chat.postMessage", {
     body: {
       channel: channelId,
-      text: `Mosaic result from ${tileName}`,
+      text: text.slice(0, FALLBACK_TEXT_MAX_LENGTH),
       blocks,
     },
   });

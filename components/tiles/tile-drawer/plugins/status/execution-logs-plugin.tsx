@@ -3,20 +3,27 @@
 import {
   ArrowDown,
   Bug,
+  Check,
   CheckCircle2,
   ChevronDown,
   Clock,
+  Copy,
   Loader2,
   Play,
   RefreshCw,
   ScrollText,
   ShieldAlert,
+  Trash2,
   XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
 
 import {
   type ExecutionLogEntry,
+  deleteAllExecutionLogs,
+  deleteExecutionLog,
   getTileAllExecutionLogs,
 } from "@/lib/actions/tile-execution";
 import { cn } from "@/lib/utils";
@@ -73,6 +80,17 @@ const DEFAULT_CONFIG = {
   label: "Unknown",
 };
 
+/** Return the first defined value from metadata for any of the given keys. */
+function get(
+  metadata: Record<string, unknown>,
+  ...keys: string[]
+): unknown | undefined {
+  for (const key of keys) {
+    if (metadata[key] !== undefined) return metadata[key];
+  }
+  return undefined;
+}
+
 function getInlineSummary(
   eventType: string,
   metadata: Record<string, unknown>,
@@ -80,26 +98,29 @@ function getInlineSummary(
   switch (eventType) {
     case "started": {
       const parts: string[] = [];
-      if (metadata.tile_type) parts.push(String(metadata.tile_type));
-      if (metadata.source_count !== undefined)
-        parts.push(`${metadata.source_count} sources`);
+      const tileType = get(metadata, "tileType", "tile_type");
+      const sourceCount = get(metadata, "sourceCount", "source_count");
+      if (tileType) parts.push(String(tileType));
+      if (sourceCount !== undefined) parts.push(`${sourceCount} sources`);
       return parts.length > 0 ? parts.join(", ") : null;
     }
     case "completed": {
       const parts: string[] = [];
-      if (metadata.duration_ms !== undefined)
-        parts.push(formatDuration(Number(metadata.duration_ms)));
-      if (
-        metadata.successful_sources !== undefined &&
-        metadata.total_sources !== undefined
-      )
-        parts.push(
-          `${metadata.successful_sources}/${metadata.total_sources} sources`,
-        );
+      const durationMs = get(metadata, "durationMs", "duration_ms");
+      const successSources = get(
+        metadata,
+        "sourcesSucceeded",
+        "successful_sources",
+      );
+      const totalSources = get(metadata, "sourcesTotal", "total_sources");
+      if (durationMs !== undefined)
+        parts.push(formatDuration(Number(durationMs)));
+      if (successSources !== undefined && totalSources !== undefined)
+        parts.push(`${successSources}/${totalSources} sources`);
       return parts.length > 0 ? parts.join(", ") : null;
     }
     case "failed": {
-      const msg = metadata.error_message || metadata.error || metadata.message;
+      const msg = get(metadata, "error", "error_message", "message");
       if (msg) {
         const str = String(msg);
         return str.length > 60 ? str.slice(0, 60) + "…" : str;
@@ -107,8 +128,8 @@ function getInlineSummary(
       return null;
     }
     default: {
-      if (metadata.cascade_depth !== undefined)
-        return `depth: ${metadata.cascade_depth}`;
+      const depth = get(metadata, "cascadeDepth", "cascade_depth");
+      if (depth !== undefined) return `depth: ${depth}`;
       return null;
     }
   }
@@ -131,62 +152,71 @@ function MetadataDetails({
   metadata: Record<string, unknown>;
 }) {
   switch (eventType) {
-    case "started":
+    case "started": {
+      const trigger = get(metadata, "trigger");
+      const tileType = get(metadata, "tileType", "tile_type");
+      const sourceCount = get(metadata, "sourceCount", "source_count");
+      const maxDepth = get(metadata, "maxDepth", "maxCascadeDepth", "max_cascade_depth");
+      const timeoutMs = get(metadata, "timeoutMs", "timeout_ms");
       return (
         <div className="space-y-1">
-          {metadata.trigger !== undefined && (
-            <MetadataRow label="Trigger" value={String(metadata.trigger)} />
+          {trigger !== undefined && (
+            <MetadataRow label="Trigger" value={String(trigger)} />
           )}
-          {metadata.tile_type !== undefined && (
-            <MetadataRow label="Tile type" value={String(metadata.tile_type)} />
+          {tileType !== undefined && (
+            <MetadataRow label="Tile type" value={String(tileType)} />
           )}
-          {metadata.source_count !== undefined && (
-            <MetadataRow
-              label="Source count"
-              value={String(metadata.source_count)}
-            />
+          {sourceCount !== undefined && (
+            <MetadataRow label="Source count" value={String(sourceCount)} />
           )}
-          {metadata.max_cascade_depth !== undefined && (
-            <MetadataRow
-              label="Max depth"
-              value={String(metadata.max_cascade_depth)}
-            />
+          {maxDepth !== undefined && (
+            <MetadataRow label="Max depth" value={String(maxDepth)} />
           )}
-          {metadata.timeout_ms !== undefined && (
+          {timeoutMs !== undefined && (
             <MetadataRow
               label="Timeout"
-              value={formatDuration(Number(metadata.timeout_ms))}
+              value={formatDuration(Number(timeoutMs))}
             />
           )}
         </div>
       );
+    }
 
-    case "completed":
+    case "completed": {
+      const durationMs = get(metadata, "durationMs", "duration_ms");
+      const successSources = get(
+        metadata,
+        "sourcesSucceeded",
+        "successful_sources",
+      );
+      const totalSources = get(metadata, "sourcesTotal", "total_sources");
+      const trigger = get(metadata, "trigger");
       return (
         <div className="space-y-1">
-          {metadata.duration_ms !== undefined && (
+          {durationMs !== undefined && (
             <MetadataRow
               label="Duration"
-              value={formatDuration(Number(metadata.duration_ms))}
+              value={formatDuration(Number(durationMs))}
             />
           )}
-          {metadata.successful_sources !== undefined &&
-            metadata.total_sources !== undefined && (
-              <MetadataRow
-                label="Sources"
-                value={`${metadata.successful_sources} / ${metadata.total_sources} succeeded`}
-              />
-            )}
-          {metadata.trigger !== undefined && (
-            <MetadataRow label="Trigger" value={String(metadata.trigger)} />
+          {successSources !== undefined && totalSources !== undefined && (
+            <MetadataRow
+              label="Sources"
+              value={`${successSources} / ${totalSources} succeeded`}
+            />
+          )}
+          {trigger !== undefined && (
+            <MetadataRow label="Trigger" value={String(trigger)} />
           )}
         </div>
       );
+    }
 
     case "failed":
     case "timeout": {
-      const errorMsg =
-        metadata.error_message ?? metadata.error ?? metadata.message;
+      const errorMsg = get(metadata, "error", "error_message", "message");
+      const durationMs = get(metadata, "durationMs", "duration_ms");
+      const trigger = get(metadata, "trigger");
       return (
         <div className="space-y-1">
           {errorMsg !== undefined && (
@@ -194,82 +224,98 @@ function MetadataDetails({
               {String(errorMsg)}
             </div>
           )}
-          {metadata.duration_ms !== undefined && (
+          {durationMs !== undefined && (
             <MetadataRow
               label="Duration"
-              value={formatDuration(Number(metadata.duration_ms))}
+              value={formatDuration(Number(durationMs))}
             />
           )}
-          {metadata.trigger !== undefined && (
-            <MetadataRow label="Trigger" value={String(metadata.trigger)} />
+          {trigger !== undefined && (
+            <MetadataRow label="Trigger" value={String(trigger)} />
           )}
         </div>
       );
     }
 
-    case "cycle_detected":
+    case "cycle_detected": {
+      const visitedCount = get(metadata, "visitedCount", "visited_count");
+      const cascadeDepth = get(metadata, "cascadeDepth", "cascade_depth");
+      const triggeredBy = get(
+        metadata,
+        "triggeredByTileId",
+        "triggered_by_tile_id",
+      );
       return (
         <div className="space-y-1">
-          {metadata.visited_count !== undefined && (
+          {visitedCount !== undefined && (
             <MetadataRow
               label="Visited tiles"
-              value={String(metadata.visited_count)}
+              value={String(visitedCount)}
             />
           )}
-          {metadata.cascade_depth !== undefined && (
+          {cascadeDepth !== undefined && (
             <MetadataRow
               label="Cascade depth"
-              value={String(metadata.cascade_depth)}
+              value={String(cascadeDepth)}
             />
           )}
-          {metadata.triggered_by_tile_id !== undefined && (
-            <MetadataRow
-              label="Triggered by"
-              value={String(metadata.triggered_by_tile_id)}
-            />
+          {triggeredBy !== undefined && (
+            <MetadataRow label="Triggered by" value={String(triggeredBy)} />
           )}
         </div>
       );
+    }
 
-    case "depth_exceeded":
+    case "depth_exceeded": {
+      const cascadeDepth = get(metadata, "cascadeDepth", "cascade_depth");
+      const maxDepth = get(
+        metadata,
+        "maxCascadeDepth",
+        "max_cascade_depth",
+      );
       return (
         <div className="space-y-1">
-          {metadata.cascade_depth !== undefined && (
+          {cascadeDepth !== undefined && (
             <MetadataRow
               label="Cascade depth"
-              value={String(metadata.cascade_depth)}
+              value={String(cascadeDepth)}
             />
           )}
-          {metadata.max_cascade_depth !== undefined && (
+          {maxDepth !== undefined && (
             <MetadataRow
               label="Max cascade depth"
-              value={String(metadata.max_cascade_depth)}
+              value={String(maxDepth)}
             />
           )}
         </div>
       );
+    }
 
-    case "rate_limited":
+    case "rate_limited": {
+      const reason = get(metadata, "reason");
+      const currentCount = get(metadata, "currentCount", "current_count");
+      const maxCount = get(metadata, "maxCount", "max_count");
+      const cascadeDepth = get(metadata, "cascadeDepth", "cascade_depth");
       return (
         <div className="space-y-1">
-          {metadata.reason !== undefined && (
-            <MetadataRow label="Reason" value={String(metadata.reason)} />
+          {reason !== undefined && (
+            <MetadataRow label="Reason" value={String(reason)} />
           )}
-          {metadata.current_count !== undefined &&
-            metadata.max_count !== undefined && (
-              <MetadataRow
-                label="Count"
-                value={`${metadata.current_count} / ${metadata.max_count}`}
-              />
-            )}
-          {metadata.cascade_depth !== undefined && (
+          {currentCount !== undefined && maxCount !== undefined && (
+            <MetadataRow
+              label="Count"
+              value={`${currentCount} / ${maxCount}`}
+            />
+          )}
+          {cascadeDepth !== undefined && (
             <MetadataRow
               label="Cascade depth"
-              value={String(metadata.cascade_depth)}
+              value={String(cascadeDepth)}
             />
           )}
         </div>
       );
+    }
 
     default:
       return (
@@ -373,12 +419,21 @@ interface ExecutionLogsPluginProps {
   state: TileDrawerState;
 }
 
+function formatLogForClipboard(log: ExecutionLogEntry): string {
+  const ts = new Date(log.created_at).toISOString();
+  const pairs = Object.entries(log.metadata)
+    .map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : v}`)
+    .join(", ");
+  return `[${ts}] ${log.event_type.toUpperCase()}${pairs ? `: ${pairs}` : ""}`;
+}
+
 export function ExecutionLogsPlugin({ tile, state }: ExecutionLogsPluginProps) {
   const { executionStatus, pluginState, updatePluginState } = state;
 
   const [logs, setLogs] = useState<ExecutionLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
 
   const collapsed = pluginState["execution-logs"] ?? true;
 
@@ -400,6 +455,32 @@ export function ExecutionLogsPlugin({ tile, state }: ExecutionLogsPluginProps) {
       cancelled = true;
     };
   }, [tile.id, collapsed, executionStatus]);
+
+  const handleCopyEntry = useCallback((log: ExecutionLogEntry) => {
+    navigator.clipboard.writeText(formatLogForClipboard(log)).then(() => {
+      setCopiedLogId(log.id);
+      setTimeout(() => setCopiedLogId(null), 2000);
+    });
+  }, []);
+
+  const handleDeleteEntry = useCallback(
+    async (logId: string) => {
+      const result = await deleteExecutionLog(logId);
+      if (result.success) {
+        setLogs((prev) => prev.filter((l) => l.id !== logId));
+        if (expandedLogId === logId) setExpandedLogId(null);
+      }
+    },
+    [expandedLogId],
+  );
+
+  const handleClearAll = useCallback(async () => {
+    const result = await deleteAllExecutionLogs(tile.id);
+    if (result.success) {
+      setLogs([]);
+      setExpandedLogId(null);
+    }
+  }, [tile.id]);
 
   // Build a map of job_id -> debug metadata from recentJobs
   const recentJobs = executionStatus?.recentJobs ?? [];
@@ -437,15 +518,28 @@ export function ExecutionLogsPlugin({ tile, state }: ExecutionLogsPluginProps) {
         </p>
       ) : (
         <div className="space-y-1.5">
+          <div className="flex justify-end">
+            <button
+              onClick={handleClearAll}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-400 transition-colors"
+            >
+              <Trash2 className="h-3 w-3" />
+              <span>Clear all</span>
+            </button>
+          </div>
           {logs.map((log) => {
             const config = EVENT_CONFIG[log.event_type] || DEFAULT_CONFIG;
             const isExpanded = expandedLogId === log.id;
             const summary = getInlineSummary(log.event_type, log.metadata);
+            const isDebug =
+              log.metadata.debug === true ||
+              (log.job_id ? debugByJobId.has(log.job_id) : false);
             const debug =
               (log.event_type === "completed" || log.event_type === "failed") &&
               log.job_id
                 ? debugByJobId.get(log.job_id)
                 : undefined;
+            const isCopied = copiedLogId === log.id;
 
             return (
               <div
@@ -461,6 +555,15 @@ export function ExecutionLogsPlugin({ tile, state }: ExecutionLogsPluginProps) {
                     <span className={cn("font-medium", config.color)}>
                       {config.label}
                     </span>
+                    {isDebug && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1 py-0 h-4 border-purple-500/50 text-purple-400"
+                      >
+                        <Bug className="h-2.5 w-2.5 mr-0.5" />
+                        Debug
+                      </Badge>
+                    )}
                     {summary && (
                       <span className="text-xs text-muted-foreground truncate">
                         {summary}
@@ -484,6 +587,28 @@ export function ExecutionLogsPlugin({ tile, state }: ExecutionLogsPluginProps) {
                       metadata={log.metadata}
                     />
                     {debug && <DebugInfoSection debug={debug} />}
+                    <div className="flex justify-end gap-3 pt-1">
+                      <button
+                        onClick={() => handleCopyEntry(log)}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        title="Copy this entry"
+                      >
+                        {isCopied ? (
+                          <Check className="h-3 w-3 text-green-400" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                        <span>{isCopied ? "Copied" : "Copy"}</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteEntry(log.id)}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-400 transition-colors"
+                        title="Delete this entry"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

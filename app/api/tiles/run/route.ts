@@ -179,6 +179,8 @@ export async function POST(request: Request): Promise<Response> {
         maxDepth: executionContext.maxDepth,
         timeoutMs: executionContext.timeoutMs,
         sourceCount: typedTile.tile_sources.length,
+        trigger: "manual",
+        ...(debug ? { debug: true } : {}),
       },
     });
 
@@ -426,6 +428,7 @@ export async function POST(request: Request): Promise<Response> {
           sourcesTotal: sourceResults.length,
           sourcesSucceeded: successfulFetches.length,
           durationMs: Date.now() - executionContext.startTime,
+          ...(debug ? { debug: true } : {}),
         },
       });
 
@@ -473,6 +476,7 @@ export async function POST(request: Request): Promise<Response> {
         metadata: {
           error: errorMessage,
           durationMs: Date.now() - executionContext.startTime,
+          ...(debug ? { debug: true } : {}),
         },
       });
 
