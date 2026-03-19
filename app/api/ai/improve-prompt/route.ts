@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import { getUser } from "@/lib/supabase/server";
 
-const model = google("gemini-2.0-flash");
+const model = google("gemini-flash-latest");
 
 interface ImprovePromptRequest {
   currentPrompt: string;

@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { slackAdapter } from "@/lib/bot";
+import { ensureBotInitialized } from "@/lib/bot/setup";
 import { exchangeCodeForToken } from "@/lib/slack/oauth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
@@ -79,6 +81,18 @@ export async function GET(request: Request): Promise<Response> {
       return NextResponse.redirect(
         `${appUrl}${returnTo}?slack_error=save_failed`,
       );
+    }
+
+    // Dual-write: also seed the Chat SDK adapter with this installation
+    try {
+      await ensureBotInitialized();
+      await slackAdapter.setInstallation(tokenData.team.id, {
+        botToken: tokenData.access_token,
+        botUserId: tokenData.bot_user_id,
+      });
+    } catch (sdkErr) {
+      // Non-fatal: bot will pick this up on next cold start via seedInstallations
+      console.error("[slack/callback] Chat SDK dual-write failed:", sdkErr);
     }
 
     return NextResponse.redirect(`${appUrl}${returnTo}?slack_connected=1`);

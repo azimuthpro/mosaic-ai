@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.34",
+    "@chat-adapter/slack": "^4.20.2",
+    "@chat-adapter/state-memory": "^4.20.2",
     "@hookform/resolvers": "^5.2.2",
     "@mendable/firecrawl-js": "^1.21.1",
     "@radix-ui/react-avatar": "^1.1.11",
@@ -27,6 +29,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@vercel/analytics": "^1.6.1",
     "ai": "^6.0.105",
+    "chat": "^4.20.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
