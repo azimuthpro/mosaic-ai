@@ -19,9 +19,10 @@ npm run lint     # Run ESLint
 
 - **Framework**: Next.js 16 with App Router
 - **Language**: TypeScript (strict mode)
-- **Styling**: Tailwind CSS v4
+- **Styling**: Tailwind CSS v4 (via `@tailwindcss/postcss`, no tailwind.config file)
 - **Auth & Database**: Supabase (PostgreSQL with RLS, Magic Link auth)
 - **AI**: Vercel AI SDK with Google Gemini Flash
+- **Chat Bot**: Chat SDK (`chat` package) with `@chat-adapter/slack` for Slack bot
 - **Web Scraping**: Firecrawl
 - **Web Search**: Tavily API
 - **Scheduling**: Vercel Cron Jobs
@@ -126,6 +127,12 @@ npm run lint     # Run ESLint
 - `lib/slack/verify-signature.ts` - Slack request signature verification
 - `lib/actions/catalog.ts` - Server actions for catalog CRUD
 - `lib/actions/integrations.ts` - Server actions for user integrations (OAuth tokens)
+- `lib/actions/invite.ts` - Mosaic invitation handling
+- `lib/bot/index.ts` - Chat SDK Slack bot setup and entry point
+- `lib/bot/handlers.ts` - Bot message and event handlers
+- `lib/bot/tools.ts` - AI tools available to the bot
+- `lib/bot/data.ts` - Bot data access layer
+- `lib/slack/events/monitor-check.ts` - Slack event monitoring
 
 ### Key API Routes
 
