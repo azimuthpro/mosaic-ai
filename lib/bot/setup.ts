@@ -13,11 +13,15 @@ export async function ensureBotInitialized(): Promise<void> {
   if (initialized) return;
   initialized = true;
 
-  registerHandlers();
-  await bot.initialize();
-  await seedInstallations();
-
-  console.log("[bot] initialized");
+  try {
+    registerHandlers();
+    await bot.initialize();
+    await seedInstallations();
+    console.log("[bot] initialized");
+  } catch (err) {
+    initialized = false;
+    throw err;
+  }
 }
 
 /**

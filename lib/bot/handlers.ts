@@ -37,6 +37,7 @@ async function resolveUser(
   message: Message,
 ): Promise<string | null> {
   const teamId = thread.id.split(":")[0] ?? "";
+  console.log("[bot] resolveUser for team", teamId, "slack user", message.author.userId);
   const installation = await slackAdapter.getInstallation(teamId);
   if (!installation?.botToken) {
     console.error("[bot] no installation for team", teamId);
@@ -59,6 +60,7 @@ async function resolveUser(
  * Streams an AI answer to the thread using Gemini with tool-calling.
  */
 async function answerQuestion(thread: Thread, userId: string): Promise<void> {
+  console.log("[bot] answerQuestion for user", userId, "thread", thread.id);
   const tools = createBotTools(userId);
 
   await thread.refresh();
@@ -82,20 +84,36 @@ async function answerQuestion(thread: Thread, userId: string): Promise<void> {
  */
 export function registerHandlers(): void {
   bot.onNewMention(async (thread, message) => {
-    const userId = await resolveUser(thread, message);
-    if (!userId) return;
+    console.log("[bot] onNewMention fired", {
+      threadId: thread.id,
+      text: message.text.slice(0, 50),
+    });
+    try {
+      const userId = await resolveUser(thread, message);
+      if (!userId) return;
 
-    await thread.subscribe();
-    await answerQuestion(thread, userId);
+      await thread.subscribe();
+      await answerQuestion(thread, userId);
+    } catch (err) {
+      console.error("[bot] onNewMention error:", err);
+    }
   });
 
   bot.onSubscribedMessage(async (thread, message) => {
     // Skip messages from the bot itself
     if (message.author.isMe) return;
 
-    const userId = await resolveUser(thread, message);
-    if (!userId) return;
+    console.log("[bot] onSubscribedMessage fired", {
+      threadId: thread.id,
+      text: message.text.slice(0, 50),
+    });
+    try {
+      const userId = await resolveUser(thread, message);
+      if (!userId) return;
 
-    await answerQuestion(thread, userId);
+      await answerQuestion(thread, userId);
+    } catch (err) {
+      console.error("[bot] onSubscribedMessage error:", err);
+    }
   });
 }

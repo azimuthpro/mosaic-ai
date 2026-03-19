@@ -16,6 +16,7 @@ const bot = new Chat({
   state,
   streamingUpdateIntervalMs: 800,
   onLockConflict: "force",
+  logger: "debug",
 });
 
 export { bot, slackAdapter };
