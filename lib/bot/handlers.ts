@@ -29,6 +29,25 @@ Rules:
 - When showing results, summarize key points rather than dumping raw data`;
 
 /**
+ * Resolves the team's bot token and runs `fn` inside `slackAdapter.withBotToken`
+ * so that AsyncLocalStorage context is available for downstream Slack API calls.
+ */
+async function withTeamToken<T>(
+  message: Message,
+  fn: (token: string) => Promise<T>,
+): Promise<T> {
+  const raw = message.raw as { team?: string; team_id?: string } | undefined;
+  const teamId = raw?.team || raw?.team_id || "";
+  const installation = await slackAdapter.getInstallation(teamId);
+  if (!installation?.botToken) {
+    throw new Error(`No installation for team ${teamId}`);
+  }
+  return slackAdapter.withBotToken(installation.botToken, () =>
+    fn(installation.botToken),
+  );
+}
+
+/**
  * Resolves the Mosaic user ID for the Slack message author.
  * Returns null if the user can't be matched.
  */
@@ -90,11 +109,13 @@ export function registerHandlers(): void {
       text: message.text.slice(0, 50),
     });
     try {
-      const userId = await resolveUser(thread, message);
-      if (!userId) return;
+      await withTeamToken(message, async () => {
+        const userId = await resolveUser(thread, message);
+        if (!userId) return;
 
-      await thread.subscribe();
-      await answerQuestion(thread, userId);
+        await thread.subscribe();
+        await answerQuestion(thread, userId);
+      });
     } catch (err) {
       console.error("[bot] onNewMention error:", err);
     }
@@ -109,10 +130,12 @@ export function registerHandlers(): void {
       text: message.text.slice(0, 50),
     });
     try {
-      const userId = await resolveUser(thread, message);
-      if (!userId) return;
+      await withTeamToken(message, async () => {
+        const userId = await resolveUser(thread, message);
+        if (!userId) return;
 
-      await answerQuestion(thread, userId);
+        await answerQuestion(thread, userId);
+      });
     } catch (err) {
       console.error("[bot] onSubscribedMessage error:", err);
     }
