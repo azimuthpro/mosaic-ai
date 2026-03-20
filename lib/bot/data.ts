@@ -21,11 +21,22 @@ export async function resolveSlackUser(
   );
   const data = (await res.json()) as {
     ok: boolean;
+    error?: string;
     user?: { profile?: { email?: string } };
   };
 
+  if (!data.ok) {
+    console.error("[bot] Slack users.info failed:", data.error);
+    return null;
+  }
+
   const email = data.user?.profile?.email;
-  if (!email) return null;
+  if (!email) {
+    console.error("[bot] Slack user has no email:", slackUserId);
+    return null;
+  }
+
+  console.log("[bot] resolving Slack email:", email);
 
   // Match against Supabase auth.users
   const admin = createAdminClient();
@@ -34,12 +45,25 @@ export async function resolveSlackUser(
     error,
   } = await admin.auth.admin.listUsers({ perPage: 1000 });
 
-  if (error || !users) return null;
+  if (error) {
+    console.error("[bot] listUsers error:", error.message);
+    return null;
+  }
+
+  if (!users || users.length === 0) {
+    console.error("[bot] no users found in Supabase");
+    return null;
+  }
+
+  console.log("[bot] searching", users.length, "Supabase users for email:", email);
 
   const match = users.find(
     (u) => u.email?.toLowerCase() === email.toLowerCase(),
   );
-  if (!match) return null;
+  if (!match) {
+    console.error("[bot] no Supabase user matches email:", email);
+    return null;
+  }
 
   userCache.set(slackUserId, match.id);
   return match.id;
