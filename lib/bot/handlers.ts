@@ -36,7 +36,8 @@ async function resolveUser(
   thread: Thread,
   message: Message,
 ): Promise<string | null> {
-  const teamId = thread.id.split(":")[0] ?? "";
+  const raw = message.raw as { team?: string; team_id?: string } | undefined;
+  const teamId = raw?.team || raw?.team_id || "";
   console.log("[bot] resolveUser for team", teamId, "slack user", message.author.userId);
   const installation = await slackAdapter.getInstallation(teamId);
   if (!installation?.botToken) {
