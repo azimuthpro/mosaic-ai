@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { slackAdapter } from "@/lib/bot";
+import { getBotAndAdapter } from "@/lib/bot";
 import { ensureBotInitialized } from "@/lib/bot/setup";
 import { exchangeCodeForToken } from "@/lib/slack/oauth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -86,6 +86,7 @@ export async function GET(request: Request): Promise<Response> {
     // Dual-write: also seed the Chat SDK adapter with this installation
     try {
       await ensureBotInitialized();
+      const { slackAdapter } = await getBotAndAdapter();
       await slackAdapter.setInstallation(tokenData.team.id, {
         botToken: tokenData.access_token,
         botUserId: tokenData.bot_user_id,

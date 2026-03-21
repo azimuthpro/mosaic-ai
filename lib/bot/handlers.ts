@@ -1,10 +1,14 @@
 import { google } from "@ai-sdk/google";
 import { stepCountIs, streamText } from "ai";
-import { type Message, type Thread, toAiMessages } from "chat";
+import { type Chat, type Message, type Thread, toAiMessages } from "chat";
 
 import { resolveSlackUser } from "./data";
-import { bot, slackAdapter } from "./index";
+import { type getBotAndAdapter } from "./index";
 import { createBotTools } from "./tools";
+
+type SlackAdapterType = Awaited<
+  ReturnType<typeof getBotAndAdapter>
+>["slackAdapter"];
 
 const SYSTEM_PROMPT = `You are Mosaic AI's Slack assistant. You help users understand their mosaics, tiles, and execution results.
 
@@ -29,31 +33,13 @@ Rules:
 - When showing results, summarize key points rather than dumping raw data`;
 
 /**
- * Resolves the team's bot token and runs `fn` inside `slackAdapter.withBotToken`
- * so that AsyncLocalStorage context is available for downstream Slack API calls.
- */
-async function withTeamToken<T>(
-  message: Message,
-  fn: (token: string) => Promise<T>,
-): Promise<T> {
-  const raw = message.raw as { team?: string; team_id?: string } | undefined;
-  const teamId = raw?.team || raw?.team_id || "";
-  const installation = await slackAdapter.getInstallation(teamId);
-  if (!installation?.botToken) {
-    throw new Error(`No installation for team ${teamId}`);
-  }
-  return slackAdapter.withBotToken(installation.botToken, () =>
-    fn(installation.botToken),
-  );
-}
-
-/**
  * Resolves the Mosaic user ID for the Slack message author.
  * Returns null if the user can't be matched.
  */
 async function resolveUser(
   thread: Thread,
   message: Message,
+  slackAdapter: SlackAdapterType,
 ): Promise<string | null> {
   const raw = message.raw as { team?: string; team_id?: string } | undefined;
   const teamId = raw?.team || raw?.team_id || "";
@@ -77,6 +63,27 @@ async function resolveUser(
 }
 
 /**
+ * Summarize tool results from steps into a plain-text block for the fallback call.
+ * We avoid replaying tool-call/tool-result messages because Gemini requires
+ * provider-specific thought_signature metadata on those parts.
+ */
+function summarizeToolResults(
+  steps: { toolCalls: readonly { toolName: string; input: unknown }[]; toolResults: readonly { toolName: string; output: unknown }[] }[],
+): string {
+  const parts: string[] = [];
+  for (const step of steps) {
+    for (let i = 0; i < step.toolCalls.length; i++) {
+      const call = step.toolCalls[i];
+      const result = step.toolResults[i];
+      parts.push(
+        `Tool: ${call.toolName}\nInput: ${JSON.stringify(call.input)}\nResult: ${JSON.stringify(result?.output ?? null)}`,
+      );
+    }
+  }
+  return parts.join("\n\n");
+}
+
+/**
  * Streams an AI answer to the thread using Gemini with tool-calling.
  */
 async function answerQuestion(thread: Thread, userId: string): Promise<void> {
@@ -93,31 +100,73 @@ async function answerQuestion(thread: Thread, userId: string): Promise<void> {
     system: SYSTEM_PROMPT,
     messages: history,
     tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(8),
+    onStepFinish: (event) => {
+      console.log("[bot] step", event.stepNumber, {
+        text: event.text.length,
+        toolCalls: event.toolCalls.map((tc) => tc.toolName),
+        finishReason: event.finishReason,
+      });
+    },
   });
 
-  await thread.post(result.textStream);
+  // Await the full result server-side — do NOT stream to Slack,
+  // because tool-call-only steps produce no text and would post an empty message.
+  const text = await result.text;
+
+  if (text.trim()) {
+    await thread.post(text);
+    return;
+  }
+
+  // Model exhausted steps on tool calls without producing text.
+  const steps = await result.steps;
+  const summary = summarizeToolResults(steps);
+  if (!summary) return;
+
+  console.log("[bot] empty response after", steps.length, "tool steps — forcing text synthesis");
+
+  const fallback = streamText({
+    model: google("gemini-flash-latest"),
+    system: SYSTEM_PROMPT,
+    messages: [
+      ...history,
+      {
+        role: "user" as const,
+        content: `Based on the following tool results, provide a helpful response to the user's question:\n\n${summary}`,
+      },
+    ],
+  });
+
+  await thread.post(fallback.textStream);
 }
 
 /**
  * Registers all event handlers on the bot instance.
  */
-export function registerHandlers(): void {
+export function registerHandlers(
+  bot: Chat,
+  slackAdapter: SlackAdapterType,
+): void {
   bot.onNewMention(async (thread, message) => {
     console.log("[bot] onNewMention fired", {
       threadId: thread.id,
       text: message.text.slice(0, 50),
     });
     try {
-      await withTeamToken(message, async () => {
-        const userId = await resolveUser(thread, message);
-        if (!userId) return;
+      await slackAdapter.addReaction(thread.id, message.id, "eyes");
+      const userId = await resolveUser(thread, message, slackAdapter);
+      if (!userId) {
+        await slackAdapter.removeReaction(thread.id, message.id, "eyes").catch(() => {});
+        return;
+      }
 
-        await thread.subscribe();
-        await answerQuestion(thread, userId);
-      });
+      await thread.subscribe();
+      await answerQuestion(thread, userId);
+      await slackAdapter.removeReaction(thread.id, message.id, "eyes").catch(() => {});
     } catch (err) {
       console.error("[bot] onNewMention error:", err);
+      await slackAdapter.removeReaction(thread.id, message.id, "eyes").catch(() => {});
     }
   });
 
@@ -130,14 +179,18 @@ export function registerHandlers(): void {
       text: message.text.slice(0, 50),
     });
     try {
-      await withTeamToken(message, async () => {
-        const userId = await resolveUser(thread, message);
-        if (!userId) return;
+      await slackAdapter.addReaction(thread.id, message.id, "eyes");
+      const userId = await resolveUser(thread, message, slackAdapter);
+      if (!userId) {
+        await slackAdapter.removeReaction(thread.id, message.id, "eyes").catch(() => {});
+        return;
+      }
 
-        await answerQuestion(thread, userId);
-      });
+      await answerQuestion(thread, userId);
+      await slackAdapter.removeReaction(thread.id, message.id, "eyes").catch(() => {});
     } catch (err) {
       console.error("[bot] onSubscribedMessage error:", err);
+      await slackAdapter.removeReaction(thread.id, message.id, "eyes").catch(() => {});
     }
   });
 }

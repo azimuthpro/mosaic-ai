@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
+import { getBotAndAdapter } from "./index";
 import { registerHandlers } from "./handlers";
-import { bot, slackAdapter } from "./index";
 
 let initialized = false;
 
@@ -14,9 +14,10 @@ export async function ensureBotInitialized(): Promise<void> {
   initialized = true;
 
   try {
-    registerHandlers();
+    const { bot, slackAdapter } = await getBotAndAdapter();
+    registerHandlers(bot, slackAdapter);
     await bot.initialize();
-    await seedInstallations();
+    await seedInstallations(slackAdapter);
     console.log("[bot] initialized");
   } catch (err) {
     initialized = false;
@@ -28,7 +29,11 @@ export async function ensureBotInitialized(): Promise<void> {
  * Reads all Slack integrations from user_integrations,
  * deduplicates by team, and seeds them into the Chat SDK state.
  */
-async function seedInstallations(): Promise<void> {
+async function seedInstallations(
+  slackAdapter: Awaited<
+    ReturnType<typeof getBotAndAdapter>
+  >["slackAdapter"],
+): Promise<void> {
   const admin = createAdminClient();
 
   const { data, error } = await admin
