@@ -3,6 +3,11 @@
 import { Loader2, Plus } from "lucide-react";
 import { useState } from "react";
 
+import { GitHubConnectButton } from "@/components/github/github-connect-button";
+import {
+  type GitHubRepoItem,
+  GitHubRepoPicker,
+} from "@/components/github/github-repo-picker";
 import { SlackConnectButton } from "@/components/slack/slack-connect-button";
 import { SlackMultiChannelPicker } from "@/components/slack/slack-multi-channel-picker";
 import { SkillSelector } from "@/components/tiles/skill-selector";
@@ -57,25 +62,6 @@ interface CreateTileDialogProps {
 
 type Step = "type" | "config";
 
-function parseGitHubRepoUrl(
-  input: string,
-): { owner: string; repo: string } | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-
-  // Handle "owner/repo" format
-  const slashMatch = trimmed.match(/^([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
-  if (slashMatch) return { owner: slashMatch[1], repo: slashMatch[2] };
-
-  // Handle full GitHub URL
-  const urlMatch = trimmed.match(
-    /github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)/,
-  );
-  if (urlMatch) return { owner: urlMatch[1], repo: urlMatch[2] };
-
-  return null;
-}
-
 interface SelectedSkill {
   id: string;
   name: string;
@@ -117,7 +103,7 @@ export function CreateTileDialog({
     { id: string; name: string }[]
   >([]);
   const [slackTimeWindowDays, setSlackTimeWindowDays] = useState(1);
-  const [githubRepoUrl, setGithubRepoUrl] = useState("");
+  const [githubRepos, setGithubRepos] = useState<GitHubRepoItem[]>([]);
 
   function resetState() {
     setStep(initialType ? "config" : "type");
@@ -132,7 +118,7 @@ export function CreateTileDialog({
     setTrigger("manual");
     setSlackChannels([]);
     setSlackTimeWindowDays(1);
-    setGithubRepoUrl("");
+    setGithubRepos([]);
   }
 
   function handleTypeSelect(type: TileType) {
@@ -167,7 +153,7 @@ export function CreateTileDialog({
       case "slack_reader":
         return slackChannels.length > 0;
       case "github_issue":
-        return parseGitHubRepoUrl(githubRepoUrl) !== null;
+        return githubRepos.length > 0;
       default:
         return false;
     }
@@ -191,8 +177,8 @@ export function CreateTileDialog({
           ? "Select at least one Slack channel"
           : null;
       case "github_issue":
-        return parseGitHubRepoUrl(githubRepoUrl) === null
-          ? "Enter a valid GitHub repo URL (e.g., owner/repo)"
+        return githubRepos.length === 0
+          ? "Select at least one repository"
           : null;
       default:
         return null;
@@ -240,11 +226,10 @@ export function CreateTileDialog({
 
     // Build type-specific config
     let tileConfig: Record<string, unknown> | undefined;
-    if (selectedType === "github_issue") {
-      const parsed = parseGitHubRepoUrl(githubRepoUrl);
-      if (parsed) {
-        tileConfig = { owner: parsed.owner, repo: parsed.repo };
-      }
+    if (selectedType === "github_issue" && githubRepos.length > 0) {
+      tileConfig = {
+        repos: githubRepos.map((r) => ({ owner: r.owner, repo: r.repo })),
+      };
     }
 
     const result = await createTile({
@@ -403,18 +388,19 @@ export function CreateTileDialog({
                 )}
 
                 {selectedType === "github_issue" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="githubRepo">Target Repository</Label>
-                    <Input
-                      id="githubRepo"
-                      placeholder="owner/repo or https://github.com/owner/repo"
-                      value={githubRepoUrl}
-                      onChange={(e) => setGithubRepoUrl(e.target.value)}
-                      disabled={isLoading}
+                  <div className="space-y-4">
+                    <GitHubConnectButton
+                      returnTo={`/mosaics/${mosaicId}?create_tile=github_issue`}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      The GitHub repository where issues will be created.
-                    </p>
+                    <div className="space-y-2">
+                      <Label>Target Repositories</Label>
+                      <GitHubRepoPicker
+                        repos={githubRepos}
+                        onChange={setGithubRepos}
+                        maxRepos={10}
+                        disabled={isLoading}
+                      />
+                    </div>
                   </div>
                 )}
 

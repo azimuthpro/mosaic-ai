@@ -22,6 +22,23 @@ export interface GitHubIssueExecutionResult {
 }
 
 /**
+ * Normalizes legacy single-repo config to multi-repo format.
+ */
+export function normalizeGitHubConfig(
+  config: GitHubIssueConfig,
+): GitHubIssueConfig {
+  if (config.repos?.length) return config;
+  // Legacy format: { owner, repo }
+  if (config.owner && config.repo) {
+    return {
+      ...config,
+      repos: [{ owner: config.owner, repo: config.repo }],
+    };
+  }
+  return { ...config, repos: [] };
+}
+
+/**
  * Executes a github_issue tile: sends input content to AI with the tile's prompt,
  * extracts structured issue data from the response, and creates issues on GitHub.
  */
@@ -32,7 +49,30 @@ export async function executeGitHubIssue(
   adminClient: SupabaseClient<Database>,
   githubConfig: GitHubIssueConfig,
   language: LanguageCode,
+  targetRepo?: string,
 ): Promise<GitHubIssueExecutionResult> {
+  const config = normalizeGitHubConfig(githubConfig);
+
+  if (config.repos.length === 0) {
+    throw new Error("No repositories configured for this GitHub issue tile");
+  }
+
+  // Resolve target repo
+  let target: { owner: string; repo: string };
+  if (targetRepo) {
+    const found = config.repos.find(
+      (r) => `${r.owner}/${r.repo}` === targetRepo,
+    );
+    if (!found) {
+      throw new Error(
+        `Repository "${targetRepo}" is not configured on this tile. Available: ${config.repos.map((r) => `${r.owner}/${r.repo}`).join(", ")}`,
+      );
+    }
+    target = found;
+  } else {
+    target = config.repos[0];
+  }
+
   const tokenResult = await resolveGitHubToken(adminClient, tileId);
   if (!tokenResult.ok) {
     throw new Error(tokenResult.reason);
@@ -56,7 +96,7 @@ export async function executeGitHubIssue(
 
   const issues = parseIssuesFromResponse(
     analysis.content,
-    githubConfig.default_labels,
+    config.default_labels,
   );
 
   if (issues.length === 0) {
@@ -72,18 +112,19 @@ export async function executeGitHubIssue(
 
   const createdIssues = await createGitHubIssues(
     tokenResult.token,
-    githubConfig.owner,
-    githubConfig.repo,
+    target.owner,
+    target.repo,
     issues,
   );
 
+  const repoFullName = `${target.owner}/${target.repo}`;
   const summary = createdIssues
     .map((issue) => `#${issue.number}: ${issue.title}`)
     .join("\n");
 
   return {
     jobResultContent: {
-      repo: `${githubConfig.owner}/${githubConfig.repo}`,
+      repo: repoFullName,
       issues_created: createdIssues.length,
       issues: createdIssues.map(({ number, title, url }) => ({
         number,
@@ -91,7 +132,7 @@ export async function executeGitHubIssue(
         url,
       })),
     },
-    slackSummary: `Created ${createdIssues.length} issue(s) on ${githubConfig.owner}/${githubConfig.repo}:\n${summary}`,
+    slackSummary: `Created ${createdIssues.length} issue(s) on ${repoFullName}:\n${summary}`,
     createdIssues,
   };
 }

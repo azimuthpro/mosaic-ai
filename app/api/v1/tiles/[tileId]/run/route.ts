@@ -73,12 +73,16 @@ export async function POST(
   // Run the execution in a separate async context
   (async () => {
     try {
-      // Parse request body for runtime URLs
+      // Parse request body for runtime URLs and target repo
       let runtimeUrls: string[] = [];
+      let targetRepo: string | undefined;
       try {
         const body = await request.json();
         if (Array.isArray(body?.urls)) {
           runtimeUrls = body.urls;
+        }
+        if (typeof body?.repo === "string") {
+          targetRepo = body.repo;
         }
       } catch {
         // No body or invalid JSON is fine, we'll use configured sources
@@ -471,20 +475,14 @@ export async function POST(
         resultFormat = "json";
         slackContent = catalogResult.diff.summary;
       } else if (typedTile.tile_type === "github_issue") {
-        const githubConfig = (typedTile.config ??
-          {}) as unknown as GitHubIssueConfig;
-        if (!githubConfig.owner || !githubConfig.repo) {
-          throw new Error(
-            "GitHub issue tile requires owner and repo configuration",
-          );
-        }
         const githubResult = await executeGitHubIssue(
           tileId,
           fetchedContent,
           typedTile.system_prompt,
           adminClient,
-          githubConfig,
+          (typedTile.config ?? {}) as unknown as GitHubIssueConfig,
           typedTile.language,
+          targetRepo,
         );
         resultContent = githubResult.jobResultContent;
         resultFormat = "json";

@@ -60,7 +60,7 @@ export async function POST(request: Request): Promise<Response> {
 
     userId = user.id;
 
-    const { tileId, urls, debug } = await request.json();
+    const { tileId, urls, debug, repo: targetRepo } = await request.json();
 
     if (!tileId) {
       return NextResponse.json(
@@ -338,20 +338,14 @@ export async function POST(request: Request): Promise<Response> {
         resultFormat = "json";
         slackContent = catalogResult.diff.summary;
       } else if (typedTile.tile_type === "github_issue") {
-        const githubConfig = (typedTile.config ??
-          {}) as unknown as GitHubIssueConfig;
-        if (!githubConfig.owner || !githubConfig.repo) {
-          throw new Error(
-            "GitHub issue tile requires owner and repo configuration",
-          );
-        }
         const githubResult = await executeGitHubIssue(
           tileId,
           fetchedContent,
           typedTile.system_prompt,
           adminClient,
-          githubConfig,
+          (typedTile.config ?? {}) as unknown as GitHubIssueConfig,
           typedTile.language,
+          targetRepo as string | undefined,
         );
         resultContent = githubResult.jobResultContent;
         resultFormat = "json";

@@ -1154,9 +1154,11 @@ export interface GitHubIntegrationMetadata {
 }
 
 export interface GitHubIssueConfig {
-  owner: string;
-  repo: string;
+  repos: { owner: string; repo: string }[];
   default_labels?: string[];
+  // Legacy single-repo format (backward compat)
+  owner?: string;
+  repo?: string;
 }
 
 // Catalog types
