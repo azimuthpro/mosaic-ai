@@ -360,6 +360,55 @@ Link people to the entities they belong to and the events they are mentioned in.
   },
 ];
 
+// GitHub Issue Skills
+const GITHUB_ISSUE_SKILLS: DefaultTileSkill[] = [
+  {
+    id: "github-issue-blog-post",
+    name: "Blog Post Issue",
+    description: "Create an issue to write a blog post based on input data",
+    category: "custom",
+    tileType: "github_issue",
+    prompt: `Based on the provided content, create a GitHub issue for writing a blog post.
+
+Return JSON with:
+- **title**: "Blog: [descriptive title]"
+- **body**: Markdown with sections: Topic Overview, Key Points to Cover, Target Audience, Suggested Outline, Reference Material
+- **labels**: ["blog", "content"]
+
+Make the issue actionable for a content writer.`,
+  },
+  {
+    id: "github-issue-bugfix",
+    name: "Bugfix Issue",
+    description: "Create a bug report issue from analysis findings",
+    category: "custom",
+    tileType: "github_issue",
+    prompt: `Based on the provided content, create a GitHub bug report issue.
+
+Return JSON with:
+- **title**: "Bug: [clear description of the bug]"
+- **body**: Markdown with sections: Description, Steps to Reproduce, Expected Behavior, Actual Behavior, Possible Root Cause, Suggested Fix
+- **labels**: ["bug"]
+
+Be specific and technical. Include code references if available in the input.`,
+  },
+  {
+    id: "github-issue-feature",
+    name: "Feature Request Issue",
+    description: "Create a feature request issue from ideas or analysis",
+    category: "custom",
+    tileType: "github_issue",
+    prompt: `Based on the provided content, create a GitHub feature request issue.
+
+Return JSON with:
+- **title**: "Feature: [clear feature name]"
+- **body**: Markdown with sections: Summary, Motivation, Proposed Solution, Alternatives Considered, Acceptance Criteria
+- **labels**: ["enhancement"]
+
+Make it clear, scoped, and actionable for a developer.`,
+  },
+];
+
 // Organized by tile type for easy access
 export const DEFAULT_TILE_SKILLS: Record<TileType, DefaultTileSkill[]> = {
   url_reader: URL_READER_SKILLS,
@@ -367,6 +416,7 @@ export const DEFAULT_TILE_SKILLS: Record<TileType, DefaultTileSkill[]> = {
   analyzer: ANALYZER_SKILLS,
   slack_reader: ANALYZER_SKILLS,
   catalog: CATALOG_SKILLS,
+  github_issue: GITHUB_ISSUE_SKILLS,
 };
 
 // All unique skills derived from the tile type record (deduplicates shared arrays like slack_reader → ANALYZER_SKILLS)

@@ -22,6 +22,7 @@ export const TILE_TYPE_LABELS: Record<TileType, string> = {
   analyzer: "Analyzer",
   slack_reader: "Slack Reader",
   catalog: "Catalog",
+  github_issue: "GitHub Issue",
 };
 
 // Source type configuration for icons and colors
@@ -49,6 +50,7 @@ export const DEFAULT_SOURCE_TYPES: Record<TileType, SourceTypeKey> = {
   analyzer: "tile_connection",
   slack_reader: "slack_channel",
   catalog: "tile_connection",
+  github_issue: "tile_connection",
 };
 
 // Plugin collapsed state storage key

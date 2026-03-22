@@ -9,6 +9,7 @@ import {
   DEFAULT_MAX_DEPTH,
   DEFAULT_TIMEOUT_MS,
 } from "@/lib/execution/context";
+import { executeGitHubIssue } from "@/lib/github/execute-github-issue";
 import { deliverSlackOutput } from "@/lib/outputs/slack-output";
 import { logTileJobExecutionEvent } from "@/lib/rate-limit/limiter";
 import {
@@ -27,6 +28,7 @@ import {
 } from "@/lib/supabase/errors";
 import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
 import type {
+  GitHubIssueConfig,
   Tile,
   TileConnection,
   TileJobInsert,
@@ -468,6 +470,25 @@ export async function POST(
         resultContent = catalogResult.jobResultContent;
         resultFormat = "json";
         slackContent = catalogResult.diff.summary;
+      } else if (typedTile.tile_type === "github_issue") {
+        const githubConfig = (typedTile.config ??
+          {}) as unknown as GitHubIssueConfig;
+        if (!githubConfig.owner || !githubConfig.repo) {
+          throw new Error(
+            "GitHub issue tile requires owner and repo configuration",
+          );
+        }
+        const githubResult = await executeGitHubIssue(
+          tileId,
+          fetchedContent,
+          typedTile.system_prompt,
+          adminClient,
+          githubConfig,
+          typedTile.language,
+        );
+        resultContent = githubResult.jobResultContent;
+        resultFormat = "json";
+        slackContent = githubResult.slackSummary;
       } else {
         // Standard tile: AI analysis
         const analysis = await analyzeContent(

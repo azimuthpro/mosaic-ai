@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { analyzeContent } from "@/lib/ai/gemini";
 import { executeCatalogUpdate } from "@/lib/catalog/execute-catalog";
+import { executeGitHubIssue } from "@/lib/github/execute-github-issue";
 import {
   createExecutionContext,
   DEFAULT_MAX_DEPTH,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/supabase/errors";
 import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
 import type {
+  GitHubIssueConfig,
   MosaicSettings,
   Tile,
   TileConnection,
@@ -290,6 +292,25 @@ async function processTile(
         resultContent = catalogResult.jobResultContent;
         resultFormat = "json";
         slackContent = catalogResult.diff.summary;
+      } else if (tile.tile_type === "github_issue") {
+        const githubConfig = (tile.config ??
+          {}) as unknown as GitHubIssueConfig;
+        if (!githubConfig.owner || !githubConfig.repo) {
+          throw new Error(
+            "GitHub issue tile requires owner and repo configuration",
+          );
+        }
+        const githubResult = await executeGitHubIssue(
+          tile.id,
+          fetchedContent,
+          tile.system_prompt,
+          adminClient,
+          githubConfig,
+          tile.language,
+        );
+        resultContent = githubResult.jobResultContent;
+        resultFormat = "json";
+        slackContent = githubResult.slackSummary;
       } else {
         const analysis = await analyzeContent(
           fetchedContent,

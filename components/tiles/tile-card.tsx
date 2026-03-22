@@ -2,6 +2,7 @@
 
 import {
   Brain,
+  CircleDot,
   Database,
   Globe,
   Loader2,
@@ -49,6 +50,7 @@ const TILE_ICONS: Record<TileType, React.ElementType> = {
   analyzer: Brain,
   slack_reader: MessageSquare,
   catalog: Database,
+  github_issue: CircleDot,
 };
 
 function getPatternStyle(

@@ -33,7 +33,8 @@ export type TileType =
   | "web_search"
   | "analyzer"
   | "slack_reader"
-  | "catalog";
+  | "catalog"
+  | "github_issue";
 export type TilePattern = "solid" | "stripes" | "dots" | "gradient";
 
 export interface WebSearchConfig {
@@ -283,6 +284,7 @@ export interface Database {
           slack_output_channel_id: string | null;
           slack_output_channel_name: string | null;
           slack_output_team_id: string | null;
+          config: Json;
           created_at: string;
           updated_at: string;
         };
@@ -311,6 +313,7 @@ export interface Database {
           slack_output_channel_id?: string | null;
           slack_output_channel_name?: string | null;
           slack_output_team_id?: string | null;
+          config?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -339,6 +342,7 @@ export interface Database {
           slack_output_channel_id?: string | null;
           slack_output_channel_name?: string | null;
           slack_output_team_id?: string | null;
+          config?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -1080,6 +1084,14 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
     icon: "Database",
     description: "Build a persistent entity catalog",
   },
+  github_issue: {
+    type: "github_issue",
+    label: "GitHub Issue",
+    color: "#6366f1",
+    pattern: "solid",
+    icon: "CircleDot",
+    description: "Create GitHub issues from analysis",
+  },
 };
 
 // Tile Webhooks
@@ -1134,6 +1146,17 @@ export interface SlackIntegrationMetadata {
   team_id: string;
   team_name: string;
   bot_user_id: string;
+}
+
+export interface GitHubIntegrationMetadata {
+  username: string;
+  avatar_url?: string;
+}
+
+export interface GitHubIssueConfig {
+  owner: string;
+  repo: string;
+  default_labels?: string[];
 }
 
 // Catalog types

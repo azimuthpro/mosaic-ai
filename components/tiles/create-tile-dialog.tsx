@@ -57,6 +57,25 @@ interface CreateTileDialogProps {
 
 type Step = "type" | "config";
 
+function parseGitHubRepoUrl(
+  input: string,
+): { owner: string; repo: string } | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  // Handle "owner/repo" format
+  const slashMatch = trimmed.match(/^([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+  if (slashMatch) return { owner: slashMatch[1], repo: slashMatch[2] };
+
+  // Handle full GitHub URL
+  const urlMatch = trimmed.match(
+    /github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)/,
+  );
+  if (urlMatch) return { owner: urlMatch[1], repo: urlMatch[2] };
+
+  return null;
+}
+
 interface SelectedSkill {
   id: string;
   name: string;
@@ -98,6 +117,7 @@ export function CreateTileDialog({
     { id: string; name: string }[]
   >([]);
   const [slackTimeWindowDays, setSlackTimeWindowDays] = useState(1);
+  const [githubRepoUrl, setGithubRepoUrl] = useState("");
 
   function resetState() {
     setStep(initialType ? "config" : "type");
@@ -112,6 +132,7 @@ export function CreateTileDialog({
     setTrigger("manual");
     setSlackChannels([]);
     setSlackTimeWindowDays(1);
+    setGithubRepoUrl("");
   }
 
   function handleTypeSelect(type: TileType) {
@@ -145,6 +166,8 @@ export function CreateTileDialog({
         return inputTileIds.length > 0;
       case "slack_reader":
         return slackChannels.length > 0;
+      case "github_issue":
+        return parseGitHubRepoUrl(githubRepoUrl) !== null;
       default:
         return false;
     }
@@ -166,6 +189,10 @@ export function CreateTileDialog({
       case "slack_reader":
         return slackChannels.length === 0
           ? "Select at least one Slack channel"
+          : null;
+      case "github_issue":
+        return parseGitHubRepoUrl(githubRepoUrl) === null
+          ? "Enter a valid GitHub repo URL (e.g., owner/repo)"
           : null;
       default:
         return null;
@@ -211,6 +238,15 @@ export function CreateTileDialog({
         break;
     }
 
+    // Build type-specific config
+    let tileConfig: Record<string, unknown> | undefined;
+    if (selectedType === "github_issue") {
+      const parsed = parseGitHubRepoUrl(githubRepoUrl);
+      if (parsed) {
+        tileConfig = { owner: parsed.owner, repo: parsed.repo };
+      }
+    }
+
     const result = await createTile({
       mosaicId,
       name: tileName,
@@ -223,7 +259,13 @@ export function CreateTileDialog({
       systemPrompt: customInstructions || undefined,
       scheduleCron: getTriggerCron(trigger) || undefined,
       sources: sources.length > 0 ? sources : undefined,
-      connections: selectedType === "analyzer" || selectedType === "catalog" ? inputTileIds : undefined,
+      connections:
+        selectedType === "analyzer" ||
+        selectedType === "catalog" ||
+        selectedType === "github_issue"
+          ? inputTileIds
+          : undefined,
+      config: tileConfig as import("@/types/database").Json,
       slackChannels:
         selectedType === "slack_reader"
           ? slackChannels.map((ch) => ({
@@ -342,14 +384,38 @@ export function CreateTileDialog({
                   </div>
                 )}
 
-                {(selectedType === "analyzer" || selectedType === "catalog") && (
+                {(selectedType === "analyzer" ||
+                  selectedType === "catalog" ||
+                  selectedType === "github_issue") && (
                   <TileSelector
                     mosaicId={mosaicId}
                     selectedTileIds={inputTileIds}
                     onChange={setInputTileIds}
                     disabled={isLoading}
-                    label={selectedType === "catalog" ? "Source Tiles" : "Tiles to Analyze"}
+                    label={
+                      selectedType === "github_issue"
+                        ? "Input Tiles (optional)"
+                        : selectedType === "catalog"
+                          ? "Source Tiles"
+                          : "Tiles to Analyze"
+                    }
                   />
+                )}
+
+                {selectedType === "github_issue" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="githubRepo">Target Repository</Label>
+                    <Input
+                      id="githubRepo"
+                      placeholder="owner/repo or https://github.com/owner/repo"
+                      value={githubRepoUrl}
+                      onChange={(e) => setGithubRepoUrl(e.target.value)}
+                      disabled={isLoading}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      The GitHub repository where issues will be created.
+                    </p>
+                  </div>
                 )}
 
                 {selectedType === "slack_reader" && (

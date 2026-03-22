@@ -39,6 +39,7 @@ npm run lint     # Run ESLint
   - `analyzer`: Process and analyze connected tile data. Receives full report content from connections.
   - `slack_reader`: Reads messages from connected Slack channels. Config: channel_id, max_messages, include_threads, hours_back.
   - `catalog`: Persistent entity catalog with AI-detected schema. Tracks entities across executions with diffs and events.
+  - `github_issue`: Creates GitHub issues from connected tile data or instructions. Config: owner, repo, default_labels. Requires GitHub OAuth integration. Predefined skills: Blog Post, Bugfix, Feature Request.
 - **Tile Connections**: Universal data flow links between tiles. Any tile type can receive connections, with type-specific extraction of data from connected tiles.
 - **Tile Sources**: Data inputs for tiles (URLs, search queries, or referenced tiles)
 - **Mosaic Sharing**: Role-based access control (owner/admin/member) at mosaic level
@@ -125,6 +126,10 @@ npm run lint     # Run ESLint
 - `lib/ai/gemini.ts` - Gemini model configuration and content analysis
 - `lib/search/tavily.ts` - Tavily web search client
 - `lib/slack/verify-signature.ts` - Slack request signature verification
+- `lib/github/oauth.ts` - GitHub OAuth flow
+- `lib/github/integration.ts` - GitHub token resolution
+- `lib/github/create-issue.ts` - GitHub issue creation via Octokit
+- `lib/github/execute-github-issue.ts` - GitHub issue tile execution logic
 - `lib/actions/catalog.ts` - Server actions for catalog CRUD
 - `lib/actions/integrations.ts` - Server actions for user integrations (OAuth tokens)
 - `lib/actions/invite.ts` - Mosaic invitation handling
@@ -152,6 +157,9 @@ npm run lint     # Run ESLint
 - `/api/v1/tiles/[tileId]/webhooks/[webhookId]/deliveries` - Webhook delivery history
 - `/api/v1/mosaics/[mosaicId]/keys` - API key management
 - `/api/slack/events` - Slack Events API handler (bot mentions, signature verification)
+- `/api/auth/github/connect` - Initiate GitHub OAuth flow
+- `/api/auth/github/callback` - Handle GitHub OAuth callback
+- `/api/github/status` - Check GitHub connection status
 - `/api/auth/check-allowlist` - Email allowlist verification for signup
 - `/api/auth/invitation` - Mosaic invitation handling
 

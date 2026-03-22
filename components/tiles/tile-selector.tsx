@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Check, Database, Globe, MessageSquare, Search, X } from "lucide-react";
+import { Brain, Check, CircleDot, Database, Globe, MessageSquare, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ const TILE_ICONS: Record<TileType, React.ElementType> = {
   analyzer: Brain,
   slack_reader: MessageSquare,
   catalog: Database,
+  github_issue: CircleDot,
 };
 
 interface TileOption {

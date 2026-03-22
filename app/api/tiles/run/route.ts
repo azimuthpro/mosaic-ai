@@ -9,6 +9,7 @@ import {
   DEFAULT_MAX_DEPTH,
   DEFAULT_TIMEOUT_MS,
 } from "@/lib/execution/context";
+import { executeGitHubIssue } from "@/lib/github/execute-github-issue";
 import { deliverSlackOutput } from "@/lib/outputs/slack-output";
 import {
   assertRateLimitAllowed,
@@ -35,6 +36,7 @@ import {
 import { createClient, getUser } from "@/lib/supabase/server";
 import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
 import type {
+  GitHubIssueConfig,
   Tile,
   TileConnection,
   TileJob,
@@ -335,6 +337,25 @@ export async function POST(request: Request): Promise<Response> {
         resultContent = catalogResult.jobResultContent;
         resultFormat = "json";
         slackContent = catalogResult.diff.summary;
+      } else if (typedTile.tile_type === "github_issue") {
+        const githubConfig = (typedTile.config ??
+          {}) as unknown as GitHubIssueConfig;
+        if (!githubConfig.owner || !githubConfig.repo) {
+          throw new Error(
+            "GitHub issue tile requires owner and repo configuration",
+          );
+        }
+        const githubResult = await executeGitHubIssue(
+          tileId,
+          fetchedContent,
+          typedTile.system_prompt,
+          adminClient,
+          githubConfig,
+          typedTile.language,
+        );
+        resultContent = githubResult.jobResultContent;
+        resultFormat = "json";
+        slackContent = githubResult.slackSummary;
       } else {
         const analysis = await analyzeContent(
           fetchedContent,

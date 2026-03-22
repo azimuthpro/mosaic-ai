@@ -141,6 +141,7 @@ interface CreateTileParams {
   connections?: string[]; // IDs of source tiles to connect
   slackChannels?: { channel_id: string; channel_name: string }[];
   slackTimeWindowDays?: number;
+  config?: import("@/types/database").Json; // Type-specific configuration (e.g., GitHubIssueConfig)
 }
 
 /**
@@ -194,6 +195,7 @@ export async function createTile(params: CreateTileParams) {
     language: params.language || "en",
     schedule_cron: params.scheduleCron || null,
     is_active: true,
+    ...(params.config ? { config: params.config } : {}),
   };
 
   const { data: tileData, error: tileError } = await supabase
@@ -323,6 +325,7 @@ export async function updateTile(
     updateData.schedule_cron = params.scheduleCron || null;
   if (params.triggerOnSourceUpdate !== undefined)
     updateData.trigger_on_source_update = params.triggerOnSourceUpdate;
+  if (params.config !== undefined) updateData.config = params.config;
 
   const { data: tileData, error } = await supabase
     .from("tiles")
