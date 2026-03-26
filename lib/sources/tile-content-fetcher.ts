@@ -495,9 +495,15 @@ async function fetchSlackChannelContent(
       fetchChannelMessages(token, config.channel_id, messageOptions),
     ]);
 
-    const combined = metadata
-      ? formatChannelMetadata(metadata) + "\n\n---\n\n" + messages
-      : messages;
+    const contextNote = config.context
+      ? `> **Channel context:** ${config.context}\n\n`
+      : "";
+
+    const combined =
+      contextNote +
+      (metadata
+        ? formatChannelMetadata(metadata) + "\n\n---\n\n" + messages
+        : messages);
 
     const { content, truncated, originalSize } = truncateContent(combined);
 

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { Grid3X3, Plus } from "lucide-react";
+import { Grid3X3 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -43,14 +43,7 @@ export default async function DashboardLayout({
             <span>Mosaic AI</span>
           </Link>
           <MosaicSelector mosaics={allMosaics} />
-          <CreateMosaicDialog
-            trigger={
-              <button className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
-                <Plus className="h-4 w-4" />
-                New
-              </button>
-            }
-          />
+          <CreateMosaicDialog variant="compact" />
         </div>
         <UserMenu user={user} />
       </header>

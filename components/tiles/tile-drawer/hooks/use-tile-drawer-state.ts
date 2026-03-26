@@ -105,6 +105,7 @@ export function useTileDrawerState({
     slackMaxMessages: 100,
     slackDaysBack: 7,
     slackIncludeThreads: true,
+    slackContext: "",
   });
 
   // API keys state
@@ -141,6 +142,7 @@ export function useTileDrawerState({
     slackMaxMessages: 100,
     slackDaysBack: 7,
     slackIncludeThreads: true,
+    slackContext: "",
   });
   const [isSavingSource, setIsSavingSource] = useState(false);
 
@@ -255,6 +257,7 @@ export function useTileDrawerState({
         slackMaxMessages: 100,
         slackDaysBack: 7,
         slackIncludeThreads: true,
+        slackContext: "",
       });
 
       // Reset edit state when switching tiles
@@ -344,6 +347,7 @@ export function useTileDrawerState({
       slackMaxMessages: 100,
       slackDaysBack: 7,
       slackIncludeThreads: true,
+      slackContext: "",
     });
   }, [tile]);
 
@@ -451,6 +455,9 @@ export function useTileDrawerState({
             team_id: sourceForm.slackTeamId,
             team_name: sourceForm.slackTeamName,
           }),
+          ...(sourceForm.slackContext && {
+            context: sourceForm.slackContext,
+          }),
         };
       }
 
@@ -525,6 +532,7 @@ export function useTileDrawerState({
         include_threads?: boolean;
         team_id?: string;
         team_name?: string;
+        context?: string;
       } | null;
       setEditingSourceId(source.id);
 
@@ -548,6 +556,7 @@ export function useTileDrawerState({
         slackMaxMessages: Math.min(500, config?.max_messages ?? 100),
         slackDaysBack: daysBack,
         slackIncludeThreads: config?.include_threads ?? true,
+        slackContext: config?.context || "",
       });
     },
     [],
@@ -613,6 +622,7 @@ export function useTileDrawerState({
           ...cleanConfig,
           include_threads: editForm.slackIncludeThreads,
           ...modeConfig,
+          context: editForm.slackContext || undefined,
         };
       }
 

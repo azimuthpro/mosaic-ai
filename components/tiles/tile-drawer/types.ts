@@ -101,6 +101,7 @@ export interface SourceFormState {
   slackMaxMessages: number;
   slackDaysBack: number;
   slackIncludeThreads: boolean;
+  slackContext: string;
 }
 
 // Source edit form state (for editing existing sources)
@@ -114,6 +115,7 @@ export interface SourceEditFormState {
   slackMaxMessages: number;
   slackDaysBack: number;
   slackIncludeThreads: boolean;
+  slackContext: string;
 }
 
 // Tile config form state

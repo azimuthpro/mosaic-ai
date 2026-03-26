@@ -26,6 +26,7 @@ export interface SlackSourceConfig {
   hours_back?: number; // Legacy — kept for backward compat
   team_id?: string;
   team_name?: string;
+  context?: string; // User-provided context about this channel for the AI prompt
 }
 
 export type TileType =
@@ -383,6 +384,7 @@ export interface Database {
           last_scraped_at: string | null;
           type: SourceType;
           config: Json;
+          sort_order: number;
           created_at: string;
           updated_at: string;
         };
@@ -395,6 +397,7 @@ export interface Database {
           last_scraped_at?: string | null;
           type?: SourceType;
           config?: Json;
+          sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -407,6 +410,7 @@ export interface Database {
           last_scraped_at?: string | null;
           type?: SourceType;
           config?: Json;
+          sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };

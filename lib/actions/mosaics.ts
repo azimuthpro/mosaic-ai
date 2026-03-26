@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { sendInvitationEmail } from "@/lib/email/sendgrid";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { compareBySortOrder } from "@/lib/utils";
 import type {
   MemberRole,
   Mosaic,
@@ -78,7 +79,7 @@ async function fetchUserDataByIds(
 function transformTileWithSources(tile: TileQueryResult): TileWithSources {
   return {
     ...tile,
-    sources: tile.tile_sources || [],
+    sources: (tile.tile_sources || []).sort(compareBySortOrder),
   };
 }
 

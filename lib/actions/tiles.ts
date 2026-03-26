@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { compareBySortOrder } from "@/lib/utils";
 import type {
   Json,
   LanguageCode,
@@ -63,7 +64,7 @@ export async function getTiles(mosaicId: string): Promise<TileWithSources[]> {
 
   return ((data as TileQueryResult[]) || []).map((t) => ({
     ...t,
-    sources: t.tile_sources || [],
+    sources: (t.tile_sources || []).sort(compareBySortOrder),
   })) as TileWithSources[];
 }
 
@@ -109,7 +110,7 @@ export async function getTile(id: string): Promise<TileWithConnections | null> {
 
   return {
     ...tile,
-    sources: tile.tile_sources || [],
+    sources: (tile.tile_sources || []).sort(compareBySortOrder),
     incoming_connections: (incomingConnections as TileConnection[]) || [],
     outgoing_connections: (outgoingConnections as TileConnection[]) || [],
   } as TileWithConnections;
@@ -588,6 +589,18 @@ export async function addTileSource(params: AddTileSourceParams) {
   };
   const config = (configByType[sourceType] as Json) ?? {};
 
+  // Compute next sort_order for this tile
+  const { data: maxOrderRow } = await supabase
+    .from("tile_sources")
+    .select("sort_order")
+    .eq("tile_id", params.tileId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .single();
+
+  const nextSortOrder =
+    ((maxOrderRow as { sort_order: number } | null)?.sort_order ?? -1) + 1;
+
   const sourceInsert: TileSourceInsert = {
     tile_id: params.tileId,
     type: sourceType,
@@ -598,6 +611,7 @@ export async function addTileSource(params: AddTileSourceParams) {
         ? (params.slackConfig?.channel_name ?? null)
         : null),
     config,
+    sort_order: nextSortOrder,
   };
 
   const { data, error } = await supabase
@@ -753,6 +767,50 @@ export async function updateTileSource(
   }
 
   revalidatePath(`/mosaics/${source.tiles.mosaic_id}`);
+  return { success: true };
+}
+
+/**
+ * Reorder tile sources by updating their sort_order values.
+ */
+export async function reorderTileSources(tileId: string, sourceIds: string[]) {
+  const supabase = await createClient();
+  const user = await getUser();
+
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  // Verify tile access
+  const { data: tileData } = await supabase
+    .from("tiles")
+    .select("mosaic_id")
+    .eq("id", tileId)
+    .single();
+
+  const tile = tileData as { mosaic_id: string } | null;
+  if (!tile) {
+    return { error: "Tile not found" };
+  }
+
+  // Update sort_order for each source
+  const results = await Promise.all(
+    sourceIds.map((id, index) =>
+      supabase
+        .from("tile_sources")
+        .update({ sort_order: index } as never)
+        .eq("id", id)
+        .eq("tile_id", tileId),
+    ),
+  );
+
+  const failed = results.find((r) => r.error);
+  if (failed?.error) {
+    console.error("Error reordering tile sources:", failed.error);
+    return { error: "Failed to reorder sources" };
+  }
+
+  revalidatePath(`/mosaics/${tile.mosaic_id}`);
   return { success: true };
 }
 

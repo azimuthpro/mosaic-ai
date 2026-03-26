@@ -24,6 +24,7 @@ import {
   getErrorMessage,
   supabaseErrorMetadata,
 } from "@/lib/supabase/errors";
+import { compareBySortOrder } from "@/lib/utils";
 import type {
   Tile,
   TileConnection,
@@ -108,6 +109,11 @@ export async function triggerDownstreamTiles(
   const typedTiles = targetTiles as unknown as (Tile & {
     tile_sources: TileSource[];
   })[];
+
+  // Sort each tile's sources by user-defined sort_order
+  for (const tile of typedTiles) {
+    tile.tile_sources.sort(compareBySortOrder);
+  }
 
   // Process each eligible downstream tile with hard timeout per tile
   await Promise.allSettled(

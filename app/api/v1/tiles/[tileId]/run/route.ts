@@ -27,6 +27,7 @@ import {
   supabaseErrorMetadata,
 } from "@/lib/supabase/errors";
 import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
+import { compareBySortOrder } from "@/lib/utils";
 import type {
   GitHubIssueConfig,
   Tile,
@@ -146,6 +147,7 @@ export async function POST(
       }
 
       const typedTile = tile as unknown as TileWithSources;
+      typedTile.tile_sources.sort(compareBySortOrder);
 
       // Get tile connections
       const { data: incomingConnections } = await adminClient

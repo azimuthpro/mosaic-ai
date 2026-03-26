@@ -35,6 +35,7 @@ import {
 } from "@/lib/supabase/errors";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
+import { compareBySortOrder } from "@/lib/utils";
 import type {
   GitHubIssueConfig,
   Tile,
@@ -117,6 +118,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const typedTile = tile as unknown as Tile & { tile_sources: TileSource[] };
+    typedTile.tile_sources.sort(compareBySortOrder);
 
     // Verify user has access to the mosaic (owner or member)
     const { data: mosaic } = await supabase

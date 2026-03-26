@@ -20,9 +20,13 @@ import { createMosaic } from "@/lib/actions/mosaics";
 
 interface CreateMosaicDialogProps {
   trigger?: React.ReactNode;
+  variant?: "default" | "compact";
 }
 
-export function CreateMosaicDialog({ trigger }: CreateMosaicDialogProps) {
+export function CreateMosaicDialog({
+  trigger,
+  variant = "default",
+}: CreateMosaicDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,12 +52,18 @@ export function CreateMosaicDialog({ trigger }: CreateMosaicDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger || (
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            New Mosaic
-          </Button>
-        )}
+        {trigger ||
+          (variant === "compact" ? (
+            <button className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+              <Plus className="h-4 w-4" />
+              New
+            </button>
+          ) : (
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Mosaic
+            </Button>
+          ))}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

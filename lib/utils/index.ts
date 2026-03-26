@@ -1,5 +1,16 @@
 export { cn } from "./cn";
 
+/**
+ * Comparator for sorting items by their sort_order field.
+ * Treats null/undefined as 0 for backwards compatibility.
+ */
+export function compareBySortOrder(
+  a: { sort_order?: number | null },
+  b: { sort_order?: number | null },
+): number {
+  return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+}
+
 // Format date for display
 export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat("en-US", {

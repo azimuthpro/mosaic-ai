@@ -31,6 +31,7 @@ import {
   supabaseErrorMetadata,
 } from "@/lib/supabase/errors";
 import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
+import { compareBySortOrder } from "@/lib/utils";
 import type {
   GitHubIssueConfig,
   MosaicSettings,
@@ -500,6 +501,11 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     const allTiles = (tiles || []) as TileWithSources[];
+
+    // Sort each tile's sources by user-defined sort_order
+    for (const tile of allTiles) {
+      tile.tile_sources.sort(compareBySortOrder);
+    }
 
     // Filter tiles that should run at the current time based on their schedule and timezone
     const scheduledTiles = allTiles.filter((tile) => {
