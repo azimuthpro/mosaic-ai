@@ -86,7 +86,7 @@ interface TileRow {
   name: string;
   mosaic_id: string;
   tile_type: string;
-  schedule_interval: string | null;
+  schedule_cron: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -96,14 +96,14 @@ interface JobRow {
   status: string;
   started_at: string | null;
   completed_at: string | null;
-  error: string | null;
+  error_message: string | null;
 }
 
 interface ResultRow {
   id: string;
   tile_id: string;
   content: unknown;
-  raw_text: string | null;
+  format: string;
   created_at: string;
 }
 
@@ -187,7 +187,7 @@ export async function getMosaicTiles(mosaicId: string, userId: string) {
 
   const { data: tiles } = await admin
     .from("tiles")
-    .select("id, name, tile_type, schedule_interval, is_active, created_at")
+    .select("id, name, tile_type, schedule_cron, is_active, created_at")
     .eq("mosaic_id", mosaicId)
     .order("created_at", { ascending: true })
     .returns<TileRow[]>();
@@ -207,13 +207,24 @@ export async function getMosaicTiles(mosaicId: string, userId: string) {
 export async function getLatestTileResult(tileId: string) {
   const admin = createAdminClient();
 
-  const { data: results } = await admin
+  const { data: results, error } = await admin
     .from("tile_job_results")
-    .select("id, tile_id, content, raw_text, created_at")
+    .select("id, tile_id, content, format, created_at")
     .eq("tile_id", tileId)
     .order("created_at", { ascending: false })
     .limit(1)
     .returns<ResultRow[]>();
+
+  if (error) {
+    console.error("[bot] getLatestTileResult error:", error.message);
+    return null;
+  }
+
+  console.log(
+    "[bot] getLatestTileResult",
+    tileId,
+    results?.length ? `found (${results[0].created_at})` : "no results",
+  );
 
   return results?.[0] ?? null;
 }
@@ -226,13 +237,13 @@ export async function getTileStatus(tileId: string) {
 
   const { data: tileRows } = await admin
     .from("tiles")
-    .select("id, name, tile_type, schedule_interval, is_active")
+    .select("id, name, tile_type, schedule_cron, is_active")
     .eq("id", tileId)
     .limit(1)
     .returns<
       Pick<
         TileRow,
-        "id" | "name" | "tile_type" | "schedule_interval" | "is_active"
+        "id" | "name" | "tile_type" | "schedule_cron" | "is_active"
       >[]
     >();
 
@@ -240,7 +251,7 @@ export async function getTileStatus(tileId: string) {
 
   const { data: recentJobs } = await admin
     .from("tile_jobs")
-    .select("id, status, started_at, completed_at, error")
+    .select("id, status, started_at, completed_at, error_message")
     .eq("tile_id", tileId)
     .order("started_at", { ascending: false })
     .limit(5)
@@ -347,6 +358,7 @@ export async function findTilesByQuery(userId: string, query: string) {
   if (allMosaics.length === 0) return { tiles: [] };
 
   const mosaicMap = new Map(allMosaics.map((m) => [m.id, m.name]));
+  console.log("[bot] findTilesByQuery across", allMosaics.length, "mosaics");
 
   // Search tiles across all mosaics, tracking which mosaic each came from
   type CandidateWithMosaic = Awaited<ReturnType<typeof searchTiles>>[number] & {
@@ -371,14 +383,19 @@ export async function findTilesByQuery(userId: string, query: string) {
   allCandidates.sort((a, b) => b.similarity - a.similarity);
   const topCandidates = allCandidates.slice(0, 5);
 
+  console.log(
+    "[bot] findTilesByQuery candidates:",
+    topCandidates.map((c) => `${c.tile_name} (${c.similarity.toFixed(3)})`),
+  );
+
   if (topCandidates.length === 0) return { tiles: [] };
 
   // Fetch latest result for the top match
   const topTileId = topCandidates[0].tile_id;
   const latestResult = await getLatestTileResult(topTileId);
   const resultSnippet = latestResult
-    ? (typeof latestResult.raw_text === "string"
-        ? latestResult.raw_text
+    ? (typeof latestResult.content === "string"
+        ? latestResult.content
         : JSON.stringify(latestResult.content)
       ).slice(0, 4000)
     : null;

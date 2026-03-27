@@ -48,7 +48,7 @@ export function createBotTools(userId: string) {
             id: t.id,
             name: t.name,
             type: t.tile_type,
-            schedule: t.schedule_interval,
+            schedule: t.schedule_cron,
             active: t.is_active,
           })),
         };
@@ -68,14 +68,14 @@ export function createBotTools(userId: string) {
           tile: {
             name: result.tile.name,
             type: result.tile.tile_type,
-            schedule: result.tile.schedule_interval,
+            schedule: result.tile.schedule_cron,
             active: result.tile.is_active,
           },
           recentJobs: result.recentJobs.map((j) => ({
             status: j.status,
             startedAt: j.started_at,
             completedAt: j.completed_at,
-            error: j.error,
+            error: j.error_message,
           })),
         };
       },
@@ -92,8 +92,8 @@ export function createBotTools(userId: string) {
         if (!result) return "No results found for this tile.";
 
         const text =
-          typeof result.raw_text === "string"
-            ? result.raw_text.slice(0, 8000)
+          typeof result.content === "string"
+            ? result.content.slice(0, 8000)
             : JSON.stringify(result.content).slice(0, 8000);
 
         return {
