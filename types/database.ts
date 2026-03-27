@@ -619,6 +619,44 @@ export interface Database {
           updated_at?: string;
         };
       };
+      tile_embeddings: {
+        Row: {
+          id: string;
+          tile_id: string;
+          mosaic_id: string;
+          semantic_description: string;
+          keywords: string[];
+          example_queries: string[];
+          embedded_text: string;
+          embedding: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tile_id: string;
+          mosaic_id: string;
+          semantic_description: string;
+          keywords?: string[];
+          example_queries?: string[];
+          embedded_text: string;
+          embedding: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tile_id?: string;
+          mosaic_id?: string;
+          semantic_description?: string;
+          keywords?: string[];
+          example_queries?: string[];
+          embedded_text?: string;
+          embedding?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       tile_webhooks: {
         Row: {
           id: string;
@@ -900,6 +938,22 @@ export interface Database {
           p_new_owner_id: string;
         };
         Returns: Json;
+      };
+      match_tiles: {
+        Args: {
+          query_embedding: string;
+          match_mosaic_id: string;
+          match_threshold?: number;
+          match_count?: number;
+        };
+        Returns: {
+          tile_id: string;
+          mosaic_id: string;
+          semantic_description: string;
+          keywords: string[];
+          example_queries: string[];
+          similarity: number;
+        }[];
       };
     };
     Enums: {
@@ -1229,3 +1283,11 @@ export interface WebhookPayload {
   };
   error?: string;
 }
+
+// Tile Embeddings (Router)
+export type TileEmbedding =
+  Database["public"]["Tables"]["tile_embeddings"]["Row"];
+export type TileEmbeddingInsert =
+  Database["public"]["Tables"]["tile_embeddings"]["Insert"];
+export type TileEmbeddingUpdate =
+  Database["public"]["Tables"]["tile_embeddings"]["Update"];

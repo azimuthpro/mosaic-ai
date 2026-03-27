@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { compareBySortOrder } from "@/lib/utils";
 import type {
@@ -34,6 +35,29 @@ export type TileWithConnections = Tile & {
 type TileQueryResult = Tile & {
   tile_sources: TileSource[] | null;
 };
+
+/** Fire-and-forget: re-index a tile for router vector search */
+function reindexTileAsync(tileId: string): void {
+  const admin = createAdminClient();
+  const query = admin
+    .from("tiles")
+    .select("*, tile_sources!tile_sources_tile_id_fkey (*)")
+    .eq("id", tileId)
+    .single();
+
+  // Wrap in Promise.resolve because Supabase returns PromiseLike (no .catch)
+  Promise.resolve(query)
+    .then(({ data }) => {
+      if (!data) return;
+      const tile = data as unknown as Tile & { tile_sources: TileSource[] };
+      return import("@/lib/router/index-tile").then(({ indexTile }) =>
+        indexTile(admin, tile, tile.tile_sources || []),
+      );
+    })
+    .catch((err) =>
+      console.error(`[router/sync] Failed to re-index tile ${tileId}:`, err),
+    );
+}
 
 /**
  * Get all tiles in a mosaic
@@ -286,6 +310,7 @@ export async function createTile(params: CreateTileParams) {
   }
 
   revalidatePath(`/mosaics/${params.mosaicId}`);
+  reindexTileAsync(tile.id);
   return { success: true, tile };
 }
 
@@ -342,6 +367,7 @@ export async function updateTile(
 
   const tile = tileData as { mosaic_id: string };
   revalidatePath(`/mosaics/${tile.mosaic_id}`);
+  reindexTileAsync(id);
   return { success: true };
 }
 
@@ -633,6 +659,7 @@ export async function addTileSource(params: AddTileSourceParams) {
   }
 
   revalidatePath(`/mosaics/${tile.mosaic_id}`);
+  reindexTileAsync(params.tileId);
   return { success: true, source: data };
 }
 
@@ -681,6 +708,7 @@ export async function deleteTileSource(sourceId: string) {
   }
 
   revalidatePath(`/mosaics/${source.tiles.mosaic_id}`);
+  reindexTileAsync(source.tile_id);
   return { success: true };
 }
 
@@ -709,6 +737,7 @@ export async function updateTileSource(
     .select(
       `
       id,
+      tile_id,
       type,
       tiles!tile_sources_tile_id_fkey (mosaic_id)
     `,
@@ -718,6 +747,7 @@ export async function updateTileSource(
 
   type SourceWithTile = {
     id: string;
+    tile_id: string;
     type: SourceType;
     tiles: { mosaic_id: string };
   };
@@ -767,6 +797,7 @@ export async function updateTileSource(
   }
 
   revalidatePath(`/mosaics/${source.tiles.mosaic_id}`);
+  reindexTileAsync(source.tile_id);
   return { success: true };
 }
 
