@@ -1,3 +1,4 @@
+import { searchTiles } from "@/lib/router/search";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const SLACK_API_BASE = "https://slack.com/api";
@@ -55,7 +56,12 @@ export async function resolveSlackUser(
     return null;
   }
 
-  console.log("[bot] searching", users.length, "Supabase users for email:", email);
+  console.log(
+    "[bot] searching",
+    users.length,
+    "Supabase users for email:",
+    email,
+  );
 
   const match = users.find(
     (u) => u.email?.toLowerCase() === email.toLowerCase(),
@@ -303,6 +309,98 @@ export async function searchByName(userId: string, query: string) {
   }
 
   return { mosaics, tiles };
+}
+
+/**
+ * Finds tiles matching a natural language query using vector search.
+ * Searches across all mosaics the user has access to and returns
+ * top matches with their latest result snippet.
+ */
+export async function findTilesByQuery(userId: string, query: string) {
+  const admin = createAdminClient();
+
+  // Get all mosaic IDs the user can access
+  const { data: owned } = await admin
+    .from("mosaics")
+    .select("id, name")
+    .eq("owner_id", userId)
+    .returns<{ id: string; name: string }[]>();
+
+  const { data: memberships } = await admin
+    .from("mosaic_members")
+    .select("mosaic_id")
+    .eq("user_id", userId)
+    .returns<{ mosaic_id: string }[]>();
+
+  const memberIds = (memberships ?? []).map((m) => m.mosaic_id);
+  let sharedMosaics: { id: string; name: string }[] = [];
+  if (memberIds.length > 0) {
+    const { data } = await admin
+      .from("mosaics")
+      .select("id, name")
+      .in("id", memberIds)
+      .returns<{ id: string; name: string }[]>();
+    sharedMosaics = data ?? [];
+  }
+
+  const allMosaics = [...(owned ?? []), ...sharedMosaics];
+  if (allMosaics.length === 0) return { tiles: [] };
+
+  const mosaicMap = new Map(allMosaics.map((m) => [m.id, m.name]));
+
+  // Search tiles across all mosaics, tracking which mosaic each came from
+  type CandidateWithMosaic = Awaited<ReturnType<typeof searchTiles>>[number] & {
+    mosaic_id: string;
+  };
+  const allCandidates: CandidateWithMosaic[] = [];
+  for (const mosaic of allMosaics) {
+    try {
+      const candidates = await searchTiles(admin, mosaic.id, query, {
+        threshold: 0.3,
+        limit: 3,
+      });
+      allCandidates.push(
+        ...candidates.map((c) => ({ ...c, mosaic_id: mosaic.id })),
+      );
+    } catch {
+      // Skip mosaics that fail (e.g., no embeddings yet)
+    }
+  }
+
+  // Sort by similarity and take top 5
+  allCandidates.sort((a, b) => b.similarity - a.similarity);
+  const topCandidates = allCandidates.slice(0, 5);
+
+  if (topCandidates.length === 0) return { tiles: [] };
+
+  // Fetch latest result for the top match
+  const topTileId = topCandidates[0].tile_id;
+  const latestResult = await getLatestTileResult(topTileId);
+  const resultSnippet = latestResult
+    ? (typeof latestResult.raw_text === "string"
+        ? latestResult.raw_text
+        : JSON.stringify(latestResult.content)
+      ).slice(0, 4000)
+    : null;
+
+  return {
+    tiles: topCandidates.map((c) => ({
+      tile_id: c.tile_id,
+      tile_name: c.tile_name,
+      tile_type: c.tile_type,
+      mosaic_name: mosaicMap.get(c.mosaic_id) ?? "Unknown",
+      description: c.semantic_description,
+      similarity: c.similarity,
+    })),
+    top_result: resultSnippet
+      ? {
+          tile_id: topTileId,
+          tile_name: topCandidates[0].tile_name,
+          content: resultSnippet,
+          created_at: latestResult!.created_at,
+        }
+      : null,
+  };
 }
 
 async function verifyMosaicAccess(

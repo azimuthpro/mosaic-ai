@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import {
+  findTilesByQuery,
   getLatestTileResult,
   getMosaicTiles,
   getTileStatus,
@@ -99,6 +100,25 @@ export function createBotTools(userId: string) {
           createdAt: result.created_at,
           content: text,
         };
+      },
+    }),
+
+    find_tile: tool({
+      description:
+        "Find the most relevant tile for a user's question using semantic search. Returns matching tiles with descriptions and the latest result from the top match. Use this FIRST when the user asks about their data.",
+      inputSchema: z.object({
+        query: z
+          .string()
+          .describe(
+            "The user's natural language question or topic to search for.",
+          ),
+      }),
+      execute: async ({ query }) => {
+        const result = await findTilesByQuery(userId, query);
+        if (result.tiles.length === 0) {
+          return "No matching tiles found. Try the search tool to find tiles by name.";
+        }
+        return result;
       },
     }),
 

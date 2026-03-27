@@ -26,8 +26,9 @@ When the user asks what you can do or asks for help, explain your capabilities:
 - Answer follow-up questions about any of the above in the same thread
 
 Rules:
+- When a user asks a question about their data, use the find_tile tool FIRST — it uses semantic search to instantly find the most relevant tile and its latest results
 - Always use the provided tools to look up real data — never guess or make up IDs
-- When a user mentions a mosaic or tile by name, use the search tool first to find the ID
+- When a user mentions a mosaic or tile by name, use the search tool to find the ID
 - Keep responses concise and formatted for Slack (use *bold*, bullet points)
 - If the user doesn't have access to something, say so politely
 - When showing results, summarize key points rather than dumping raw data`;
@@ -43,7 +44,12 @@ async function resolveUser(
 ): Promise<string | null> {
   const raw = message.raw as { team?: string; team_id?: string } | undefined;
   const teamId = raw?.team || raw?.team_id || "";
-  console.log("[bot] resolveUser for team", teamId, "slack user", message.author.userId);
+  console.log(
+    "[bot] resolveUser for team",
+    teamId,
+    "slack user",
+    message.author.userId,
+  );
   const installation = await slackAdapter.getInstallation(teamId);
   if (!installation?.botToken) {
     console.error("[bot] no installation for team", teamId);
@@ -80,7 +86,7 @@ async function answerQuestion(thread: Thread, userId: string): Promise<void> {
     system: SYSTEM_PROMPT,
     messages: history,
     tools,
-    stopWhen: stepCountIs(8),
+    stopWhen: stepCountIs(12),
     onStepFinish: (event) => {
       console.log("[bot] step", event.stepNumber, {
         text: event.text.length,
@@ -108,7 +114,9 @@ async function handleMessage(
     text: message.text.slice(0, 50),
   });
   await slackAdapter.addReaction(thread.id, message.id, "eyes").catch(() => {});
-  await slackAdapter.addReaction(thread.id, message.id, "loading").catch(() => {});
+  await slackAdapter
+    .addReaction(thread.id, message.id, "loading")
+    .catch(() => {});
   try {
     const userId = await resolveUser(thread, message, slackAdapter);
     if (!userId) return;
@@ -116,7 +124,9 @@ async function handleMessage(
   } catch (err) {
     console.error(`[bot] ${event} error:`, err);
   } finally {
-    await slackAdapter.removeReaction(thread.id, message.id, "loading").catch(() => {});
+    await slackAdapter
+      .removeReaction(thread.id, message.id, "loading")
+      .catch(() => {});
   }
 }
 
@@ -128,16 +138,26 @@ export function registerHandlers(
   slackAdapter: SlackAdapterType,
 ): void {
   bot.onNewMention(async (thread, message) => {
-    await handleMessage("onNewMention", thread, message, slackAdapter, async (userId) => {
-      await thread.subscribe();
-      await answerQuestion(thread, userId);
-    });
+    await handleMessage(
+      "onNewMention",
+      thread,
+      message,
+      slackAdapter,
+      async (userId) => {
+        await thread.subscribe();
+        await answerQuestion(thread, userId);
+      },
+    );
   });
 
   bot.onSubscribedMessage(async (thread, message) => {
     if (message.author.isMe) return;
-    await handleMessage("onSubscribedMessage", thread, message, slackAdapter, (userId) =>
-      answerQuestion(thread, userId),
+    await handleMessage(
+      "onSubscribedMessage",
+      thread,
+      message,
+      slackAdapter,
+      (userId) => answerQuestion(thread, userId),
     );
   });
 }
