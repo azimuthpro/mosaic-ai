@@ -7,6 +7,7 @@ import {
   getMosaicTiles,
   getTileStatus,
   getUserMosaics,
+  runTileForUser,
   searchByName,
 } from "./data";
 
@@ -138,6 +139,25 @@ export function createBotTools(userId: string) {
             type: t.tile_type,
           })),
         };
+      },
+    }),
+
+    run_tile: tool({
+      description:
+        "Run a tile to execute it now. Use this when the user asks to run a tile, create a GitHub issue, trigger an analysis, or otherwise execute a tile. Optionally provide custom input text instead of using the tile's configured sources.",
+      inputSchema: z.object({
+        tile_id: z
+          .string()
+          .describe("The tile ID (UUID). Use search or find_tile to find it."),
+        input: z
+          .string()
+          .optional()
+          .describe(
+            "Optional custom input text. If provided, this replaces the tile's normal source content. Useful for creating issues or running analyses on specific text from the conversation.",
+          ),
+      }),
+      execute: async ({ tile_id, input }) => {
+        return runTileForUser(userId, tile_id, input);
       },
     }),
   };

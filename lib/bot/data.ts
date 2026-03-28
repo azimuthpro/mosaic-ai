@@ -1,5 +1,38 @@
+import { analyzeContent } from "@/lib/ai/gemini";
+import { executeCatalogUpdate } from "@/lib/catalog/execute-catalog";
+import {
+  createExecutionContext,
+  DEFAULT_MAX_DEPTH,
+  DEFAULT_TIMEOUT_MS,
+} from "@/lib/execution/context";
+import { executeGitHubIssue } from "@/lib/github/execute-github-issue";
+import { deliverSlackOutput } from "@/lib/outputs/slack-output";
+import {
+  assertRateLimitAllowed,
+  checkAndIncrementRateLimit,
+  decrementConcurrentCount,
+  logTileJobExecutionEvent,
+  RateLimitError,
+} from "@/lib/rate-limit/limiter";
 import { searchTiles } from "@/lib/router/search";
+import {
+  countActiveUrlSources,
+  fetchAllTileSourcesContent,
+  fetchConnectionContent,
+} from "@/lib/sources/tile-content-fetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
+import { compareBySortOrder } from "@/lib/utils";
+import type {
+  GitHubIssueConfig,
+  Tile,
+  TileConnection,
+  TileJob,
+  TileJobInsert,
+  TileJobResultInsert,
+  TileJobUpdate,
+  TileSource,
+} from "@/types/database";
 
 const SLACK_API_BASE = "https://slack.com/api";
 const userCache = new Map<string, string>();
@@ -418,6 +451,302 @@ export async function findTilesByQuery(userId: string, query: string) {
         }
       : null,
   };
+}
+
+/**
+ * Runs a tile on behalf of a user from the bot.
+ * Handles rate limiting, content fetching, execution, and result storage.
+ * Optionally accepts custom input text to use instead of fetching from sources.
+ */
+export async function runTileForUser(
+  userId: string,
+  tileId: string,
+  input?: string,
+): Promise<{ success: boolean; message: string; content?: string }> {
+  const admin = createAdminClient();
+  let rateLimitIncremented = false;
+
+  try {
+    // Fetch tile with sources
+    const { data: tileRow } = await admin
+      .from("tiles")
+      .select("*, tile_sources!tile_sources_tile_id_fkey (*)")
+      .eq("id", tileId)
+      .single();
+
+    if (!tileRow) return { success: false, message: "Tile not found." };
+
+    const tile = tileRow as unknown as Tile & { tile_sources: TileSource[] };
+    tile.tile_sources.sort(compareBySortOrder);
+
+    // Verify access
+    const hasAccess = await verifyMosaicAccess(admin, tile.mosaic_id, userId);
+    if (!hasAccess)
+      return { success: false, message: "You don't have access to this tile." };
+
+    if (tile.tile_type === "knowledge_base") {
+      return {
+        success: false,
+        message: "Knowledge base tiles cannot be executed.",
+      };
+    }
+
+    // Rate limit
+    const rateLimitResult = await checkAndIncrementRateLimit(admin, userId);
+    try {
+      assertRateLimitAllowed(rateLimitResult);
+      rateLimitIncremented = true;
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        return { success: false, message: `Rate limit exceeded: ${err.reason}` };
+      }
+      throw err;
+    }
+
+    // Fetch connections
+    const { data: connRows } = await admin
+      .from("tile_connections")
+      .select("*")
+      .eq("target_tile_id", tileId);
+    const connections = (connRows || []) as TileConnection[];
+
+    // Determine content
+    let fetchedContent: string[];
+
+    if (input) {
+      // Use caller-provided input
+      fetchedContent = [input];
+    } else {
+      // Fetch from sources and connections like normal execution
+      const hasSources = tile.tile_sources.length > 0;
+      const hasConnections = connections.length > 0;
+
+      if (!hasSources && !hasConnections) {
+        return {
+          success: false,
+          message: "Tile has no sources or connections configured.",
+        };
+      }
+
+      const ctx = createExecutionContext({
+        rootAgentId: tileId,
+        userId,
+        maxDepth: tile.max_chain_depth ?? DEFAULT_MAX_DEPTH,
+        timeoutMs: tile.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS,
+      });
+
+      const sourceResults = [];
+
+      if (hasSources) {
+        const results = await fetchAllTileSourcesContent(
+          tile.tile_sources,
+          admin,
+          ctx,
+        );
+        sourceResults.push(...results);
+
+        if (hasConnections) {
+          const connResults = await fetchConnectionContent(
+            tileId,
+            tile.tile_type,
+            connections,
+            admin,
+            ctx,
+            countActiveUrlSources(tile.tile_sources),
+          );
+          sourceResults.push(...connResults);
+        }
+      } else if (hasConnections) {
+        const connResults = await fetchConnectionContent(
+          tileId,
+          tile.tile_type,
+          connections,
+          admin,
+          ctx,
+        );
+        sourceResults.push(...connResults);
+      }
+
+      fetchedContent = sourceResults
+        .filter((r) => r.success && r.content)
+        .map((r) => r.content!);
+
+      if (fetchedContent.length === 0) {
+        return {
+          success: false,
+          message: "Failed to fetch content from tile sources.",
+        };
+      }
+    }
+
+    // Create execution context and job
+    const executionContext = createExecutionContext({
+      rootAgentId: tileId,
+      userId,
+      maxDepth: tile.max_chain_depth ?? DEFAULT_MAX_DEPTH,
+      timeoutMs: tile.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS,
+    });
+
+    await logTileJobExecutionEvent(admin, {
+      executionId: executionContext.executionId,
+      tileId,
+      eventType: "started",
+      metadata: { tileType: tile.tile_type, trigger: "bot" },
+    });
+
+    const jobInsert: TileJobInsert = {
+      tile_id: tileId,
+      status: "processing",
+      started_at: new Date().toISOString(),
+      metadata: {
+        execution_id: executionContext.executionId,
+        chain_depth: 0,
+      },
+      execution_id: executionContext.executionId,
+      chain_depth: 0,
+    };
+
+    const { data: jobData, error: jobError } = await admin
+      .from("tile_jobs")
+      .insert(jobInsert as never)
+      .select()
+      .single();
+
+    const job = jobData as TileJob | null;
+    if (jobError || !job) {
+      return { success: false, message: "Failed to create execution job." };
+    }
+
+    try {
+      let resultContent: import("@/types/database").Json;
+      let resultFormat = tile.output_format;
+      let slackContent: import("@/types/database").Json;
+
+      if (tile.tile_type === "catalog") {
+        const catalogResult = await executeCatalogUpdate(
+          tileId,
+          fetchedContent,
+          tile.system_prompt,
+          admin,
+          job.id,
+        );
+        resultContent = catalogResult.jobResultContent;
+        resultFormat = "json";
+        slackContent = catalogResult.diff.summary;
+      } else if (tile.tile_type === "github_issue") {
+        const githubResult = await executeGitHubIssue(
+          tileId,
+          fetchedContent,
+          tile.system_prompt,
+          admin,
+          (tile.config ?? {}) as unknown as GitHubIssueConfig,
+          tile.language,
+        );
+        resultContent = githubResult.jobResultContent;
+        resultFormat = "json";
+        slackContent = githubResult.slackSummary;
+      } else {
+        const analysis = await analyzeContent(
+          fetchedContent,
+          tile.system_prompt || "",
+          tile.output_format,
+          tile.language,
+          tile.output_schema,
+        );
+        if (!analysis.success) {
+          throw new Error(analysis.error || "AI analysis failed");
+        }
+        resultContent = analysis.content;
+        slackContent = resultContent;
+      }
+
+      // Save result
+      const reportInsert: TileJobResultInsert = {
+        job_id: job.id,
+        tile_id: tileId,
+        content: resultContent,
+        format: resultFormat,
+        source_urls: input ? ["bot-input"] : [],
+      };
+      await admin.from("tile_job_results").insert(reportInsert as never);
+
+      // Deliver Slack output
+      await deliverSlackOutput(admin, tile, { content: slackContent });
+
+      // Mark completed
+      const completedUpdate: TileJobUpdate = {
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        metadata: {
+          execution_id: executionContext.executionId,
+          chain_depth: 0,
+        },
+      };
+      await admin
+        .from("tile_jobs")
+        .update(completedUpdate as never)
+        .eq("id", job.id);
+
+      await logTileJobExecutionEvent(admin, {
+        executionId: executionContext.executionId,
+        tileId,
+        jobId: job.id,
+        eventType: "completed",
+        metadata: {
+          durationMs: Date.now() - executionContext.startTime,
+          trigger: "bot",
+        },
+      });
+
+      // Trigger downstream
+      triggerDownstreamTiles(admin, {
+        completedTileId: tileId,
+        completedJobId: job.id,
+        mosaicId: tile.mosaic_id,
+        userId,
+      }).catch((err) =>
+        console.error("[bot] downstream trigger error:", err),
+      );
+
+      // Return summary
+      const contentStr =
+        typeof resultContent === "string"
+          ? resultContent
+          : JSON.stringify(resultContent);
+      return {
+        success: true,
+        message: `Tile "${tile.name}" executed successfully.`,
+        content: contentStr.slice(0, 4000),
+      };
+    } catch (execError) {
+      const errorMsg =
+        execError instanceof Error ? execError.message : String(execError);
+
+      const failedUpdate: TileJobUpdate = {
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        error_message: errorMsg,
+      };
+      await admin
+        .from("tile_jobs")
+        .update(failedUpdate as never)
+        .eq("id", job.id);
+
+      await logTileJobExecutionEvent(admin, {
+        executionId: executionContext.executionId,
+        tileId,
+        jobId: job.id,
+        eventType: "failed",
+        metadata: { error: errorMsg, trigger: "bot" },
+      });
+
+      return { success: false, message: `Execution failed: ${errorMsg}` };
+    }
+  } finally {
+    if (rateLimitIncremented) {
+      await decrementConcurrentCount(admin, userId);
+    }
+  }
 }
 
 async function verifyMosaicAccess(
