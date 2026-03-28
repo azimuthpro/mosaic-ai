@@ -1,7 +1,8 @@
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 
-import type { Tile, TileSource } from "@/types/database";
+import { normalizeGitHubConfig } from "@/lib/github/execute-github-issue";
+import type { GitHubIssueConfig, Tile, TileSource } from "@/types/database";
 
 import type { TileEnrichment } from "./types";
 import { stripCodeFences } from "./utils";
@@ -51,6 +52,17 @@ function buildTileContext(tile: Tile, sources: TileSource[]): string {
 
   if (hasConfig) {
     parts.push(`Config: ${JSON.stringify(tile.config)}`);
+  }
+
+  if (tile.tile_type === "github_issue" && hasConfig) {
+    const { repos } = normalizeGitHubConfig(
+      tile.config as unknown as GitHubIssueConfig,
+    );
+    if (repos.length > 0) {
+      parts.push(
+        `GitHub Repositories: ${repos.map((r) => `${r.owner}/${r.repo}`).join(", ")}`,
+      );
+    }
   }
 
   return parts.join("\n");

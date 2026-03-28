@@ -4,6 +4,7 @@ import type { TileWithSources } from "@/types/database";
 
 import type { TileDrawerState } from "../hooks/use-tile-drawer-state";
 import { ApiTriggerPlugin } from "../plugins/input/api-trigger-plugin";
+import { GitHubReposPlugin } from "../plugins/input/github-repos-plugin";
 import { KnowledgeBasePlugin } from "../plugins/input/knowledge-base-plugin";
 import { SchedulerPlugin } from "../plugins/input/scheduler-plugin";
 import { SourcesPlugin } from "../plugins/input/sources-plugin";
@@ -30,30 +31,31 @@ export function InputSection({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Plugins */}
-      <div className="space-y-3">
-        <SourcesPlugin
-          tile={tile}
-          mosaicId={mosaicId}
-          state={state}
-          disabled={disabled}
-        />
+    <div className="space-y-3">
+      {tile.tile_type === "github_issue" && (
+        <GitHubReposPlugin tile={tile} disabled={disabled} />
+      )}
 
-        <SchedulerPlugin
-          tile={tile}
-          mosaicId={mosaicId}
-          state={state}
-          disabled={disabled}
-        />
+      <SourcesPlugin
+        tile={tile}
+        mosaicId={mosaicId}
+        state={state}
+        disabled={disabled}
+      />
 
-        <ApiTriggerPlugin
-          tile={tile}
-          mosaicId={mosaicId}
-          state={state}
-          disabled={disabled}
-        />
-      </div>
+      <SchedulerPlugin
+        tile={tile}
+        mosaicId={mosaicId}
+        state={state}
+        disabled={disabled}
+      />
+
+      <ApiTriggerPlugin
+        tile={tile}
+        mosaicId={mosaicId}
+        state={state}
+        disabled={disabled}
+      />
     </div>
   );
 }
