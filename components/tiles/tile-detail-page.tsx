@@ -10,23 +10,20 @@ import {
   Power,
   Save,
   Trash2,
-  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { RunConfirmDialog } from "@/components/tiles/run-confirm-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { deleteTile } from "@/lib/actions/tiles";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils/format";
@@ -39,28 +36,58 @@ import { ProcessingSection } from "./tile-drawer/sections/processing-section";
 import { StatusSection } from "./tile-drawer/sections/status-section";
 import { type DrawerSection, TILE_TYPE_LABELS } from "./tile-drawer/types";
 
-interface TileDrawerProps {
-  tile: TileWithSources | null;
+interface TileDetailPageProps {
+  tile: TileWithSources;
   mosaicId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onDeleteTile?: (tileId: string) => void;
 }
 
-export function TileDrawer({
+interface Tab {
+  value: DrawerSection;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  borderColor: string;
+}
+
+const TABS: Tab[] = [
+  { value: "status", label: "Status", icon: Activity, color: "text-amber-400", borderColor: "border-amber-500" },
+  { value: "input", label: "Input", icon: ArrowRight, color: "text-cyan-400", borderColor: "border-cyan-500" },
+  { value: "processing", label: "Processing", icon: Braces, color: "text-purple-400", borderColor: "border-purple-500" },
+  { value: "output", label: "Output", icon: ArrowRight, color: "text-green-400", borderColor: "border-green-500" },
+];
+
+export function TileDetailPage({
   tile,
   mosaicId,
-  open,
-  onOpenChange,
-  onDeleteTile,
-}: TileDrawerProps) {
-  const state = useTileDrawerState({ tile, mosaicId, open });
+}: TileDetailPageProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = (searchParams.get("tab") as DrawerSection) || "status";
+
+  const state = useTileDrawerState({ tile, mosaicId, open: true });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRunConfirm, setShowRunConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Sync URL tab with drawer state so lazy-loading effects trigger correctly
+  useEffect(() => {
+    if (state.activeSection !== activeTab) {
+      state.setActiveSection(activeTab);
+    }
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleTabChange(tab: DrawerSection) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "status") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const qs = params.toString();
+    router.replace(`/mosaics/${mosaicId}/tiles/${tile.id}${qs ? `?${qs}` : ""}`);
+  }
+
   async function handleRun(debug: boolean): Promise<void> {
-    if (!tile) return;
     state.setIsRunning(true);
     try {
       const response = await fetch("/api/tiles/run", {
@@ -81,16 +108,13 @@ export function TileDrawer({
   }
 
   async function handleDelete(): Promise<void> {
-    if (!tile) return;
     setIsDeleting(true);
     try {
       const result = await deleteTile(tile.id);
       if (result.error) {
         alert(result.error);
       } else {
-        setShowDeleteConfirm(false);
-        onOpenChange(false);
-        onDeleteTile?.(tile.id);
+        router.push(`/mosaics/${mosaicId}`);
       }
     } catch {
       alert("Failed to delete tile");
@@ -99,51 +123,48 @@ export function TileDrawer({
     }
   }
 
-  if (!tile) return null;
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        hideClose
-        className="sm:max-w-[95vw] sm:max-h-[95vh] w-full h-full max-w-full max-h-full flex flex-col p-0"
-      >
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <DialogTitle className="sr-only">
-            {tile.name || "Tile Settings"}
-          </DialogTitle>
-          <div className="flex items-center gap-3">
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="border-b border-border px-6 py-4">
+        {/* Title row + actions */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-lg"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
               style={{ backgroundColor: `${tile.color}20` }}
             >
               <div
-                className="h-4 w-4 rounded-full"
+                className="h-3.5 w-3.5 rounded-full"
                 style={{ backgroundColor: tile.color }}
               />
             </div>
-            <div className="flex-1 min-w-0">
-              <Input
-                value={state.configState.name}
-                onChange={(e) =>
-                  state.updateConfigField("name", e.target.value)
-                }
-                className="h-7 px-0 text-lg font-semibold border-transparent hover:border-none focus:border-none ring-0 bg-transparent"
-              />
-              <DialogDescription className="text-left">
-                {TILE_TYPE_LABELS[tile.tile_type]} · Last run:{" "}
+            <div className="flex items-baseline gap-2 min-w-0">
+              <h1 className="text-lg font-semibold truncate">
+                {state.configState.name}
+              </h1>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {TILE_TYPE_LABELS[tile.tile_type]}
+                {" · "}
+                Last run:{" "}
                 {state.executionStatus?.lastJob
-                  ? formatRelativeTime(state.executionStatus.lastJob.created_at)
+                  ? formatRelativeTime(
+                      state.executionStatus.lastJob.created_at,
+                    )
                   : "Never"}
-              </DialogDescription>
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+
+          <div className="flex items-center gap-1.5 shrink-0">
             {tile.tile_type !== "knowledge_base" && (
               <Button
                 variant={state.configState.isActive ? "outline" : "secondary"}
                 size="sm"
                 onClick={state.handleToggleActive}
-                title={state.configState.isActive ? "Pause tile" : "Resume tile"}
+                title={
+                  state.configState.isActive ? "Pause tile" : "Resume tile"
+                }
               >
                 {state.configState.isActive ? (
                   <Pause className="h-4 w-4" />
@@ -191,76 +212,64 @@ export function TileDrawer({
             >
               <Trash2 className="h-4 w-4" />
             </Button>
-            <DialogClose asChild>
-              <Button variant="ghost" size="sm" title="Close">
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogClose>
           </div>
         </div>
+      </div>
 
-        <Tabs
-          value={state.activeSection}
-          onValueChange={(v) => state.setActiveSection(v as DrawerSection)}
-          className="flex-1 flex flex-col min-h-0"
-        >
-          <div className="border-b border-border px-6">
-            <TabsList className="h-12 w-full justify-start gap-1 bg-transparent p-0">
-              <TabsTrigger
-                value="status"
-                className="flex items-center gap-2 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-amber-500 data-[state=active]:bg-transparent"
+      {/* Tab bar */}
+      <div className="border-b border-border px-6">
+        <nav className="flex gap-1">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.value;
+            return (
+              <button
+                key={tab.value}
+                onClick={() => handleTabChange(tab.value)}
+                className={cn(
+                  "flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
+                  isActive
+                    ? `${tab.borderColor} text-foreground`
+                    : "border-transparent text-muted-foreground hover:text-foreground",
+                )}
               >
-                <Activity className="h-4 w-4 text-amber-400" />
-                Status
-              </TabsTrigger>
-              <TabsTrigger
-                value="input"
-                className="flex items-center gap-2 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-cyan-500 data-[state=active]:bg-transparent"
-              >
-                <ArrowRight className="h-4 w-4 text-cyan-400" />
-                Input
-              </TabsTrigger>
-              <TabsTrigger
-                value="processing"
-                className="flex items-center gap-2 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-purple-500 data-[state=active]:bg-transparent"
-              >
-                <Braces className="h-4 w-4 text-purple-400" />
-                Processing
-              </TabsTrigger>
-              <TabsTrigger
-                value="output"
-                className="flex items-center gap-2 rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-green-500 data-[state=active]:bg-transparent"
-              >
-                <ArrowRight className="h-4 w-4 rotate-180 text-green-400" />
-                Output
-              </TabsTrigger>
-            </TabsList>
-          </div>
+                <Icon
+                  className={cn(
+                    "h-4 w-4",
+                    tab.color,
+                    tab.value === "output" && "rotate-180",
+                  )}
+                />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
 
-          <div className="flex-1 overflow-y-auto p-6">
-            <TabsContent value="status" className="m-0">
-              <StatusSection tile={tile} state={state} />
-            </TabsContent>
+      {/* Tab content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="mx-auto max-w-5xl">
+          {activeTab === "status" && (
+            <StatusSection tile={tile} state={state} />
+          )}
+          {activeTab === "input" && (
+            <InputSection tile={tile} mosaicId={mosaicId} state={state} />
+          )}
+          {activeTab === "processing" && (
+            <ProcessingSection
+              tile={tile}
+              mosaicId={mosaicId}
+              state={state}
+            />
+          )}
+          {activeTab === "output" && (
+            <OutputSection tile={tile} mosaicId={mosaicId} state={state} />
+          )}
+        </div>
+      </div>
 
-            <TabsContent value="input" className="m-0">
-              <InputSection tile={tile} mosaicId={mosaicId} state={state} />
-            </TabsContent>
-
-            <TabsContent value="processing" className="m-0">
-              <ProcessingSection
-                tile={tile}
-                mosaicId={mosaicId}
-                state={state}
-              />
-            </TabsContent>
-
-            <TabsContent value="output" className="m-0">
-              <OutputSection tile={tile} mosaicId={mosaicId} state={state} />
-            </TabsContent>
-          </div>
-        </Tabs>
-      </DialogContent>
-
+      {/* Run confirm dialog */}
       <RunConfirmDialog
         open={showRunConfirm}
         onOpenChange={setShowRunConfirm}
@@ -269,6 +278,7 @@ export function TileDrawer({
         onConfirm={handleRun}
       />
 
+      {/* Delete confirm dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -304,6 +314,6 @@ export function TileDrawer({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Dialog>
+    </div>
   );
 }

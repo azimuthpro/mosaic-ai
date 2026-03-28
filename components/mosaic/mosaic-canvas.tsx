@@ -1,12 +1,11 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CreateTileDialog } from "@/components/tiles/create-tile-dialog";
 import { TileCard } from "@/components/tiles/tile-card";
-import { TileDrawer } from "@/components/tiles/tile-drawer";
 import { getTileExecutionStatus } from "@/lib/actions/tile-execution";
 import { updateTilePosition } from "@/lib/actions/tiles";
 import {
@@ -28,15 +27,13 @@ const TILE_SIZE = 140;
 const GRID_GAP = 8;
 
 export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const rawCreateTile = searchParams.get("create_tile");
   const createTileParam =
     rawCreateTile && rawCreateTile in TILE_TYPE_CONFIGS
       ? (rawCreateTile as TileType)
       : null;
-  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
-  const [drawerTileId, setDrawerTileId] = useState<string | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [runningTileIds, setRunningTileIds] = useState<Set<string>>(new Set());
   const [draggingTileId, setDraggingTileId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{
@@ -55,55 +52,21 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const canvasRectRef = useRef<DOMRect | null>(null);
 
-  const connectedTileIds = useMemo(() => {
-    if (!selectedTileId) return [];
-    return connections.flatMap((c) => {
-      if (c.source_tile_id === selectedTileId) return [c.target_tile_id];
-      if (c.target_tile_id === selectedTileId) return [c.source_tile_id];
-      return [];
-    });
-  }, [selectedTileId, connections]);
-
   const tiles = useMemo(
     () => (mosaic.tiles || []) as TileWithSources[],
     [mosaic.tiles],
   );
 
-  // Enrich drawer tile with incoming connections for display
-  const drawerTile = useMemo(() => {
-    if (!drawerTileId) return null;
-    const tile = tiles.find((t) => t.id === drawerTileId);
-    if (!tile) return null;
-    const incoming_connections = connections.filter(
-      (c) => c.target_tile_id === drawerTileId,
-    );
-    return { ...tile, incoming_connections };
-  }, [tiles, drawerTileId, connections]);
-
-  function handleTileSelect(tile: TileWithSources): void {
+  function handleNavigateToTile(tile: TileWithSources): void {
     if (!draggingTileId) {
-      setSelectedTileId(tile.id);
-      setDrawerTileId(tile.id);
-      setDrawerOpen(true);
+      router.push(`/mosaics/${mosaic.id}/tiles/${tile.id}`);
     }
-  }
-
-  function handleConfigure(tile: TileWithSources): void {
-    setDrawerTileId(tile.id);
-    setDrawerOpen(true);
   }
 
   function handleEmptyCellClick(gridX: number, gridY: number): void {
     if (draggingTileId) return;
     setCreateDialogPosition({ gridX, gridY });
     setCreateDialogOpen(true);
-  }
-
-  function handleDrawerOpenChange(open: boolean): void {
-    setDrawerOpen(open);
-    if (!open) {
-      setSelectedTileId(null);
-    }
   }
 
   const handleRunTile = useCallback(
@@ -351,7 +314,6 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
           {/* Tiles */}
           {tiles.map((tile) => {
             const isDragging = draggingTileId === tile.id;
-            const isSelected = selectedTileId === tile.id;
 
             const gridLeft = tile.grid_x * (TILE_SIZE + GRID_GAP);
             const gridTop = tile.grid_y * (TILE_SIZE + GRID_GAP);
@@ -378,10 +340,8 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
               >
                 <TileCard
                   tile={tile}
-                  onSelect={handleTileSelect}
-                  onConfigure={handleConfigure}
-                  selected={isSelected}
-                  connectedTileIds={connectedTileIds}
+                  onSelect={handleNavigateToTile}
+                  onConfigure={handleNavigateToTile}
                   incomingConnectionCount={
                     connections.filter((c) => c.target_tile_id === tile.id)
                       .length
@@ -397,20 +357,6 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
         </div>
       </div>
 
-      {/* Connection indicator */}
-      {selectedTileId && connectedTileIds.length > 0 && (
-        <div className="rounded-lg bg-muted p-3 text-sm">
-          <span className="font-medium">
-            {connectedTileIds.length} connected tile
-            {connectedTileIds.length !== 1 && "s"}
-          </span>
-          <span className="text-muted-foreground">
-            {" "}
-            - Click tile to deselect
-          </span>
-        </div>
-      )}
-
       {/* Create tile dialog (triggered by clicking empty cell) */}
       <CreateTileDialog
         mosaicId={mosaic.id}
@@ -422,13 +368,6 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
         initialType={createTileParam ?? undefined}
       />
 
-      {/* Tile drawer (opened when clicking a tile) */}
-      <TileDrawer
-        tile={drawerTile}
-        mosaicId={mosaic.id}
-        open={drawerOpen}
-        onOpenChange={handleDrawerOpenChange}
-      />
     </div>
   );
 }
