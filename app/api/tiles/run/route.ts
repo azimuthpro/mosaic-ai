@@ -120,6 +120,13 @@ export async function POST(request: Request): Promise<Response> {
     const typedTile = tile as unknown as Tile & { tile_sources: TileSource[] };
     typedTile.tile_sources.sort(compareBySortOrder);
 
+    if (typedTile.tile_type === "knowledge_base") {
+      return NextResponse.json(
+        { error: "Knowledge base tiles store static content and cannot be executed" },
+        { status: 400 },
+      );
+    }
+
     // Verify user has access to the mosaic (owner or member)
     const { data: mosaic } = await supabase
       .from("mosaics")

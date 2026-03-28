@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BookOpen,
   Brain,
   CircleDot,
   Database,
@@ -51,6 +52,7 @@ const TILE_ICONS: Record<TileType, React.ElementType> = {
   slack_reader: MessageSquare,
   catalog: Database,
   github_issue: CircleDot,
+  knowledge_base: BookOpen,
 };
 
 function getPatternStyle(

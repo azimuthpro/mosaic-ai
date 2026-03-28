@@ -92,6 +92,10 @@ function renderSourceTypeOptions(tileType: TileType): React.ReactNode {
     </SelectItem>
   );
 
+  if (tileType === "knowledge_base") {
+    return [];
+  }
+
   if (tileType === "slack_reader") {
     return [slackChannelOption];
   }
@@ -483,6 +487,8 @@ function getConnectionBehaviorHint(tileType: TileType): string {
       return "Full report content from the connected tile will be used for entity extraction";
     case "github_issue":
       return "Full report content from the connected tile will be used to generate GitHub issues";
+    case "knowledge_base":
+      return "Knowledge base tiles provide static content and do not consume connections";
   }
 }
 

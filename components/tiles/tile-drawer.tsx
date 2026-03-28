@@ -138,19 +138,21 @@ export function TileDrawer({
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <Button
-              variant={state.configState.isActive ? "outline" : "secondary"}
-              size="sm"
-              onClick={state.handleToggleActive}
-              title={state.configState.isActive ? "Pause tile" : "Resume tile"}
-            >
-              {state.configState.isActive ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Power className="h-4 w-4" />
-              )}
-              {state.configState.isActive ? "Pause" : "Resume"}
-            </Button>
+            {tile.tile_type !== "knowledge_base" && (
+              <Button
+                variant={state.configState.isActive ? "outline" : "secondary"}
+                size="sm"
+                onClick={state.handleToggleActive}
+                title={state.configState.isActive ? "Pause tile" : "Resume tile"}
+              >
+                {state.configState.isActive ? (
+                  <Pause className="h-4 w-4" />
+                ) : (
+                  <Power className="h-4 w-4" />
+                )}
+                {state.configState.isActive ? "Pause" : "Resume"}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -164,19 +166,21 @@ export function TileDrawer({
               )}
               Save
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowRunConfirm(true)}
-              disabled={state.isRunning || !state.configState.isActive}
-            >
-              {state.isRunning ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-              Run
-            </Button>
+            {tile.tile_type !== "knowledge_base" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRunConfirm(true)}
+                disabled={state.isRunning || !state.configState.isActive}
+              >
+                {state.isRunning ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                Run
+              </Button>
+            )}
             <div className="mx-1 h-5 w-px bg-border" />
             <Button
               variant="ghost"

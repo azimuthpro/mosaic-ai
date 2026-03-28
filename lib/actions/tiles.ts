@@ -15,6 +15,8 @@ import type {
   Tile,
   TileConnection,
   TileInsert,
+  TileJobInsert,
+  TileJobResultInsert,
   TilePattern,
   TileSource,
   TileSourceInsert,
@@ -306,6 +308,36 @@ export async function createTile(params: CreateTileParams) {
     if (connError) {
       console.error("Error creating tile connections:", connError);
       // Non-fatal, but log it
+    }
+  }
+
+  // For knowledge_base tiles, create initial job result so content is immediately available
+  if (params.tileType === "knowledge_base") {
+    const kbContent = (params.config as { content?: string } | undefined)
+      ?.content;
+    if (kbContent) {
+      const adminClient = createAdminClient();
+      const now = new Date().toISOString();
+      const { data: job } = await adminClient
+        .from("tile_jobs")
+        .insert({
+          tile_id: tile.id,
+          status: "completed",
+          started_at: now,
+          completed_at: now,
+        } as never)
+        .select("id")
+        .single();
+      if (job) {
+        await adminClient
+          .from("tile_job_results")
+          .insert({
+            job_id: (job as { id: string }).id,
+            tile_id: tile.id,
+            content: kbContent,
+            format: "text",
+          } as never);
+      }
     }
   }
 
@@ -1055,4 +1087,101 @@ export async function getTilesForSourceSelection(
   }
 
   return (data || []) as { id: string; name: string; tile_type: TileType }[];
+}
+
+/**
+ * Save knowledge base content and create a job result so downstream tiles can consume it.
+ */
+export async function saveKnowledgeBaseContent(
+  tileId: string,
+  content: string,
+) {
+  const user = await getUser();
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  const adminClient = createAdminClient();
+
+  const { data: tileData, error: tileError } = await adminClient
+    .from("tiles")
+    .select("id, mosaic_id, tile_type")
+    .eq("id", tileId)
+    .single();
+
+  if (tileError || !tileData) {
+    return { error: "Tile not found" };
+  }
+
+  const tile = tileData as { id: string; mosaic_id: string; tile_type: string };
+
+  if (tile.tile_type !== "knowledge_base") {
+    return { error: "Tile is not a knowledge base" };
+  }
+
+  // Update tile config with the new content
+  const { error: updateError } = await adminClient
+    .from("tiles")
+    .update({ config: { content } } as never)
+    .eq("id", tileId);
+
+  if (updateError) {
+    console.error("Error updating knowledge base content:", updateError);
+    return { error: "Failed to save content" };
+  }
+
+  // Create a completed job so downstream tiles can fetch this content
+  const now = new Date().toISOString();
+  const jobInsert: TileJobInsert = {
+    tile_id: tileId,
+    status: "completed",
+    started_at: now,
+    completed_at: now,
+  };
+
+  const { data: job, error: jobError } = await adminClient
+    .from("tile_jobs")
+    .insert(jobInsert as never)
+    .select("id")
+    .single();
+
+  if (jobError || !job) {
+    console.error("Error creating knowledge base job:", jobError);
+    return { error: "Failed to create job record" };
+  }
+
+  const jobId = (job as { id: string }).id;
+
+  const { error: resultError } = await adminClient
+    .from("tile_job_results")
+    .insert({
+      job_id: jobId,
+      tile_id: tileId,
+      content,
+      format: "text",
+    } as TileJobResultInsert as never);
+
+  if (resultError) {
+    console.error("Error creating knowledge base job result:", resultError);
+    return { error: "Failed to save job result" };
+  }
+
+  // Trigger downstream tiles that depend on this knowledge base
+  const { triggerDownstreamTiles } = await import(
+    "@/lib/tiles/trigger-downstream"
+  );
+  triggerDownstreamTiles(adminClient, {
+    completedTileId: tileId,
+    completedJobId: jobId,
+    mosaicId: tile.mosaic_id,
+    userId: user.id,
+  }).catch((err) =>
+    console.error(
+      `[saveKnowledgeBaseContent] Failed to trigger downstream tiles:`,
+      err,
+    ),
+  );
+
+  revalidatePath(`/mosaics/${tile.mosaic_id}`);
+  return { success: true };
 }

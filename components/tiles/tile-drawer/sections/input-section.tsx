@@ -4,6 +4,7 @@ import type { TileWithSources } from "@/types/database";
 
 import type { TileDrawerState } from "../hooks/use-tile-drawer-state";
 import { ApiTriggerPlugin } from "../plugins/input/api-trigger-plugin";
+import { KnowledgeBasePlugin } from "../plugins/input/knowledge-base-plugin";
 import { SchedulerPlugin } from "../plugins/input/scheduler-plugin";
 import { SourcesPlugin } from "../plugins/input/sources-plugin";
 
@@ -20,6 +21,14 @@ export function InputSection({
   state,
   disabled,
 }: InputSectionProps) {
+  if (tile.tile_type === "knowledge_base") {
+    return (
+      <div className="space-y-3">
+        <KnowledgeBasePlugin tile={tile} disabled={disabled} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Plugins */}

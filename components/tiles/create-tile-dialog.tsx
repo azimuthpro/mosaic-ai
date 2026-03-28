@@ -104,6 +104,7 @@ export function CreateTileDialog({
   >([]);
   const [slackTimeWindowDays, setSlackTimeWindowDays] = useState(1);
   const [githubRepos, setGithubRepos] = useState<GitHubRepoItem[]>([]);
+  const [knowledgeBaseContent, setKnowledgeBaseContent] = useState("");
 
   function resetState() {
     setStep(initialType ? "config" : "type");
@@ -119,6 +120,7 @@ export function CreateTileDialog({
     setSlackChannels([]);
     setSlackTimeWindowDays(1);
     setGithubRepos([]);
+    setKnowledgeBaseContent("");
   }
 
   function handleTypeSelect(type: TileType) {
@@ -154,6 +156,8 @@ export function CreateTileDialog({
         return slackChannels.length > 0;
       case "github_issue":
         return githubRepos.length > 0;
+      case "knowledge_base":
+        return knowledgeBaseContent.trim().length > 0;
       default:
         return false;
     }
@@ -180,6 +184,8 @@ export function CreateTileDialog({
         return githubRepos.length === 0
           ? "Select at least one repository"
           : null;
+      case "knowledge_base":
+        return !knowledgeBaseContent.trim() ? "Enter some content" : null;
       default:
         return null;
     }
@@ -230,6 +236,8 @@ export function CreateTileDialog({
       tileConfig = {
         repos: githubRepos.map((r) => ({ owner: r.owner, repo: r.repo })),
       };
+    } else if (selectedType === "knowledge_base") {
+      tileConfig = { content: knowledgeBaseContent };
     }
 
     const result = await createTile({
@@ -404,6 +412,24 @@ export function CreateTileDialog({
                   </div>
                 )}
 
+                {selectedType === "knowledge_base" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="knowledgeContent">Content</Label>
+                    <Textarea
+                      id="knowledgeContent"
+                      placeholder="Paste or type knowledge base content..."
+                      rows={8}
+                      value={knowledgeBaseContent}
+                      onChange={(e) => setKnowledgeBaseContent(e.target.value)}
+                      disabled={isLoading}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This text will be available to any tiles connected to this
+                      knowledge base.
+                    </p>
+                  </div>
+                )}
+
                 {selectedType === "slack_reader" && (
                   <div className="space-y-4">
                     <SlackConnectButton
@@ -443,8 +469,8 @@ export function CreateTileDialog({
                   </div>
                 )}
 
-                {/* Skill Selector */}
-                {selectedType && (
+                {/* Skill Selector (not for knowledge_base) */}
+                {selectedType && selectedType !== "knowledge_base" && (
                   <SkillSelector
                     mosaicId={mosaicId}
                     tileType={selectedType}
@@ -454,34 +480,38 @@ export function CreateTileDialog({
                   />
                 )}
 
-                {/* Custom Instructions (editable prompt) */}
-                <div className="space-y-2">
-                  <Label htmlFor="instructions">
-                    {selectedSkill
-                      ? "Instructions (from skill)"
-                      : "Instructions"}
-                  </Label>
-                  <Textarea
-                    id="instructions"
-                    placeholder="Tell the AI how to process the data..."
-                    rows={4}
-                    value={customInstructions}
-                    onChange={(e) => setCustomInstructions(e.target.value)}
+                {/* Custom Instructions (not for knowledge_base) */}
+                {selectedType !== "knowledge_base" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="instructions">
+                      {selectedSkill
+                        ? "Instructions (from skill)"
+                        : "Instructions"}
+                    </Label>
+                    <Textarea
+                      id="instructions"
+                      placeholder="Tell the AI how to process the data..."
+                      rows={4}
+                      value={customInstructions}
+                      onChange={(e) => setCustomInstructions(e.target.value)}
+                      disabled={isLoading}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {selectedSkill
+                        ? "You can customize the skill instructions above."
+                        : "Tell the AI how to process and analyze the collected data."}
+                    </p>
+                  </div>
+                )}
+
+                {/* Trigger Selector (not for knowledge_base) */}
+                {selectedType !== "knowledge_base" && (
+                  <TriggerSelector
+                    value={trigger}
+                    onChange={setTrigger}
                     disabled={isLoading}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {selectedSkill
-                      ? "You can customize the skill instructions above."
-                      : "Tell the AI how to process and analyze the collected data."}
-                  </p>
-                </div>
-
-                {/* Trigger Selector */}
-                <TriggerSelector
-                  value={trigger}
-                  onChange={setTrigger}
-                  disabled={isLoading}
-                />
+                )}
               </div>
             </div>
 

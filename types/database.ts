@@ -35,8 +35,13 @@ export type TileType =
   | "analyzer"
   | "slack_reader"
   | "catalog"
-  | "github_issue";
+  | "github_issue"
+  | "knowledge_base";
 export type TilePattern = "solid" | "stripes" | "dots" | "gradient";
+
+export interface KnowledgeBaseConfig {
+  content: string;
+}
 
 export interface WebSearchConfig {
   query: string;
@@ -1149,6 +1154,14 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
     pattern: "solid",
     icon: "CircleDot",
     description: "Create GitHub issues from analysis",
+  },
+  knowledge_base: {
+    type: "knowledge_base",
+    label: "Knowledge Base",
+    color: "#8b5cf6",
+    pattern: "solid",
+    icon: "BookOpen",
+    description: "Static text content for other tiles",
   },
 };
 

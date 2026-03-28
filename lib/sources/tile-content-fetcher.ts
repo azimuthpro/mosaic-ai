@@ -842,7 +842,8 @@ export async function fetchConnectionContent(
     case "analyzer":
     case "slack_reader":
     case "catalog":
-    case "github_issue": {
+    case "github_issue":
+    case "knowledge_base": {
       const results: TileSourceContent[] = [];
       for (const connection of connections) {
         const result = await fetchConnectedTileContent(
