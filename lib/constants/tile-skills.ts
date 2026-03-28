@@ -409,12 +409,39 @@ Make it clear, scoped, and actionable for a developer.`,
   },
 ];
 
+// Slack Reader Skills (analyzer skills + slack-specific skills)
+const SLACK_READER_SKILLS: DefaultTileSkill[] = [
+  ...ANALYZER_SKILLS,
+  {
+    id: "slack-reader-backlog",
+    name: "Backlog",
+    description:
+      "Surface ideas and future work mentioned in Slack that lack planned next steps",
+    category: "analysis",
+    tileType: "slack_reader",
+    prompt: `You are a backlog discovery assistant. Scan Slack messages for ideas, suggestions, and future work that have no concrete next steps or planning attached.
+
+1. **Ideas & Suggestions**: Messages where someone proposes an idea, improvement, or feature without a follow-up plan
+2. **Wishlist Items**: "It would be nice if…", "We should eventually…", "Someday we could…" type mentions
+3. **Unresolved Questions**: Open questions about future direction with no answer or action item
+4. **Stalled Initiatives**: Topics mentioned once and never followed up on
+
+For each item found:
+- **Quote**: The relevant message excerpt
+- **Author**: Who mentioned it
+- **Date**: When it was mentioned
+- **Topic**: Brief categorization
+
+Exclude anything that already has planned next steps, assigned owners, tickets, or scheduled dates. Focus only on untracked ideas floating in conversation.`,
+  },
+];
+
 // Organized by tile type for easy access
 export const DEFAULT_TILE_SKILLS: Record<TileType, DefaultTileSkill[]> = {
   url_reader: URL_READER_SKILLS,
   web_search: WEB_SEARCH_SKILLS,
   analyzer: ANALYZER_SKILLS,
-  slack_reader: ANALYZER_SKILLS,
+  slack_reader: SLACK_READER_SKILLS,
   catalog: CATALOG_SKILLS,
   github_issue: GITHUB_ISSUE_SKILLS,
   knowledge_base: [],
