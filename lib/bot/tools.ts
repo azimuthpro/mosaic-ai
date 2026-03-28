@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import {
   findTilesByQuery,
+  getChannelInfo,
   getLatestTileResult,
   getMosaicTiles,
   getTileStatus,
@@ -14,7 +15,10 @@ import {
 /**
  * Creates AI tools scoped to a specific Mosaic user.
  */
-export function createBotTools(userId: string) {
+export function createBotTools(
+  userId: string,
+  context?: { slackToken?: string; channelId?: string },
+) {
   return {
     list_mosaics: tool({
       description:
@@ -58,20 +62,39 @@ export function createBotTools(userId: string) {
 
     get_tile_status: tool({
       description:
-        "Get the execution status and recent jobs for a specific tile by ID.",
+        "Get the execution status and recent jobs for a specific tile by ID. For github_issue tiles, also returns configured repositories.",
       inputSchema: z.object({
         tile_id: z.string().describe("The tile ID (UUID)."),
       }),
       execute: async ({ tile_id }) => {
         const result = await getTileStatus(tile_id);
         if (!result.tile) return "Tile not found.";
+        const tileInfo: Record<string, unknown> = {
+          name: result.tile.name,
+          type: result.tile.tile_type,
+          schedule: result.tile.schedule_cron,
+          active: result.tile.is_active,
+        };
+        if (
+          result.tile.tile_type === "github_issue" &&
+          result.tile.config
+        ) {
+          const config = result.tile.config as {
+            repos?: { owner: string; repo: string }[];
+            owner?: string;
+            repo?: string;
+          };
+          const repos = config.repos?.length
+            ? config.repos
+            : config.owner && config.repo
+              ? [{ owner: config.owner, repo: config.repo }]
+              : [];
+          tileInfo.repos = repos.map(
+            (r) => `${r.owner}/${r.repo}`,
+          );
+        }
         return {
-          tile: {
-            name: result.tile.name,
-            type: result.tile.tile_type,
-            schedule: result.tile.schedule_cron,
-            active: result.tile.is_active,
-          },
+          tile: tileInfo,
           recentJobs: result.recentJobs.map((j) => ({
             status: j.status,
             startedAt: j.started_at,
@@ -144,7 +167,7 @@ export function createBotTools(userId: string) {
 
     run_tile: tool({
       description:
-        "Run a tile to execute it now. Use this when the user asks to run a tile, create a GitHub issue, trigger an analysis, or otherwise execute a tile. Optionally provide custom input text instead of using the tile's configured sources.",
+        "Run a tile to execute it now. Use this when the user asks to run a tile, create a GitHub issue, trigger an analysis, or otherwise execute a tile. Optionally provide custom input text instead of using the tile's configured sources. For github_issue tiles with multiple repos, specify target_repo to select the right repository.",
       inputSchema: z.object({
         tile_id: z
           .string()
@@ -155,9 +178,32 @@ export function createBotTools(userId: string) {
           .describe(
             "Optional custom input text. If provided, this replaces the tile's normal source content. Useful for creating issues or running analyses on specific text from the conversation.",
           ),
+        target_repo: z
+          .string()
+          .optional()
+          .describe(
+            'Target repository in "owner/repo" format for github_issue tiles. Use get_channel_info and context clues (channel name, topic, links in message) to determine the right repo.',
+          ),
       }),
-      execute: async ({ tile_id, input }) => {
-        return runTileForUser(userId, tile_id, input);
+      execute: async ({ tile_id, input, target_repo }) => {
+        return runTileForUser(userId, tile_id, input, target_repo);
+      },
+    }),
+
+    get_channel_info: tool({
+      description:
+        "Get info about the current Slack channel (name, topic, purpose). Use this to determine context for selecting the right repository or tile when the user asks to create an issue or run a tile. Call this BEFORE run_tile for github_issue tiles to pick the correct target repo.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        if (!context?.slackToken || !context?.channelId) {
+          return "Channel context not available.";
+        }
+        const info = await getChannelInfo(
+          context.slackToken,
+          context.channelId,
+        );
+        if (!info) return "Could not fetch channel info.";
+        return info;
       },
     }),
   };

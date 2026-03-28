@@ -270,14 +270,14 @@ export async function getTileStatus(tileId: string) {
 
   const { data: tileRows } = await admin
     .from("tiles")
-    .select("id, name, tile_type, schedule_cron, is_active")
+    .select("id, name, tile_type, schedule_cron, is_active, config")
     .eq("id", tileId)
     .limit(1)
     .returns<
-      Pick<
+      (Pick<
         TileRow,
         "id" | "name" | "tile_type" | "schedule_cron" | "is_active"
-      >[]
+      > & { config: unknown })[]
     >();
 
   const tile = tileRows?.[0] ?? null;
@@ -454,6 +454,37 @@ export async function findTilesByQuery(userId: string, query: string) {
 }
 
 /**
+ * Fetches Slack channel info (name, topic, purpose) for context resolution.
+ */
+export async function getChannelInfo(
+  token: string,
+  channelId: string,
+): Promise<{
+  name: string;
+  topic: string;
+  purpose: string;
+} | null> {
+  const res = await fetch(
+    `${SLACK_API_BASE}/conversations.info?channel=${channelId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const data = (await res.json()) as {
+    ok: boolean;
+    channel?: {
+      name?: string;
+      topic?: { value?: string };
+      purpose?: { value?: string };
+    };
+  };
+  if (!data.ok || !data.channel) return null;
+  return {
+    name: data.channel.name || "",
+    topic: data.channel.topic?.value || "",
+    purpose: data.channel.purpose?.value || "",
+  };
+}
+
+/**
  * Runs a tile on behalf of a user from the bot.
  * Handles rate limiting, content fetching, execution, and result storage.
  * Optionally accepts custom input text to use instead of fetching from sources.
@@ -462,6 +493,7 @@ export async function runTileForUser(
   userId: string,
   tileId: string,
   input?: string,
+  targetRepo?: string,
 ): Promise<{ success: boolean; message: string; content?: string }> {
   const admin = createAdminClient();
   let rateLimitIncremented = false;
@@ -641,6 +673,7 @@ export async function runTileForUser(
           admin,
           (tile.config ?? {}) as unknown as GitHubIssueConfig,
           tile.language,
+          targetRepo,
         );
         resultContent = githubResult.jobResultContent;
         resultFormat = "json";

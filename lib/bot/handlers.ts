@@ -30,6 +30,7 @@ Rules:
 - When a user asks a question about their data, use the find_tile tool FIRST — it uses semantic search to instantly find the most relevant tile and its latest results
 - When a user asks to create a GitHub issue, run a tile, or trigger an execution, use find_tile or search to locate the tile, then use run_tile to execute it
 - When running a tile with custom input (e.g., "create an issue about X"), pass the user's description as the input parameter to run_tile
+- For github_issue tiles with multiple repos: call get_channel_info first, then match the channel name/topic/purpose against the tile's configured repos to pick the right target_repo. Also look for GitHub repo links or repo names in the user's message. If you can't determine the repo, ask the user which one
 - Always use the provided tools to look up real data — never guess or make up IDs
 - When a user mentions a mosaic or tile by name, use the search tool to find the ID
 - Keep responses concise and formatted for Slack (use *bold*, bullet points)
@@ -75,9 +76,13 @@ async function resolveUser(
  * Streams an AI answer to the thread using Gemini with tool-calling.
  * Uses fullStream for native Slack streaming with proper step boundaries.
  */
-async function answerQuestion(thread: Thread, userId: string): Promise<void> {
+async function answerQuestion(
+  thread: Thread,
+  userId: string,
+  context?: { slackToken?: string; channelId?: string },
+): Promise<void> {
   console.log("[bot] answerQuestion for user", userId, "thread", thread.id);
-  const tools = createBotTools(userId);
+  const tools = createBotTools(userId, context);
 
   await thread.refresh();
   const history = await toAiMessages(thread.recentMessages, {
@@ -110,7 +115,10 @@ async function handleMessage(
   thread: Thread,
   message: Message,
   slackAdapter: SlackAdapterType,
-  action: (userId: string) => Promise<void>,
+  action: (
+    userId: string,
+    context: { slackToken?: string; channelId?: string },
+  ) => Promise<void>,
 ): Promise<void> {
   console.log(`[bot] ${event} fired`, {
     threadId: thread.id,
@@ -123,7 +131,15 @@ async function handleMessage(
   try {
     const userId = await resolveUser(thread, message, slackAdapter);
     if (!userId) return;
-    await action(userId);
+
+    // Extract Slack context for tools
+    const raw = message.raw as { channel?: string; team?: string; team_id?: string } | undefined;
+    const teamId = raw?.team || raw?.team_id || "";
+    const channelId = raw?.channel || "";
+    const installation = await slackAdapter.getInstallation(teamId);
+    const slackToken = installation?.botToken;
+
+    await action(userId, { slackToken, channelId });
   } catch (err) {
     console.error(`[bot] ${event} error:`, err);
   } finally {
@@ -146,9 +162,9 @@ export function registerHandlers(
       thread,
       message,
       slackAdapter,
-      async (userId) => {
+      async (userId, context) => {
         await thread.subscribe();
-        await answerQuestion(thread, userId);
+        await answerQuestion(thread, userId, context);
       },
     );
   });
@@ -160,7 +176,7 @@ export function registerHandlers(
       thread,
       message,
       slackAdapter,
-      (userId) => answerQuestion(thread, userId),
+      (userId, context) => answerQuestion(thread, userId, context),
     );
   });
 }
