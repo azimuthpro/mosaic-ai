@@ -37,17 +37,22 @@ Rules:
 - If the user doesn't have access to something, say so politely
 - When showing results, summarize key points rather than dumping raw data`;
 
+interface ResolvedUser {
+  userId: string;
+  botToken: string;
+}
+
 /**
- * Resolves the Mosaic user ID for the Slack message author.
+ * Resolves the Mosaic user ID and bot token for the Slack message author.
  * Returns null if the user can't be matched.
  */
 async function resolveUser(
   thread: Thread,
   message: Message,
   slackAdapter: SlackAdapterType,
-): Promise<string | null> {
+): Promise<ResolvedUser | null> {
   const raw = message.raw as { team?: string; team_id?: string } | undefined;
-  const teamId = raw?.team || raw?.team_id || "";
+  const teamId = raw?.team ?? raw?.team_id ?? "";
   console.log(
     "[bot] resolveUser for team",
     teamId,
@@ -60,8 +65,10 @@ async function resolveUser(
     return null;
   }
 
-  const slackUserId = message.author.userId;
-  const userId = await resolveSlackUser(installation.botToken, slackUserId);
+  const userId = await resolveSlackUser(
+    installation.botToken,
+    message.author.userId,
+  );
   if (!userId) {
     await thread.post(
       "I couldn't match your Slack account to a Mosaic AI user. Make sure you're using the same email address for both.",
@@ -69,7 +76,7 @@ async function resolveUser(
     return null;
   }
 
-  return userId;
+  return { userId, botToken: installation.botToken };
 }
 
 /**
@@ -129,17 +136,16 @@ async function handleMessage(
     .addReaction(thread.id, message.id, "loading")
     .catch(() => {});
   try {
-    const userId = await resolveUser(thread, message, slackAdapter);
-    if (!userId) return;
+    const resolved = await resolveUser(thread, message, slackAdapter);
+    if (!resolved) return;
 
-    // Extract Slack context for tools
-    const raw = message.raw as { channel?: string; team?: string; team_id?: string } | undefined;
-    const teamId = raw?.team || raw?.team_id || "";
-    const channelId = raw?.channel || "";
-    const installation = await slackAdapter.getInstallation(teamId);
-    const slackToken = installation?.botToken;
+    const raw = message.raw as { channel?: string } | undefined;
+    const channelId = raw?.channel ?? "";
 
-    await action(userId, { slackToken, channelId });
+    await action(resolved.userId, {
+      slackToken: resolved.botToken,
+      channelId,
+    });
   } catch (err) {
     console.error(`[bot] ${event} error:`, err);
   } finally {

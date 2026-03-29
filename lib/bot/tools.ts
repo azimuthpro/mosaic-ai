@@ -12,6 +12,26 @@ import {
   searchByName,
 } from "./data";
 
+interface GitHubRepoConfig {
+  repos?: { owner: string; repo: string }[];
+  owner?: string;
+  repo?: string;
+}
+
+/**
+ * Extracts "owner/repo" strings from a github_issue tile config.
+ */
+function extractRepoNames(config: unknown): string[] {
+  const c = config as GitHubRepoConfig;
+  if (c.repos?.length) {
+    return c.repos.map((r) => `${r.owner}/${r.repo}`);
+  }
+  if (c.owner && c.repo) {
+    return [`${c.owner}/${c.repo}`];
+  }
+  return [];
+}
+
 /**
  * Creates AI tools scoped to a specific Mosaic user.
  */
@@ -75,23 +95,8 @@ export function createBotTools(
           schedule: result.tile.schedule_cron,
           active: result.tile.is_active,
         };
-        if (
-          result.tile.tile_type === "github_issue" &&
-          result.tile.config
-        ) {
-          const config = result.tile.config as {
-            repos?: { owner: string; repo: string }[];
-            owner?: string;
-            repo?: string;
-          };
-          const repos = config.repos?.length
-            ? config.repos
-            : config.owner && config.repo
-              ? [{ owner: config.owner, repo: config.repo }]
-              : [];
-          tileInfo.repos = repos.map(
-            (r) => `${r.owner}/${r.repo}`,
-          );
+        if (result.tile.tile_type === "github_issue" && result.tile.config) {
+          tileInfo.repos = extractRepoNames(result.tile.config);
         }
         return {
           tile: tileInfo,
@@ -185,9 +190,8 @@ export function createBotTools(
             'Target repository in "owner/repo" format for github_issue tiles. Use get_channel_info and context clues (channel name, topic, links in message) to determine the right repo.',
           ),
       }),
-      execute: async ({ tile_id, input, target_repo }) => {
-        return runTileForUser(userId, tile_id, input, target_repo);
-      },
+      execute: ({ tile_id, input, target_repo }) =>
+        runTileForUser(userId, tile_id, input, target_repo),
     }),
 
     get_channel_info: tool({

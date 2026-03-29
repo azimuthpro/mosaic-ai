@@ -478,9 +478,9 @@ export async function getChannelInfo(
   };
   if (!data.ok || !data.channel) return null;
   return {
-    name: data.channel.name || "",
-    topic: data.channel.topic?.value || "",
-    purpose: data.channel.purpose?.value || "",
+    name: data.channel.name ?? "",
+    topic: data.channel.topic?.value ?? "",
+    purpose: data.channel.purpose?.value ?? "",
   };
 }
 
@@ -540,16 +540,22 @@ export async function runTileForUser(
       .from("tile_connections")
       .select("*")
       .eq("target_tile_id", tileId);
-    const connections = (connRows || []) as TileConnection[];
+    const connections = (connRows ?? []) as TileConnection[];
+
+    // Create execution context (shared for both content fetching and job tracking)
+    const executionContext = createExecutionContext({
+      rootAgentId: tileId,
+      userId,
+      maxDepth: tile.max_chain_depth ?? DEFAULT_MAX_DEPTH,
+      timeoutMs: tile.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS,
+    });
 
     // Determine content
     let fetchedContent: string[];
 
     if (input) {
-      // Use caller-provided input
       fetchedContent = [input];
     } else {
-      // Fetch from sources and connections like normal execution
       const hasSources = tile.tile_sources.length > 0;
       const hasConnections = connections.length > 0;
 
@@ -560,41 +566,25 @@ export async function runTileForUser(
         };
       }
 
-      const ctx = createExecutionContext({
-        rootAgentId: tileId,
-        userId,
-        maxDepth: tile.max_chain_depth ?? DEFAULT_MAX_DEPTH,
-        timeoutMs: tile.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS,
-      });
-
       const sourceResults = [];
 
       if (hasSources) {
         const results = await fetchAllTileSourcesContent(
           tile.tile_sources,
           admin,
-          ctx,
+          executionContext,
         );
         sourceResults.push(...results);
+      }
 
-        if (hasConnections) {
-          const connResults = await fetchConnectionContent(
-            tileId,
-            tile.tile_type,
-            connections,
-            admin,
-            ctx,
-            countActiveUrlSources(tile.tile_sources),
-          );
-          sourceResults.push(...connResults);
-        }
-      } else if (hasConnections) {
+      if (hasConnections) {
         const connResults = await fetchConnectionContent(
           tileId,
           tile.tile_type,
           connections,
           admin,
-          ctx,
+          executionContext,
+          hasSources ? countActiveUrlSources(tile.tile_sources) : undefined,
         );
         sourceResults.push(...connResults);
       }
@@ -610,14 +600,6 @@ export async function runTileForUser(
         };
       }
     }
-
-    // Create execution context and job
-    const executionContext = createExecutionContext({
-      rootAgentId: tileId,
-      userId,
-      maxDepth: tile.max_chain_depth ?? DEFAULT_MAX_DEPTH,
-      timeoutMs: tile.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS,
-    });
 
     await logTileJobExecutionEvent(admin, {
       executionId: executionContext.executionId,
