@@ -1,4 +1,4 @@
-import { google } from "@ai-sdk/google";
+import { google, type GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { stepCountIs, streamText } from "ai";
 import { type Chat, type Message, type Thread, toAiMessages } from "chat";
 
@@ -33,6 +33,10 @@ Rules:
 - For github_issue tiles with multiple repos: call get_channel_info first, then match the channel name/topic/purpose against the tile's configured repos to pick the right target_repo. Also look for GitHub repo links or repo names in the user's message. If you can't determine the repo, ask the user which one
 - Always use the provided tools to look up real data — never guess or make up IDs
 - When a user mentions a mosaic or tile by name, use the search tool to find the ID
+- When users ask about current events, external topics, industry news, or anything outside their Mosaic data, ALWAYS use BOTH google_search AND web_search tools in parallel, then merge and synthesize the combined results into a comprehensive answer. This ensures the best coverage and accuracy.
+- For deep research, use web_search with 'advanced' depth alongside google_search
+- For questions about the user's own mosaics and tiles, always prefer the Mosaic tools (find_tile, search, etc.) over web search
+- Think through complex questions carefully before answering
 - Keep responses concise and formatted for Slack (use *bold*, bullet points)
 - If the user doesn't have access to something, say so politely
 - When showing results, summarize key points rather than dumping raw data`;
@@ -100,8 +104,19 @@ async function answerQuestion(
     model: google("gemini-pro-latest"),
     system: SYSTEM_PROMPT,
     messages: history,
-    tools,
-    stopWhen: stepCountIs(12),
+    tools: {
+      ...tools,
+      google_search: google.tools.googleSearch({}),
+    },
+    providerOptions: {
+      google: {
+        thinkingConfig: {
+          thinkingBudget: 4096,
+          includeThoughts: false,
+        },
+      } satisfies GoogleLanguageModelOptions,
+    },
+    stopWhen: stepCountIs(15),
     onStepFinish: (event) => {
       console.log("[bot] step", event.stepNumber, {
         text: event.text.length,
@@ -162,16 +177,22 @@ export function registerHandlers(
   bot: Chat,
   slackAdapter: SlackAdapterType,
 ): void {
+  const subscribeAndAnswer = async (
+    userId: string,
+    context: { slackToken?: string; channelId?: string },
+    thread: Thread,
+  ) => {
+    await thread.subscribe();
+    await answerQuestion(thread, userId, context);
+  };
+
   bot.onNewMention(async (thread, message) => {
     await handleMessage(
       "onNewMention",
       thread,
       message,
       slackAdapter,
-      async (userId, context) => {
-        await thread.subscribe();
-        await answerQuestion(thread, userId, context);
-      },
+      (userId, context) => subscribeAndAnswer(userId, context, thread),
     );
   });
 
@@ -181,10 +202,7 @@ export function registerHandlers(
       thread,
       message,
       slackAdapter,
-      async (userId, context) => {
-        await thread.subscribe();
-        await answerQuestion(thread, userId, context);
-      },
+      (userId, context) => subscribeAndAnswer(userId, context, thread),
     );
   });
 

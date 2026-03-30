@@ -1,6 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { searchWeb } from "@/lib/search/tavily";
+
 import {
   findTilesByQuery,
   getChannelInfo,
@@ -208,6 +210,32 @@ export function createBotTools(
         );
         if (!info) return "Could not fetch channel info.";
         return info;
+      },
+    }),
+
+    web_search: tool({
+      description:
+        "Search the web for detailed information using Tavily. Use for deep research when you need thorough, structured results beyond what Google Search provides. Supports 'advanced' depth for comprehensive research.",
+      inputSchema: z.object({
+        query: z.string().describe("The search query."),
+        depth: z
+          .enum(["basic", "advanced"])
+          .optional()
+          .describe(
+            "Search depth. Use 'advanced' for thorough research on complex topics.",
+          ),
+      }),
+      execute: async ({ query, depth }) => {
+        const results = await searchWeb(query, {
+          searchDepth: depth ?? "basic",
+          maxResults: 5,
+        });
+        return results.map((r) => ({
+          title: r.title,
+          url: r.url,
+          content: r.content,
+          score: r.score,
+        }));
       },
     }),
   };
