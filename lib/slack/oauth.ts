@@ -10,6 +10,7 @@ const SLACK_SCOPES = [
   "users:read",
   "reactions:read",
   "reactions:write",
+  "im:history",
 ].join(",");
 
 export function getSlackOAuthUrl(state: string, returnTo?: string): string {

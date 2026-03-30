@@ -175,6 +175,19 @@ export function registerHandlers(
     );
   });
 
+  bot.onDirectMessage(async (thread, message) => {
+    await handleMessage(
+      "onDirectMessage",
+      thread,
+      message,
+      slackAdapter,
+      async (userId, context) => {
+        await thread.subscribe();
+        await answerQuestion(thread, userId, context);
+      },
+    );
+  });
+
   bot.onSubscribedMessage(async (thread, message) => {
     if (message.author.isMe) return;
     await handleMessage(
