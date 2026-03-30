@@ -97,7 +97,7 @@ async function answerQuestion(
   });
 
   const result = streamText({
-    model: google("gemini-flash-latest"),
+    model: google("gemini-pro-latest"),
     system: SYSTEM_PROMPT,
     messages: history,
     tools,

@@ -5,6 +5,11 @@
       "source": "vercel/chat",
       "sourceType": "github",
       "computedHash": "cdd25b149ccf824b029644cff565d04dd49f1743bb1a5e8a649a3adfe82e977c"
+    },
+    "inboxparse": {
+      "source": "inboxparse/skill",
+      "sourceType": "github",
+      "computedHash": "cbb5aa9ec77a0aef234549d6f8eb86b4b16a2b8b53e415f0f3fdbddfe1ede7ab"
     }
   }
 }
