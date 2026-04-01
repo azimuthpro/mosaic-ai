@@ -9,7 +9,7 @@
     "inboxparse": {
       "source": "inboxparse/skill",
       "sourceType": "github",
-      "computedHash": "cbb5aa9ec77a0aef234549d6f8eb86b4b16a2b8b53e415f0f3fdbddfe1ede7ab"
+      "computedHash": "19d7836bc9f9b58835dff815ae7422846ce00029c97d10e9f9f005308828c74d"
     }
   }
 }
