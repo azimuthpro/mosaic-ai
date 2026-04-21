@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowRight,
   Braces,
+  Copy,
   Loader2,
   Pause,
   Play,
@@ -24,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { deleteTile } from "@/lib/actions/tiles";
+import { deleteTile, duplicateTile } from "@/lib/actions/tiles";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils/format";
 import type { TileWithSources } from "@/types/database";
@@ -68,6 +69,7 @@ export function TileDetailPage({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRunConfirm, setShowRunConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   // Sync URL tab with drawer state so lazy-loading effects trigger correctly
   useEffect(() => {
@@ -120,6 +122,19 @@ export function TileDetailPage({
       alert("Failed to delete tile");
     } finally {
       setIsDeleting(false);
+    }
+  }
+
+  async function handleDuplicate(): Promise<void> {
+    setIsDuplicating(true);
+    const result = await duplicateTile(tile.id);
+    setIsDuplicating(false);
+    if (result.error) {
+      alert(result.error);
+      return;
+    }
+    if (result.tileId) {
+      router.push(`/mosaics/${mosaicId}/tiles/${result.tileId}`);
     }
   }
 
@@ -203,6 +218,20 @@ export function TileDetailPage({
               </Button>
             )}
             <div className="mx-1 h-5 w-px bg-border" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDuplicate}
+              disabled={isDuplicating}
+              className="text-muted-foreground hover:text-foreground"
+              title="Duplicate tile"
+            >
+              {isDuplicating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
             <Button
               variant="ghost"
               size="sm"

@@ -23,6 +23,8 @@ import type {
   TileSourceUpdate,
   TileType,
   TileUpdate,
+  TileWebhook,
+  TileWebhookInsert,
   UrlSourceConfig,
   WebSearchConfig,
 } from "@/types/database";
@@ -476,6 +478,139 @@ export async function deleteTile(id: string) {
 
   revalidatePath(`/mosaics/${tile.mosaic_id}`);
   return { success: true };
+}
+
+/**
+ * Duplicate a tile with all its settings, sources, and webhooks.
+ * The clone starts inactive and is placed below existing tiles in the mosaic.
+ */
+export async function duplicateTile(id: string) {
+  const supabase = await createClient();
+  const user = await getUser();
+
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  const { data: originalData, error: fetchError } = await supabase
+    .from("tiles")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !originalData) {
+    return { error: "Tile not found" };
+  }
+
+  const original = originalData as Tile;
+
+  // Place clone below all existing tiles in this mosaic
+  const { data: positionRows } = await supabase
+    .from("tiles")
+    .select("grid_y, grid_height")
+    .eq("mosaic_id", original.mosaic_id);
+
+  const nextGridY = (
+    (positionRows as { grid_y: number; grid_height: number }[] | null) ?? []
+  ).reduce((max, t) => Math.max(max, t.grid_y + t.grid_height), 0);
+
+  // Spread every field from the original and override only what differs.
+  // Strip server-managed fields so Postgres assigns fresh values on insert.
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  const { id: _id, created_at, updated_at, ...cloneable } = original;
+  /* eslint-enable @typescript-eslint/no-unused-vars */
+
+  const cloneInsert: TileInsert = {
+    ...cloneable,
+    name: `${original.name} (Copy)`,
+    grid_x: 0,
+    grid_y: nextGridY,
+    is_active: false,
+  };
+
+  const { data: cloneData, error: cloneError } = await supabase
+    .from("tiles")
+    .insert(cloneInsert as never)
+    .select()
+    .single();
+
+  if (cloneError || !cloneData) {
+    console.error("Error duplicating tile:", cloneError);
+    return { error: "Failed to duplicate tile" };
+  }
+
+  const clone = cloneData as Tile;
+
+  async function rollback(): Promise<void> {
+    await supabase.from("tiles").delete().eq("id", clone.id);
+  }
+
+  // Clone sources
+  const { data: sourceRows } = await supabase
+    .from("tile_sources")
+    .select("*")
+    .eq("tile_id", id);
+
+  const sources = (sourceRows as TileSource[] | null) ?? [];
+  if (sources.length > 0) {
+    const sourceInserts: TileSourceInsert[] = sources.map((s) => ({
+      tile_id: clone.id,
+      type: s.type,
+      url: s.url,
+      name: s.name,
+      config: s.config,
+      sort_order: s.sort_order,
+      is_active: true,
+      last_scraped_at: null,
+    }));
+
+    const { error: sourcesError } = await supabase
+      .from("tile_sources")
+      .insert(sourceInserts as never);
+
+    if (sourcesError) {
+      console.error("Error cloning tile sources:", sourcesError);
+      await rollback();
+      return { error: "Failed to duplicate tile sources" };
+    }
+  }
+
+  // Clone webhooks
+  const { data: webhookRows } = await supabase
+    .from("tile_webhooks")
+    .select("*")
+    .eq("tile_id", id);
+
+  const webhooks = (webhookRows as TileWebhook[] | null) ?? [];
+  if (webhooks.length > 0) {
+    const webhookInserts: TileWebhookInsert[] = webhooks.map((w) => ({
+      tile_id: clone.id,
+      name: w.name,
+      url: w.url,
+      events: w.events,
+      auth_type: w.auth_type,
+      auth_config: w.auth_config,
+      retry_count: w.retry_count,
+      timeout_ms: w.timeout_ms,
+      is_active: true,
+      last_triggered_at: null,
+      last_status: null,
+    }));
+
+    const { error: webhooksError } = await supabase
+      .from("tile_webhooks")
+      .insert(webhookInserts as never);
+
+    if (webhooksError) {
+      console.error("Error cloning tile webhooks:", webhooksError);
+      await rollback();
+      return { error: "Failed to duplicate tile webhooks" };
+    }
+  }
+
+  revalidatePath(`/mosaics/${original.mosaic_id}`);
+  reindexTileAsync(clone.id);
+  return { success: true, tileId: clone.id };
 }
 
 /**

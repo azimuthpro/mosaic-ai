@@ -4,6 +4,7 @@ import {
   BookOpen,
   Brain,
   CircleDot,
+  Copy,
   Database,
   Globe,
   Loader2,
@@ -26,7 +27,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { deleteTile, toggleTileActive } from "@/lib/actions/tiles";
+import {
+  deleteTile,
+  duplicateTile,
+  toggleTileActive,
+} from "@/lib/actions/tiles";
 import { cn } from "@/lib/utils";
 import type { TilePattern, TileType, TileWithSources } from "@/types/database";
 
@@ -97,6 +102,7 @@ export function TileCard({
   onRun,
 }: TileCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [showRunConfirm, setShowRunConfirm] = useState(false);
 
   const Icon = TILE_ICONS[tile.tile_type];
@@ -119,6 +125,15 @@ export function TileCard({
     }
     setIsDeleting(true);
     await deleteTile(tile.id);
+  }
+
+  async function handleDuplicate(): Promise<void> {
+    setIsDuplicating(true);
+    const result = await duplicateTile(tile.id);
+    setIsDuplicating(false);
+    if (result.error) {
+      alert(result.error);
+    }
   }
 
   async function handleToggleActive(): Promise<void> {
@@ -335,6 +350,13 @@ export function TileCard({
                 <DropdownMenuItem onClick={() => onConfigure?.(tile)}>
                   <Settings className="mr-2 h-4 w-4" />
                   Configure
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleDuplicate}
+                  disabled={isDuplicating}
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  {isDuplicating ? "Duplicating..." : "Duplicate"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
