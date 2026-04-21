@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { validateUrlWithMetadata } from "@/lib/search/tavily";
+import { validateUrlWithMetadata } from "@/lib/firecrawl/client";
 import { validateUrlWithDnsCheck } from "@/lib/validation/url-validator";
 
 export async function POST(request: Request) {
@@ -25,14 +25,14 @@ export async function POST(request: Request) {
       });
     }
 
-    // Step 2: Tavily-based validation and metadata extraction
-    const tavilyResult = await validateUrlWithMetadata(url);
+    // Step 2: Firecrawl-based validation and metadata extraction
+    const metadata = await validateUrlWithMetadata(url);
 
     return NextResponse.json({
-      isValid: tavilyResult.isValid,
-      isAccessible: tavilyResult.isAccessible,
-      pageTitle: tavilyResult.pageTitle,
-      error: tavilyResult.error,
+      isValid: metadata.isValid,
+      isAccessible: metadata.isAccessible,
+      pageTitle: metadata.pageTitle,
+      error: metadata.error,
     });
   } catch (validationError) {
     console.error("URL validation error:", validationError);

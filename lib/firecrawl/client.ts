@@ -63,3 +63,39 @@ export async function scrapeUrls(urls: string[]): Promise<ScrapeResult[]> {
 
   return results;
 }
+
+function extractDomainName(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Validates a URL and extracts metadata using Firecrawl.
+ * Used for real-time validation in the URL source dialog.
+ */
+export async function validateUrlWithMetadata(url: string): Promise<{
+  isValid: boolean;
+  isAccessible: boolean;
+  pageTitle?: string;
+  error?: string;
+}> {
+  const result = await scrapeUrl(url);
+
+  if (!result.success) {
+    return {
+      isValid: true, // URL format is valid (SSRF check passed)
+      isAccessible: false,
+      pageTitle: extractDomainName(url),
+      error: result.error,
+    };
+  }
+
+  return {
+    isValid: true,
+    isAccessible: true,
+    pageTitle: result.title || extractDomainName(url),
+  };
+}

@@ -318,55 +318,6 @@ export async function extractMultipleUrlsIndividual(
   }
 }
 
-/**
- * Extract domain name from URL to use as fallback title
- */
-function extractDomainName(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    const hostname = urlObj.hostname;
-    // Remove www. prefix if present
-    return hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
-
-/**
- * Validates a URL and extracts metadata using Tavily Extract API.
- * Used for real-time validation in the URL source dialog.
- */
-export async function validateUrlWithMetadata(url: string): Promise<{
-  isValid: boolean;
-  isAccessible: boolean;
-  pageTitle?: string;
-  error?: string;
-}> {
-  const result = await extractUrl(url, { extractDepth: "basic" });
-
-  if (!result.success) {
-    return {
-      isValid: true, // URL format is valid (SSRF check passed)
-      isAccessible: false,
-      pageTitle: extractDomainName(url), // Use domain name when inaccessible
-      error: result.error,
-    };
-  }
-
-  // Extract title from markdown content (first # heading)
-  const titleMatch = result.content?.match(/^#\s+(.+)$/m);
-  const extractedTitle = titleMatch?.[1];
-
-  // Fallback to domain name if no title found
-  const pageTitle = extractedTitle || extractDomainName(url);
-
-  return {
-    isValid: true,
-    isAccessible: true,
-    pageTitle,
-  };
-}
-
 // ============================================================================
 // Search Result Formatting
 // ============================================================================
