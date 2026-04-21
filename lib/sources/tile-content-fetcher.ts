@@ -2,12 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { MAX_URLS_PER_TILE, URL_BATCH_SIZE } from "@/lib/constants/tiles";
 import type { ExecutionContext } from "@/lib/execution/context";
-import {
-  extractMultipleUrlsIndividual,
-  extractUrl,
-  formatSearchResultsAsMarkdown,
-  searchWeb,
-} from "@/lib/search/tavily";
+import { scrapeUrl, scrapeUrls } from "@/lib/firecrawl/client";
+import { formatSearchResultsAsMarkdown, searchWeb } from "@/lib/search/tavily";
 import {
   fetchChannelMessages,
   fetchChannelMetadata,
@@ -29,7 +25,6 @@ import type {
   TileJobResult as TileReport,
   TileSource,
   TileType,
-  UrlSourceConfig,
   WebSearchConfig,
 } from "@/types/database";
 
@@ -240,7 +235,7 @@ export async function fetchConnectedTileContent(
 }
 
 /**
- * Fetches content from a URL source using Tavily Extract.
+ * Fetches content from a URL source using Firecrawl scrape.
  */
 async function fetchUrlContent(source: TileSource): Promise<TileSourceContent> {
   if (!source.url) {
@@ -265,36 +260,26 @@ async function fetchUrlContent(source: TileSource): Promise<TileSourceContent> {
     };
   }
 
-  // Get extract depth from config (default: "basic")
-  const config = source.config as UrlSourceConfig | null;
-  const extractDepth = config?.extract_depth || "basic";
+  const base = {
+    sourceId: source.id,
+    sourceType: "url" as const,
+    identifier: source.url,
+  };
 
-  // Use Tavily Extract instead of Firecrawl
-  const result = await extractUrl(source.url, { extractDepth });
+  const result = await scrapeUrl(source.url);
 
-  // Apply content size limits
-  if (result.success && result.content) {
-    const { content, truncated, originalSize } = truncateContent(
-      result.content,
-    );
-    return {
-      sourceId: source.id,
-      sourceType: "url",
-      identifier: source.url,
-      success: true,
-      content,
-      title: source.name || source.url,
-      contentTruncated: truncated,
-      originalSize: truncated ? originalSize : undefined,
-    };
+  if (!result.success || !result.content) {
+    return { ...base, success: false, error: result.error };
   }
 
+  const { content, truncated, originalSize } = truncateContent(result.content);
   return {
-    sourceId: source.id,
-    sourceType: "url",
-    identifier: source.url,
-    success: false,
-    error: result.error,
+    ...base,
+    success: true,
+    content,
+    title: source.name || source.url,
+    contentTruncated: truncated,
+    originalSize: truncated ? originalSize : undefined,
   };
 }
 
@@ -669,7 +654,7 @@ export function getTileSourceTypeBreakdown(results: TileSourceContent[]): {
 /**
  * Fetches content from runtime URLs (provided via API request).
  * Enforces MAX_URLS_PER_TILE limit, validates URLs for SSRF,
- * then uses Tavily batch Extract API for efficiency.
+ * then batches scraping via Firecrawl.
  */
 export async function fetchRuntimeUrlsContent(
   urls: string[],
@@ -712,34 +697,30 @@ export async function fetchRuntimeUrlsContent(
 
     const batch = validUrls.slice(i, i + URL_BATCH_SIZE);
     const batchUrls = batch.map((v) => v.url);
-    const batchExtractResults = await extractMultipleUrlsIndividual(batchUrls);
+    const scrapeResults = await scrapeUrls(batchUrls);
 
-    const batchResults: TileSourceContent[] = batchExtractResults.map(
-      (extractResult, batchIndex) => {
-        const originalIndex = batch[batchIndex].index;
+    const batchResults: TileSourceContent[] = scrapeResults.map(
+      (scrapeResult, batchIndex) => {
+        const base = {
+          sourceId: `runtime-${batch[batchIndex].index}`,
+          sourceType: "url" as const,
+          identifier: scrapeResult.url,
+        };
 
-        if (extractResult.success && extractResult.content) {
-          const { content, truncated, originalSize } = truncateContent(
-            extractResult.content,
-          );
-          return {
-            sourceId: `runtime-${originalIndex}`,
-            sourceType: "url" as const,
-            identifier: extractResult.url,
-            success: true,
-            content,
-            title: extractResult.url,
-            contentTruncated: truncated,
-            originalSize: truncated ? originalSize : undefined,
-          };
+        if (!scrapeResult.success || !scrapeResult.content) {
+          return { ...base, success: false, error: scrapeResult.error };
         }
 
+        const { content, truncated, originalSize } = truncateContent(
+          scrapeResult.content,
+        );
         return {
-          sourceId: `runtime-${originalIndex}`,
-          sourceType: "url" as const,
-          identifier: extractResult.url,
-          success: false,
-          error: extractResult.error,
+          ...base,
+          success: true,
+          content,
+          title: scrapeResult.url,
+          contentTruncated: truncated,
+          originalSize: truncated ? originalSize : undefined,
         };
       },
     );
