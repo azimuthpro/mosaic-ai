@@ -2,6 +2,8 @@ import { google } from "@ai-sdk/google";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
 
+import { formatDateGrounding } from "@/lib/ai/date-grounding";
+import { getMosaicTimezone } from "@/lib/mosaics/timezone";
 import type {
   CatalogDiffPayload,
   CatalogEntry,
@@ -61,9 +63,10 @@ export async function executeCatalogUpdate(
   jobId: string,
 ): Promise<CatalogUpdateResult> {
   // 1. Load existing state
-  const [schema, existingEntries] = await Promise.all([
+  const [schema, existingEntries, timezone] = await Promise.all([
     loadSchema(tileId, adminClient),
     loadEntries(tileId, adminClient),
+    getMosaicTimezone(adminClient, tileId),
   ]);
 
   const combinedContent = fetchedContent.join("\n\n---\n\n");
@@ -71,7 +74,11 @@ export async function executeCatalogUpdate(
   // 2. Schema detection (if no schema exists yet)
   let currentSchema = schema;
   if (!currentSchema) {
-    const detected = await detectSchema(combinedContent, systemPrompt);
+    const detected = await detectSchema(
+      combinedContent,
+      systemPrompt,
+      timezone,
+    );
     currentSchema = await upsertSchema(tileId, detected, adminClient);
   }
 
@@ -82,6 +89,7 @@ export async function executeCatalogUpdate(
     currentSchema,
     existingEntries,
     adminClient,
+    timezone,
   );
 
   // 4. Merge/dedup
@@ -406,8 +414,11 @@ async function loadEntries(
 async function detectSchema(
   content: string,
   systemPrompt: string | null,
+  timezone?: string,
 ): Promise<SchemaDetectionResult> {
-  const prompt = `You are analyzing source data to detect what type of entities it contains.
+  const prompt = `${formatDateGrounding(timezone)}
+
+You are analyzing source data to detect what type of entities it contains.
 
 ${systemPrompt ? `User instructions: ${systemPrompt}\n` : ""}
 Analyze the following data and determine:
@@ -474,6 +485,7 @@ async function extractEntitiesAndEvents(
   schema: CatalogSchema,
   existingEntries: CatalogEntry[],
   adminClient: SupabaseClient<Database>,
+  timezone?: string,
 ): Promise<AIExtractionResult> {
   const fields = schema.fields as unknown as CatalogField[];
   const fieldDescriptions = fields
@@ -503,7 +515,9 @@ async function extractEntitiesAndEvents(
     adminClient,
   );
 
-  const prompt = `You are extracting structured entities and events from source data for a ${schema.entity_type} catalog.
+  const prompt = `${formatDateGrounding(timezone)}
+
+You are extracting structured entities and events from source data for a ${schema.entity_type} catalog.
 
 ${systemPrompt ? `User instructions: ${systemPrompt}\n` : ""}
 Entity schema (fields to extract):

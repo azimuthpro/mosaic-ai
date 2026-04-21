@@ -10,6 +10,7 @@ import {
   DEFAULT_TIMEOUT_MS,
 } from "@/lib/execution/context";
 import { executeGitHubIssue } from "@/lib/github/execute-github-issue";
+import { getMosaicTimezone } from "@/lib/mosaics/timezone";
 import { deliverSlackOutput } from "@/lib/outputs/slack-output";
 import {
   assertRateLimitAllowed,
@@ -360,12 +361,14 @@ export async function POST(request: Request): Promise<Response> {
         resultFormat = "json";
         slackContent = githubResult.slackSummary;
       } else {
+        const timezone = await getMosaicTimezone(adminClient, tileId);
         const analysis = await analyzeContent(
           fetchedContent,
           typedTile.system_prompt || "",
           typedTile.output_format,
           typedTile.language,
           typedTile.output_schema,
+          timezone,
         );
 
         if (!analysis.success) {

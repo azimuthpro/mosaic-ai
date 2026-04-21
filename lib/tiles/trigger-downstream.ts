@@ -6,6 +6,7 @@ import {
   DEFAULT_TIMEOUT_MS,
 } from "@/lib/execution/context";
 import { withTimeout } from "@/lib/execution/timeout";
+import { getMosaicTimezone } from "@/lib/mosaics/timezone";
 import {
   checkAndIncrementRateLimit,
   decrementConcurrentCount,
@@ -355,12 +356,14 @@ async function processDownstreamTile(
         resultContent = catalogResult.jobResultContent;
         resultFormat = "json";
       } else {
+        const timezone = await getMosaicTimezone(adminClient, tile.id);
         const analysis = await analyzeContent(
           fetchedContent,
           tile.system_prompt || "",
           tile.output_format,
           tile.language,
           tile.output_schema,
+          timezone,
         );
 
         if (!analysis.success) {

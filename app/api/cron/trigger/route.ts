@@ -306,12 +306,15 @@ async function processTile(
         resultFormat = "json";
         slackContent = githubResult.slackSummary;
       } else {
+        const timezone =
+          (tile.mosaics.settings as MosaicSettings | null)?.timezone ?? "UTC";
         const analysis = await analyzeContent(
           fetchedContent,
           tile.system_prompt || "",
           tile.output_format,
           tile.language,
           tile.output_schema,
+          timezone,
         );
 
         if (!analysis.success) {

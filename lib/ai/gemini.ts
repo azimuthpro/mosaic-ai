@@ -1,6 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 
+import { formatDateGrounding } from "@/lib/ai/date-grounding";
 import { getLanguageInstruction } from "@/lib/constants/languages";
 import type { Json, LanguageCode, OutputFormat } from "@/types/database";
 
@@ -75,6 +76,7 @@ export async function analyzeContent(
   outputFormat: OutputFormat,
   language: LanguageCode = "en",
   outputSchema?: string | null,
+  timezone?: string,
 ): Promise<AnalysisResult> {
   try {
     const formatInstructions = getFormatInstructions(
@@ -82,10 +84,13 @@ export async function analyzeContent(
       outputSchema,
     );
     const languageInstruction = getLanguageInstruction(language);
+    const dateGrounding = formatDateGrounding(timezone);
 
     const combinedContent = scrapedContent.join("\n\n---\n\n");
 
-    const fullPrompt = `${systemPrompt}
+    const fullPrompt = `${dateGrounding}
+
+${systemPrompt}
 
 ${formatInstructions}
 ${languageInstruction ? `\n${languageInstruction}` : ""}

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { analyzeContent } from "@/lib/ai/gemini";
+import { getMosaicTimezone } from "@/lib/mosaics/timezone";
 import type {
   Database,
   GitHubIssueConfig,
@@ -79,6 +80,7 @@ export async function executeGitHubIssue(
   }
 
   const issuePrompt = buildIssuePrompt(systemPrompt);
+  const timezone = await getMosaicTimezone(adminClient, tileId);
 
   const analysis = await analyzeContent(
     fetchedContent,
@@ -86,6 +88,7 @@ export async function executeGitHubIssue(
     "json",
     language,
     null,
+    timezone,
   );
 
   if (!analysis.success) {
