@@ -5,6 +5,9 @@ import { getLanguageInstruction } from "@/lib/constants/languages";
 import type { Json, LanguageCode, OutputFormat } from "@/types/database";
 
 const model = google("gemini-pro-latest");
+const summaryModel = google("gemini-flash-latest");
+
+const SUMMARY_INPUT_MAX_CHARS = 20_000;
 
 export interface DebugInfo {
   fullPrompt: string;
@@ -120,5 +123,28 @@ ${combinedContent}`;
       content: null,
       error: message,
     };
+  }
+}
+
+/**
+ * Produces a 1–2 sentence plain-text summary of content using gemini-flash-latest.
+ * Returns null on error so callers can fall back to posting the full content.
+ */
+export async function summarizeContent(
+  content: string,
+): Promise<string | null> {
+  const input = content.trim().slice(0, SUMMARY_INPUT_MAX_CHARS);
+  if (!input) return null;
+
+  const prompt = `Summarize the following report in 1-2 short sentences. Plain text only: no markdown, no bullet points, no code fences, no headings. Focus on the most important takeaway a reader should know at a glance.
+
+Report:
+${input}`;
+
+  try {
+    const { text } = await generateText({ model: summaryModel, prompt });
+    return stripCodeFences(text).trim() || null;
+  } catch {
+    return null;
   }
 }

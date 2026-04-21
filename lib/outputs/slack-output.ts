@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { summarizeContent } from "@/lib/ai/gemini";
 import { postMessage } from "@/lib/slack/client";
 import { resolveSlackToken } from "@/lib/slack/integration";
 import type { Database, Json, Tile } from "@/types/database";
@@ -144,13 +145,38 @@ export async function deliverSlackOutput(
       return;
     }
 
-    const text = markdownToSlackMrkdwn(extractTextFromContent(result.content));
-    await postMessage(
-      resolved.token,
-      tile.slack_output_channel_id,
-      text,
+    const rawText = extractTextFromContent(result.content);
+    const fullText = markdownToSlackMrkdwn(rawText);
+    const summary = await summarizeContent(rawText);
+    const { token } = resolved;
+    const channelId = tile.slack_output_channel_id;
+
+    // No summary available: post the full report as a single message.
+    if (!summary) {
+      await postMessage(token, channelId, fullText, tile.name);
+      return;
+    }
+
+    // Summary becomes the parent; full report goes into the thread.
+    const parent = await postMessage(
+      token,
+      channelId,
+      markdownToSlackMrkdwn(summary),
       tile.name,
     );
+
+    if (!parent) {
+      console.warn(
+        "[slack-output] Parent message returned no ts; skipping thread reply. tile:",
+        tile.id,
+      );
+      return;
+    }
+
+    await postMessage(token, channelId, fullText, tile.name, {
+      threadTs: parent.ts,
+      omitHeader: true,
+    });
   } catch (err) {
     console.error("[slack-output] Failed to deliver Slack output:", err);
   }

@@ -82,6 +82,7 @@ interface SlackApiResponse {
   channel?: SlackChannelInfo;
   members?: string[];
   user?: SlackUser;
+  ts?: string;
 }
 
 export interface SlackChannelMetadata {
@@ -548,43 +549,40 @@ function findLastIndex(str: string, sep: string): number | null {
 /**
  * Posts a message to a Slack channel with a tile name header.
  * Splits long content into multiple section blocks (Slack limit: 3000 chars each, 50 blocks max).
+ *
+ * Returns `{ ts }` of the posted message on success (useful for threading replies),
+ * or `null` if Slack didn't return a timestamp.
+ *
+ * Options:
+ * - `threadTs`: post as a reply inside this thread
+ * - `omitHeader`: skip the "Mosaic: {tileName}" header block (used for thread replies)
  */
 export async function postMessage(
   token: string,
   channelId: string,
   text: string,
   tileName: string,
-): Promise<void> {
-  const chunks = splitIntoChunks(text, SECTION_MAX_LENGTH);
+  options: { threadTs?: string; omitHeader?: boolean } = {},
+): Promise<{ ts: string } | null> {
+  const { threadTs, omitHeader } = options;
+  const blocks: Record<string, unknown>[] = [];
 
-  // Header block always first
-  const blocks: Record<string, unknown>[] = [
-    {
-      type: "header",
-      text: {
-        type: "plain_text",
-        text: `Mosaic: ${tileName}`,
-        emoji: true,
-      },
-    },
-  ];
-
-  // 1 header + N sections + possibly 1 context = stay under MAX_BLOCKS
-  const maxSections = MAX_BLOCKS - 2; // reserve header + context
-  const truncated = chunks.length > maxSections;
-  const visibleChunks = chunks.slice(0, maxSections);
-
-  for (const chunk of visibleChunks) {
+  if (!omitHeader) {
     blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: chunk,
-      },
+      type: "header",
+      text: { type: "plain_text", text: `Mosaic: ${tileName}`, emoji: true },
     });
   }
 
-  if (truncated) {
+  // Reserve 1 block for the truncation context; reserve 1 more for the header when present.
+  const maxSections = MAX_BLOCKS - (omitHeader ? 1 : 2);
+  const chunks = splitIntoChunks(text, SECTION_MAX_LENGTH);
+
+  for (const chunk of chunks.slice(0, maxSections)) {
+    blocks.push({ type: "section", text: { type: "mrkdwn", text: chunk } });
+  }
+
+  if (chunks.length > maxSections) {
     blocks.push({
       type: "context",
       elements: [
@@ -596,13 +594,15 @@ export async function postMessage(
     });
   }
 
-  await slackFetch(token, "chat.postMessage", {
-    body: {
-      channel: channelId,
-      text: text.slice(0, FALLBACK_TEXT_MAX_LENGTH),
-      blocks,
-    },
-  });
+  const body: Record<string, unknown> = {
+    channel: channelId,
+    text: text.slice(0, FALLBACK_TEXT_MAX_LENGTH),
+    blocks,
+  };
+  if (threadTs) body.thread_ts = threadTs;
+
+  const response = await slackFetch(token, "chat.postMessage", { body });
+  return response.ts ? { ts: response.ts } : null;
 }
 
 /**
