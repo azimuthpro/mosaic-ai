@@ -136,7 +136,7 @@ export async function summarizeContent(
   const input = content.trim().slice(0, SUMMARY_INPUT_MAX_CHARS);
   if (!input) return null;
 
-  const prompt = `Summarize the following report in 1-2 short sentences. Plain text only: no markdown, no bullet points, no code fences, no headings. Focus on the most important takeaway a reader should know at a glance.
+  const prompt = `Summarize the following report in 1-2 short sentences. Write the summary in the SAME LANGUAGE as the report itself (if the report is in Polish, reply in Polish; if in English, reply in English; etc.). Plain text only: no markdown, no bullet points, no code fences, no headings. Focus on the most important takeaway a reader should know at a glance.
 
 Report:
 ${input}`;
