@@ -49,6 +49,16 @@ type TileWithSources = Tile & {
   mosaics: { owner_id: string; settings: MosaicSettings | null };
 };
 
+const CRON_DAY_BY_WEEKDAY: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
 /**
  * Check if a tile should run at the current time based on its cron schedule
  * and the mosaic's timezone setting.
@@ -57,58 +67,37 @@ function shouldTileRunNow(
   scheduleCron: string,
   timezone: string | undefined,
 ): boolean {
-  // Use UTC if no timezone specified
-  const tz = timezone || "UTC";
-
-  // Get current time in the mosaic's timezone
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    hour: "numeric",
-    minute: "numeric",
+  // hourCycle "h23" avoids the en-US quirk where hour12:false returns "24" at midnight.
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone || "UTC",
+    hour: "2-digit",
+    minute: "2-digit",
     weekday: "short",
-    hour12: false,
-  });
+    hourCycle: "h23",
+  }).formatToParts(new Date());
 
-  const parts = formatter.formatToParts(now);
-  const hour = parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
-  const minute = parseInt(
-    parts.find((p) => p.type === "minute")?.value || "0",
-    10,
-  );
-  const weekdayStr = parts.find((p) => p.type === "weekday")?.value || "";
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
 
-  // Map weekday string to cron day (0=Sun, 1=Mon, etc)
-  const dayOfWeek =
-    { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[weekdayStr] ?? 0;
+  const hour = parseInt(get("hour"), 10);
+  const minute = parseInt(get("minute"), 10);
+  const dayOfWeek = CRON_DAY_BY_WEEKDAY[get("weekday")] ?? 0;
 
   // Parse cron: "minute hour dayOfMonth month dayOfWeek"
-  // We only care about minute, hour, and dayOfWeek for this scheduler
+  // Only minute, hour, and dayOfWeek are honored — the UI never produces
+  // non-wildcard day-of-month or month fields.
   const cronParts = scheduleCron.split(" ");
   if (cronParts.length !== 5) return false;
-
   const [cronMinute, cronHour, , , cronDayOfWeek] = cronParts;
 
-  // Check minute (we run at minute 0, so check if cron expects 0)
-  if (cronMinute !== "*" && cronMinute !== "0") {
-    // Only run on the exact minute specified
-    const cronMinutes = cronMinute.split(",").map(Number);
-    if (!cronMinutes.includes(minute)) return false;
-  }
+  const matches = (field: string, value: number): boolean =>
+    field === "*" || field.split(",").map(Number).includes(value);
 
-  // Check hour
-  if (cronHour !== "*") {
-    const cronHours = cronHour.split(",").map(Number);
-    if (!cronHours.includes(hour)) return false;
-  }
-
-  // Check day of week
-  if (cronDayOfWeek !== "*") {
-    const cronDays = cronDayOfWeek.split(",").map(Number);
-    if (!cronDays.includes(dayOfWeek)) return false;
-  }
-
-  return true;
+  return (
+    matches(cronMinute, minute) &&
+    matches(cronHour, hour) &&
+    matches(cronDayOfWeek, dayOfWeek)
+  );
 }
 
 type TileResult = {
