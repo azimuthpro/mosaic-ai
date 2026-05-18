@@ -105,6 +105,11 @@ export function CreateTileDialog({
   const [slackTimeWindowDays, setSlackTimeWindowDays] = useState(1);
   const [githubRepos, setGithubRepos] = useState<GitHubRepoItem[]>([]);
   const [knowledgeBaseContent, setKnowledgeBaseContent] = useState("");
+  const [offerHtmlTemplate, setOfferHtmlTemplate] = useState("");
+  const [offerFromEmail, setOfferFromEmail] = useState("");
+  const [offerFromName, setOfferFromName] = useState("");
+  const [offerReplyToEmail, setOfferReplyToEmail] = useState("");
+  const [offerReplyToName, setOfferReplyToName] = useState("");
 
   function resetState() {
     setStep(initialType ? "config" : "type");
@@ -121,6 +126,11 @@ export function CreateTileDialog({
     setSlackTimeWindowDays(1);
     setGithubRepos([]);
     setKnowledgeBaseContent("");
+    setOfferHtmlTemplate("");
+    setOfferFromEmail("");
+    setOfferFromName("");
+    setOfferReplyToEmail("");
+    setOfferReplyToName("");
   }
 
   function handleTypeSelect(type: TileType) {
@@ -158,6 +168,8 @@ export function CreateTileDialog({
         return githubRepos.length > 0;
       case "knowledge_base":
         return knowledgeBaseContent.trim().length > 0;
+      case "offer_sender":
+        return offerHtmlTemplate.trim().length > 0;
       default:
         return false;
     }
@@ -186,6 +198,10 @@ export function CreateTileDialog({
           : null;
       case "knowledge_base":
         return !knowledgeBaseContent.trim() ? "Enter some content" : null;
+      case "offer_sender":
+        return !offerHtmlTemplate.trim()
+          ? "Paste your HTML offer template"
+          : null;
       default:
         return null;
     }
@@ -238,6 +254,18 @@ export function CreateTileDialog({
       };
     } else if (selectedType === "knowledge_base") {
       tileConfig = { content: knowledgeBaseContent };
+    } else if (selectedType === "offer_sender") {
+      tileConfig = {
+        html_template: offerHtmlTemplate,
+        ...(offerFromEmail.trim() ? { from_email: offerFromEmail.trim() } : {}),
+        ...(offerFromName.trim() ? { from_name: offerFromName.trim() } : {}),
+        ...(offerReplyToEmail.trim()
+          ? { reply_to_email: offerReplyToEmail.trim() }
+          : {}),
+        ...(offerReplyToName.trim()
+          ? { reply_to_name: offerReplyToName.trim() }
+          : {}),
+      };
     }
 
     const result = await createTile({
@@ -255,7 +283,8 @@ export function CreateTileDialog({
       connections:
         selectedType === "analyzer" ||
         selectedType === "catalog" ||
-        selectedType === "github_issue"
+        selectedType === "github_issue" ||
+        selectedType === "offer_sender"
           ? inputTileIds
           : undefined,
       config: tileConfig as import("@/types/database").Json,
@@ -379,7 +408,8 @@ export function CreateTileDialog({
 
                 {(selectedType === "analyzer" ||
                   selectedType === "catalog" ||
-                  selectedType === "github_issue") && (
+                  selectedType === "github_issue" ||
+                  selectedType === "offer_sender") && (
                   <TileSelector
                     mosaicId={mosaicId}
                     selectedTileIds={inputTileIds}
@@ -388,9 +418,11 @@ export function CreateTileDialog({
                     label={
                       selectedType === "github_issue"
                         ? "Input Tiles (optional)"
-                        : selectedType === "catalog"
-                          ? "Source Tiles"
-                          : "Tiles to Analyze"
+                        : selectedType === "offer_sender"
+                          ? "Context Tiles (optional)"
+                          : selectedType === "catalog"
+                            ? "Source Tiles"
+                            : "Tiles to Analyze"
                     }
                   />
                 )}
@@ -427,6 +459,70 @@ export function CreateTileDialog({
                       This text will be available to any tiles connected to this
                       knowledge base.
                     </p>
+                  </div>
+                )}
+
+                {selectedType === "offer_sender" && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="offerHtmlTemplate">HTML Template</Label>
+                      <Textarea
+                        id="offerHtmlTemplate"
+                        placeholder="<html>…your offer template — AI will personalize it…</html>"
+                        rows={10}
+                        className="font-mono text-xs"
+                        value={offerHtmlTemplate}
+                        onChange={(e) => setOfferHtmlTemplate(e.target.value)}
+                        disabled={isLoading}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        The AI starts from this template and personalizes it
+                        based on the instruction you (or your Slack thread)
+                        provide at run time.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="offerFromEmail">From email</Label>
+                        <Input
+                          id="offerFromEmail"
+                          placeholder="defaults to SENDGRID_FROM_EMAIL"
+                          value={offerFromEmail}
+                          onChange={(e) => setOfferFromEmail(e.target.value)}
+                          disabled={isLoading}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="offerFromName">From name</Label>
+                        <Input
+                          id="offerFromName"
+                          placeholder="e.g. Mateusz from Mosaic"
+                          value={offerFromName}
+                          onChange={(e) => setOfferFromName(e.target.value)}
+                          disabled={isLoading}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="offerReplyTo">Reply-to email</Label>
+                        <Input
+                          id="offerReplyTo"
+                          placeholder="(optional)"
+                          value={offerReplyToEmail}
+                          onChange={(e) => setOfferReplyToEmail(e.target.value)}
+                          disabled={isLoading}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="offerReplyToName">Reply-to name</Label>
+                        <Input
+                          id="offerReplyToName"
+                          placeholder="(optional)"
+                          value={offerReplyToName}
+                          onChange={(e) => setOfferReplyToName(e.target.value)}
+                          disabled={isLoading}
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 

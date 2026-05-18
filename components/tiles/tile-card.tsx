@@ -8,6 +8,7 @@ import {
   Database,
   Globe,
   Loader2,
+  Mail,
   MessageSquare,
   MoreHorizontal,
   Play,
@@ -47,7 +48,11 @@ interface TileCardProps {
   compact?: boolean;
   isDragging?: boolean;
   isRunning?: boolean;
-  onRun?: (tileId: string, debug: boolean) => void;
+  onRun?: (
+    tileId: string,
+    debug: boolean,
+    options?: { comment?: string },
+  ) => void;
 }
 
 const TILE_ICONS: Record<TileType, React.ElementType> = {
@@ -58,6 +63,7 @@ const TILE_ICONS: Record<TileType, React.ElementType> = {
   catalog: Database,
   github_issue: CircleDot,
   knowledge_base: BookOpen,
+  offer_sender: Mail,
 };
 
 function getPatternStyle(
@@ -114,9 +120,12 @@ export function TileCard({
     setShowRunConfirm(true);
   }
 
-  function handleRunConfirm(debug: boolean): void {
+  function handleRunConfirm(
+    debug: boolean,
+    options?: { comment?: string },
+  ): void {
     setShowRunConfirm(false);
-    onRun?.(tile.id, debug);
+    onRun?.(tile.id, debug, options);
   }
 
   async function handleDelete(): Promise<void> {
@@ -150,6 +159,7 @@ export function TileCard({
           tileName={tile.name}
           isRunning={isRunning}
           onConfirm={handleRunConfirm}
+          commentMode={tile.tile_type === "offer_sender" ? "offer" : undefined}
         />
         <div
           className={cn(
@@ -279,6 +289,7 @@ export function TileCard({
         tileName={tile.name}
         isRunning={isRunning}
         onConfirm={handleRunConfirm}
+        commentMode={tile.tile_type === "offer_sender" ? "offer" : undefined}
       />
       <div
         className={cn(

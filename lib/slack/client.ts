@@ -529,9 +529,7 @@ function splitIntoChunks(text: string, maxSize: number): string[] {
 
     const window = remaining.slice(0, maxSize);
     const splitIndex =
-      findLastIndex(window, "\n\n") ??
-      findLastIndex(window, "\n") ??
-      maxSize;
+      findLastIndex(window, "\n\n") ?? findLastIndex(window, "\n") ?? maxSize;
 
     chunks.push(remaining.slice(0, splitIndex));
     remaining = remaining.slice(splitIndex).replace(/^\n+/, "");
@@ -603,6 +601,49 @@ export async function postMessage(
 
   const response = await slackFetch(token, "chat.postMessage", { body });
   return response.ts ? { ts: response.ts } : null;
+}
+
+/**
+ * Posts a message with a caller-supplied Block Kit blocks array (e.g. interactive
+ * action buttons). Returns the message timestamp for later updates.
+ */
+export async function postBlocks(
+  token: string,
+  channelId: string,
+  blocks: Record<string, unknown>[],
+  fallbackText: string,
+  options: { threadTs?: string } = {},
+): Promise<{ ts: string } | null> {
+  const body: Record<string, unknown> = {
+    channel: channelId,
+    text: fallbackText.slice(0, FALLBACK_TEXT_MAX_LENGTH),
+    blocks,
+  };
+  if (options.threadTs) body.thread_ts = options.threadTs;
+
+  const response = await slackFetch(token, "chat.postMessage", { body });
+  return response.ts ? { ts: response.ts } : null;
+}
+
+/**
+ * Updates a previously-posted message (chat.update). Used to swap a draft preview
+ * with a final status line after the user clicks Approve/Cancel.
+ */
+export async function updateMessage(
+  token: string,
+  channelId: string,
+  ts: string,
+  blocks: Record<string, unknown>[],
+  fallbackText: string,
+): Promise<void> {
+  await slackFetch(token, "chat.update", {
+    body: {
+      channel: channelId,
+      ts,
+      text: fallbackText.slice(0, FALLBACK_TEXT_MAX_LENGTH),
+      blocks,
+    },
+  });
 }
 
 /**

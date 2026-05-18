@@ -1,11 +1,15 @@
 import { analyzeContent } from "@/lib/ai/gemini";
 import { executeCatalogUpdate } from "@/lib/catalog/execute-catalog";
+import { executeOfferSender } from "@/lib/email/execute-offer-sender";
+import { postOfferDraftToSlack } from "@/lib/email/post-offer-draft-slack";
+import { attachSlackMessageTs } from "@/lib/email/send-offer-draft";
 import {
   createExecutionContext,
   DEFAULT_MAX_DEPTH,
   DEFAULT_TIMEOUT_MS,
 } from "@/lib/execution/context";
 import { executeGitHubIssue } from "@/lib/github/execute-github-issue";
+import { verifyMosaicAccess } from "@/lib/mosaics/access";
 import { getMosaicTimezone } from "@/lib/mosaics/timezone";
 import { deliverSlackOutput } from "@/lib/outputs/slack-output";
 import {
@@ -26,6 +30,10 @@ import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
 import { compareBySortOrder } from "@/lib/utils";
 import type {
   GitHubIssueConfig,
+  Json,
+  OfferDraftResult,
+  OfferDraftSlackContext,
+  OfferSenderConfig,
   Tile,
   TileConnection,
   TileJob,
@@ -485,16 +493,26 @@ export async function getChannelInfo(
   };
 }
 
+export interface BotSlackOrigin {
+  teamId?: string;
+  channelId?: string;
+  threadTs?: string;
+  botToken?: string;
+}
+
 /**
  * Runs a tile on behalf of a user from the bot.
  * Handles rate limiting, content fetching, execution, and result storage.
  * Optionally accepts custom input text to use instead of fetching from sources.
+ * For offer_sender tiles, slackOrigin lets the bot post the draft preview
+ * (with Approve/Cancel buttons) back into the originating thread.
  */
 export async function runTileForUser(
   userId: string,
   tileId: string,
   input?: string,
   targetRepo?: string,
+  slackOrigin?: BotSlackOrigin,
 ): Promise<{ success: boolean; message: string; content?: string }> {
   const admin = createAdminClient();
   let rateLimitIncremented = false;
@@ -531,7 +549,10 @@ export async function runTileForUser(
       rateLimitIncremented = true;
     } catch (err) {
       if (err instanceof RateLimitError) {
-        return { success: false, message: `Rate limit exceeded: ${err.reason}` };
+        return {
+          success: false,
+          message: `Rate limit exceeded: ${err.reason}`,
+        };
       }
       throw err;
     }
@@ -551,10 +572,33 @@ export async function runTileForUser(
       timeoutMs: tile.execution_timeout_ms ?? DEFAULT_TIMEOUT_MS,
     });
 
-    // Determine content
+    // Determine content. Offer Sender treats `input` as the user's instruction
+    // (comment) — not as scraped content — so we keep it separate.
+    const isOfferSender = tile.tile_type === "offer_sender";
     let fetchedContent: string[];
 
-    if (input) {
+    if (isOfferSender) {
+      if (!input?.trim() && connections.length === 0) {
+        return {
+          success: false,
+          message:
+            "Offer Sender needs an instruction or a connected tile to know who to send to.",
+        };
+      }
+      // Pull connection content but skip source-fetching; the comment carries intent.
+      const connResults = connections.length
+        ? await fetchConnectionContent(
+            tileId,
+            tile.tile_type,
+            connections,
+            admin,
+            executionContext,
+          )
+        : [];
+      fetchedContent = connResults
+        .filter((r) => r.success && r.content)
+        .map((r) => r.content!);
+    } else if (input) {
       fetchedContent = [input];
     } else {
       const hasSources = tile.tile_sources.length > 0;
@@ -601,6 +645,18 @@ export async function runTileForUser(
         };
       }
     }
+    // Build optional slack draft context for offer_sender
+    const offerSlackContext: OfferDraftSlackContext | undefined =
+      isOfferSender &&
+      slackOrigin?.teamId &&
+      slackOrigin?.channelId &&
+      slackOrigin?.threadTs
+        ? {
+            team_id: slackOrigin.teamId,
+            channel_id: slackOrigin.channelId,
+            thread_ts: slackOrigin.threadTs,
+          }
+        : undefined;
 
     await logTileJobExecutionEvent(admin, {
       executionId: executionContext.executionId,
@@ -661,6 +717,20 @@ export async function runTileForUser(
         resultContent = githubResult.jobResultContent;
         resultFormat = "json";
         slackContent = githubResult.slackSummary;
+      } else if (isOfferSender) {
+        const offerResult = await executeOfferSender(
+          tileId,
+          fetchedContent,
+          input ?? null,
+          tile.system_prompt,
+          (tile.config ?? {}) as unknown as OfferSenderConfig,
+          tile.language,
+          admin,
+          offerSlackContext,
+        );
+        resultContent = offerResult.jobResultContent as unknown as Json;
+        resultFormat = "json";
+        slackContent = offerResult.slackSummary;
       } else {
         const timezone = await getMosaicTimezone(admin, tileId);
         const analysis = await analyzeContent(
@@ -688,8 +758,26 @@ export async function runTileForUser(
       };
       await admin.from("tile_job_results").insert(reportInsert as never);
 
-      // Deliver Slack output
-      await deliverSlackOutput(admin, tile, { content: slackContent });
+      // Offer Sender: post draft into the originating Slack thread with
+      // Approve/Cancel buttons. Skip the regular Slack output.
+      if (isOfferSender && offerSlackContext && slackOrigin?.botToken) {
+        try {
+          const posted = await postOfferDraftToSlack(
+            slackOrigin.botToken,
+            offerSlackContext.channel_id,
+            offerSlackContext.thread_ts,
+            job.id,
+            resultContent as unknown as OfferDraftResult,
+          );
+          if (posted?.ts) {
+            await attachSlackMessageTs(admin, job.id, posted.ts);
+          }
+        } catch (err) {
+          console.error("[bot] failed to post offer draft to Slack:", err);
+        }
+      } else if (!isOfferSender) {
+        await deliverSlackOutput(admin, tile, { content: slackContent });
+      }
 
       // Mark completed
       const completedUpdate: TileJobUpdate = {
@@ -716,17 +804,31 @@ export async function runTileForUser(
         },
       });
 
-      // Trigger downstream
-      triggerDownstreamTiles(admin, {
-        completedTileId: tileId,
-        completedJobId: job.id,
-        mosaicId: tile.mosaic_id,
-        userId,
-      }).catch((err) =>
-        console.error("[bot] downstream trigger error:", err),
-      );
+      // Trigger downstream (skip for offer_sender — drafts aren't completed work).
+      if (!isOfferSender) {
+        triggerDownstreamTiles(admin, {
+          completedTileId: tileId,
+          completedJobId: job.id,
+          mosaicId: tile.mosaic_id,
+          userId,
+        }).catch((err) =>
+          console.error("[bot] downstream trigger error:", err),
+        );
+      }
 
-      // Return summary
+      if (isOfferSender) {
+        const draft = resultContent as unknown as OfferDraftResult;
+        const tail =
+          offerSlackContext && slackOrigin?.botToken
+            ? "I posted the draft above with Approve & Send / Cancel buttons."
+            : "Draft saved — open the tile in Mosaic AI to review and send.";
+        return {
+          success: true,
+          message: `Offer draft prepared for ${draft.recipient_email}. ${tail}`,
+          content: `Subject: ${draft.subject}\n\n${draft.text.slice(0, 1500)}`,
+        };
+      }
+
       const contentStr =
         typeof resultContent === "string"
           ? resultContent
@@ -765,26 +867,4 @@ export async function runTileForUser(
       await decrementConcurrentCount(admin, userId);
     }
   }
-}
-
-async function verifyMosaicAccess(
-  admin: ReturnType<typeof createAdminClient>,
-  mosaicId: string,
-  userId: string,
-): Promise<boolean> {
-  const { count: ownedCount } = await admin
-    .from("mosaics")
-    .select("id", { count: "exact", head: true })
-    .eq("id", mosaicId)
-    .eq("owner_id", userId);
-
-  if (ownedCount) return true;
-
-  const { count: memberCount } = await admin
-    .from("mosaic_members")
-    .select("id", { count: "exact", head: true })
-    .eq("mosaic_id", mosaicId)
-    .eq("user_id", userId);
-
-  return (memberCount ?? 0) > 0;
 }

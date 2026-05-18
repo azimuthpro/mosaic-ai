@@ -80,6 +80,52 @@ async function sendEmail(payload: SendGridPayload): Promise<SendEmailResult> {
   }
 }
 
+interface SendCustomEmailParams {
+  to: { email: string; name?: string };
+  subject: string;
+  html: string;
+  text: string;
+  from?: { email?: string; name?: string };
+  replyTo?: { email: string; name?: string };
+}
+
+/**
+ * Sends an arbitrary HTML+text email with optional from/reply-to overrides.
+ * Defaults `from` to SENDGRID_FROM_EMAIL/NAME.
+ */
+export async function sendCustomEmail(
+  params: SendCustomEmailParams,
+): Promise<SendEmailResult> {
+  const defaults = getSenderConfig();
+  const from = {
+    email: params.from?.email?.trim() || defaults.email,
+    name: params.from?.name?.trim() || defaults.name,
+  };
+
+  const payload: SendGridPayload = {
+    personalizations: [
+      {
+        to: [
+          {
+            email: params.to.email,
+            ...(params.to.name ? { name: params.to.name } : {}),
+          },
+        ],
+        subject: params.subject,
+      },
+    ],
+    from,
+    ...(params.replyTo ? { reply_to: params.replyTo } : {}),
+    subject: params.subject,
+    content: [
+      { type: "text/plain", value: params.text },
+      { type: "text/html", value: params.html },
+    ],
+  };
+
+  return sendEmail(payload);
+}
+
 interface InvitationEmailParams {
   recipientEmail: string;
   recipientName?: string;

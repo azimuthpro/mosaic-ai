@@ -12,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 interface RunConfirmDialogProps {
@@ -19,7 +21,9 @@ interface RunConfirmDialogProps {
   onOpenChange: (open: boolean) => void;
   tileName: string;
   isRunning: boolean;
-  onConfirm: (debug: boolean) => void;
+  onConfirm: (debug: boolean, options?: { comment?: string }) => void;
+  /** When set, shows a comment textarea (used by offer_sender tiles). */
+  commentMode?: "offer";
 }
 
 export function RunConfirmDialog({
@@ -28,8 +32,13 @@ export function RunConfirmDialog({
   tileName,
   isRunning,
   onConfirm,
+  commentMode,
 }: RunConfirmDialogProps) {
   const [runMode, setRunMode] = useState<"normal" | "debug">("normal");
+  const [comment, setComment] = useState("");
+
+  const isOffer = commentMode === "offer";
+  const canSubmit = !isOffer || comment.trim().length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -40,10 +49,24 @@ export function RunConfirmDialog({
         <DialogHeader>
           <DialogTitle>Run tile</DialogTitle>
           <DialogDescription>
-            Are you sure you want to run &ldquo;{tileName}&rdquo;? This will
-            execute the tile and consume API credits.
+            {isOffer
+              ? `Tell the AI who to send the offer to and any tweaks to the template. The result will be a draft you can review before sending.`
+              : `Are you sure you want to run "${tileName}"? This will execute the tile and consume API credits.`}
           </DialogDescription>
         </DialogHeader>
+        {isOffer && (
+          <div className="space-y-2 pt-2">
+            <Label htmlFor="offer-run-comment">Instruction</Label>
+            <Textarea
+              id="offer-run-comment"
+              rows={4}
+              placeholder="e.g. Send to anna@example.com — mention 20% Black Friday discount, sign as Mateusz"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              disabled={isRunning}
+            />
+          </div>
+        )}
         <div className="flex gap-2 pt-2">
           <Button
             variant="outline"
@@ -83,9 +106,10 @@ export function RunConfirmDialog({
             size="sm"
             onClick={() => {
               onOpenChange(false);
-              onConfirm(runMode === "debug");
+              onConfirm(runMode === "debug", isOffer ? { comment } : undefined);
+              setComment("");
             }}
-            disabled={isRunning}
+            disabled={isRunning || !canSubmit}
           >
             {isRunning ? (
               <Loader2 className="h-4 w-4 animate-spin" />

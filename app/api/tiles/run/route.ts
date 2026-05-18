@@ -4,6 +4,9 @@ import { NextResponse } from "next/server";
 import { analyzeContent, type DebugInfo } from "@/lib/ai/gemini";
 import { executeCatalogUpdate } from "@/lib/catalog/execute-catalog";
 import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
+import { executeOfferSender } from "@/lib/email/execute-offer-sender";
+import { postOfferDraftToSlack } from "@/lib/email/post-offer-draft-slack";
+import { attachSlackMessageTs } from "@/lib/email/send-offer-draft";
 import {
   createExecutionContext,
   DEFAULT_MAX_DEPTH,
@@ -39,6 +42,10 @@ import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
 import { compareBySortOrder } from "@/lib/utils";
 import type {
   GitHubIssueConfig,
+  Json,
+  OfferDraftResult,
+  OfferDraftSlackContext,
+  OfferSenderConfig,
   Tile,
   TileConnection,
   TileJob,
@@ -62,7 +69,30 @@ export async function POST(request: Request): Promise<Response> {
 
     userId = user.id;
 
-    const { tileId, urls, debug, repo: targetRepo } = await request.json();
+    const {
+      tileId,
+      urls,
+      debug,
+      repo: targetRepo,
+      comment,
+      slackContext,
+    } = (await request.json()) as {
+      tileId?: string;
+      urls?: string[];
+      debug?: boolean;
+      repo?: string;
+      comment?: string;
+      slackContext?: OfferDraftSlackContext & { bot_token?: string };
+    };
+    const offerComment = typeof comment === "string" ? comment : null;
+    const offerSlackBotToken = slackContext?.bot_token;
+    const offerSlackContext: OfferDraftSlackContext | undefined = slackContext
+      ? {
+          team_id: slackContext.team_id,
+          channel_id: slackContext.channel_id,
+          thread_ts: slackContext.thread_ts,
+        }
+      : undefined;
 
     if (!tileId) {
       return NextResponse.json(
@@ -123,7 +153,10 @@ export async function POST(request: Request): Promise<Response> {
 
     if (typedTile.tile_type === "knowledge_base") {
       return NextResponse.json(
-        { error: "Knowledge base tiles store static content and cannot be executed" },
+        {
+          error:
+            "Knowledge base tiles store static content and cannot be executed",
+        },
         { status: 400 },
       );
     }
@@ -161,13 +194,29 @@ export async function POST(request: Request): Promise<Response> {
     const hasConfiguredSources =
       typedTile.tile_sources && typedTile.tile_sources.length > 0;
     const hasConnections = connections.length > 0;
+    const isOfferSender = typedTile.tile_type === "offer_sender";
 
-    // Validate we have at least one source
-    if (!hasRuntimeUrls && !hasConfiguredSources && !hasConnections) {
+    // Validate we have at least one source. Offer sender is exempt — it can run
+    // from just a user comment / Slack thread, no scraping required.
+    if (
+      !hasRuntimeUrls &&
+      !hasConfiguredSources &&
+      !hasConnections &&
+      !isOfferSender
+    ) {
       return NextResponse.json(
         {
           error:
             "No sources configured. Tile has no sources and no connected tiles.",
+        },
+        { status: 400 },
+      );
+    }
+    if (isOfferSender && !offerComment?.trim() && !hasConnections) {
+      return NextResponse.json(
+        {
+          error:
+            "Offer Sender needs an instruction (comment) or a connected tile to know who to send to.",
         },
         { status: 400 },
       );
@@ -296,6 +345,8 @@ export async function POST(request: Request): Promise<Response> {
         sourceMode = connectionResults.length > 0 ? "linked" : "connection";
         sourceResults = connectionResults;
       } else {
+        // Offer Sender (or any tile with neither sources nor connections) runs
+        // purely from comment input — nothing to fetch.
         sourceResults = [];
         sourceMode = "configured";
       }
@@ -308,7 +359,8 @@ export async function POST(request: Request): Promise<Response> {
       );
       const fetchedContent = successfulFetches.map((r) => r.content!);
 
-      if (fetchedContent.length === 0) {
+      // Offer Sender can legitimately have zero source content (comment-only).
+      if (fetchedContent.length === 0 && !isOfferSender) {
         // Collect errors from failed sources for debugging
         const sourceErrors = sourceResults
           .filter((r) => !r.success)
@@ -360,6 +412,20 @@ export async function POST(request: Request): Promise<Response> {
         resultContent = githubResult.jobResultContent;
         resultFormat = "json";
         slackContent = githubResult.slackSummary;
+      } else if (isOfferSender) {
+        const offerResult = await executeOfferSender(
+          tileId,
+          fetchedContent,
+          offerComment,
+          typedTile.system_prompt,
+          (typedTile.config ?? {}) as unknown as OfferSenderConfig,
+          typedTile.language,
+          adminClient,
+          offerSlackContext,
+        );
+        resultContent = offerResult.jobResultContent as unknown as Json;
+        resultFormat = "json";
+        slackContent = offerResult.slackSummary;
       } else {
         const timezone = await getMosaicTimezone(adminClient, tileId);
         const analysis = await analyzeContent(
@@ -399,10 +465,32 @@ export async function POST(request: Request): Promise<Response> {
         throw new Error("Failed to save report");
       }
 
-      // Deliver to Slack output channel
-      await deliverSlackOutput(adminClient, typedTile, {
-        content: slackContent,
-      });
+      // Offer Sender: post draft preview into the originating Slack thread
+      // (if invoked via the bot) with Approve/Cancel buttons. Skip the regular
+      // Slack output — drafts aren't a completed result.
+      if (isOfferSender && offerSlackContext && offerSlackBotToken) {
+        try {
+          const posted = await postOfferDraftToSlack(
+            offerSlackBotToken,
+            offerSlackContext.channel_id,
+            offerSlackContext.thread_ts,
+            job.id,
+            resultContent as unknown as OfferDraftResult,
+          );
+          if (posted?.ts) {
+            await attachSlackMessageTs(adminClient, job.id, posted.ts);
+          }
+        } catch (err) {
+          console.error(
+            "[tiles/run] failed to post offer draft to Slack:",
+            err,
+          );
+        }
+      } else if (!isOfferSender) {
+        await deliverSlackOutput(adminClient, typedTile, {
+          content: slackContent,
+        });
+      }
 
       // Update job as completed
       const totalDurationMs = Date.now() - executionContext.startTime;
@@ -461,18 +549,21 @@ export async function POST(request: Request): Promise<Response> {
 
       revalidatePath(`/mosaics/${typedTile.mosaic_id}`);
 
-      // Trigger downstream tiles (fire and forget)
-      triggerDownstreamTiles(adminClient, {
-        completedTileId: tileId,
-        completedJobId: job.id,
-        mosaicId: typedTile.mosaic_id,
-        userId: user.id,
-      }).catch((err) =>
-        console.error(
-          `[tiles/run] Failed to trigger downstream tiles (tile=${tileId}, job=${job.id}, mosaic=${typedTile.mosaic_id}):`,
-          err,
-        ),
-      );
+      // Offer Sender drafts are not a "completed result" until the user approves
+      // and the email actually goes out — skip downstream cascading.
+      if (!isOfferSender) {
+        triggerDownstreamTiles(adminClient, {
+          completedTileId: tileId,
+          completedJobId: job.id,
+          mosaicId: typedTile.mosaic_id,
+          userId: user.id,
+        }).catch((err) =>
+          console.error(
+            `[tiles/run] Failed to trigger downstream tiles (tile=${tileId}, job=${job.id}, mosaic=${typedTile.mosaic_id}):`,
+            err,
+          ),
+        );
+      }
 
       return NextResponse.json({
         success: true,

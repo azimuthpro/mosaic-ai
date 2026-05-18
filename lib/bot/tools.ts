@@ -34,13 +34,17 @@ function extractRepoNames(config: unknown): string[] {
   return [];
 }
 
+export interface BotToolContext {
+  slackToken?: string;
+  channelId?: string;
+  teamId?: string;
+  threadTs?: string;
+}
+
 /**
  * Creates AI tools scoped to a specific Mosaic user.
  */
-export function createBotTools(
-  userId: string,
-  context?: { slackToken?: string; channelId?: string },
-) {
+export function createBotTools(userId: string, context?: BotToolContext) {
   return {
     list_mosaics: tool({
       description:
@@ -174,7 +178,7 @@ export function createBotTools(
 
     run_tile: tool({
       description:
-        "Run a tile to execute it now. Use this when the user asks to run a tile, create a GitHub issue, trigger an analysis, or otherwise execute a tile. Optionally provide custom input text instead of using the tile's configured sources. For github_issue tiles with multiple repos, specify target_repo to select the right repository.",
+        "Run a tile to execute it now. Use this when the user asks to run a tile, create a GitHub issue, send an offer, trigger an analysis, or otherwise execute a tile. Optionally provide custom input text instead of using the tile's configured sources. For github_issue tiles with multiple repos, specify target_repo to select the right repository. For offer_sender tiles, pass the user's instruction (e.g. recipient email and personalization notes) as `input`; the bot will post a draft preview back into this Slack thread with Approve & Send / Cancel buttons.",
       inputSchema: z.object({
         tile_id: z
           .string()
@@ -183,7 +187,7 @@ export function createBotTools(
           .string()
           .optional()
           .describe(
-            "Optional custom input text. If provided, this replaces the tile's normal source content. Useful for creating issues or running analyses on specific text from the conversation.",
+            "Optional custom input text. If provided, this replaces the tile's normal source content. Useful for creating issues, sending offers, or running analyses on specific text from the conversation.",
           ),
         target_repo: z
           .string()
@@ -193,7 +197,12 @@ export function createBotTools(
           ),
       }),
       execute: ({ tile_id, input, target_repo }) =>
-        runTileForUser(userId, tile_id, input, target_repo),
+        runTileForUser(userId, tile_id, input, target_repo, {
+          teamId: context?.teamId,
+          channelId: context?.channelId,
+          threadTs: context?.threadTs,
+          botToken: context?.slackToken,
+        }),
     }),
 
     get_channel_info: tool({

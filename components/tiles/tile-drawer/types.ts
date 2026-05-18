@@ -24,6 +24,7 @@ export const TILE_TYPE_LABELS: Record<TileType, string> = {
   catalog: "Catalog",
   github_issue: "GitHub Issue",
   knowledge_base: "Knowledge Base",
+  offer_sender: "Offer Sender",
 };
 
 // Source type configuration for icons and colors
@@ -53,6 +54,7 @@ export const DEFAULT_SOURCE_TYPES: Record<TileType, SourceTypeKey> = {
   catalog: "tile_connection",
   github_issue: "tile_connection",
   knowledge_base: "url", // unused; knowledge_base has no sources
+  offer_sender: "tile_connection", // unused; offer_sender uses comment/connections instead
 };
 
 // Plugin collapsed state storage key

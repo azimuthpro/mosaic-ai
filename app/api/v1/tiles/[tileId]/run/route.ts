@@ -4,6 +4,7 @@ import { authenticateApiRequest, verifyTileAccess } from "@/lib/api/auth";
 import { createSSEResponse, SSE_ERROR_CODES, SSEWriter } from "@/lib/api/sse";
 import { executeCatalogUpdate } from "@/lib/catalog/execute-catalog";
 import { MAX_URLS_PER_TILE } from "@/lib/constants/tiles";
+import { executeOfferSender } from "@/lib/email/execute-offer-sender";
 import {
   createExecutionContext,
   DEFAULT_MAX_DEPTH,
@@ -31,6 +32,7 @@ import { triggerDownstreamTiles } from "@/lib/tiles/trigger-downstream";
 import { compareBySortOrder } from "@/lib/utils";
 import type {
   GitHubIssueConfig,
+  OfferSenderConfig,
   Tile,
   TileConnection,
   TileJobInsert,
@@ -75,20 +77,13 @@ export async function POST(
   // Run the execution in a separate async context
   (async () => {
     try {
-      // Parse request body for runtime URLs and target repo
-      let runtimeUrls: string[] = [];
-      let targetRepo: string | undefined;
-      try {
-        const body = await request.json();
-        if (Array.isArray(body?.urls)) {
-          runtimeUrls = body.urls;
-        }
-        if (typeof body?.repo === "string") {
-          targetRepo = body.repo;
-        }
-      } catch {
-        // No body or invalid JSON is fine, we'll use configured sources
-      }
+      // Parse request body for runtime URLs and target repo (body is optional)
+      const body = await request.json().catch(() => ({}));
+      const runtimeUrls: string[] = Array.isArray(body?.urls) ? body.urls : [];
+      const targetRepo: string | undefined =
+        typeof body?.repo === "string" ? body.repo : undefined;
+      const offerComment: string | null =
+        typeof body?.comment === "string" ? body.comment : null;
 
       if (runtimeUrls.length > MAX_URLS_PER_TILE) {
         writer.sendError(
@@ -164,9 +159,24 @@ export async function POST(
         typedTile.tile_sources && typedTile.tile_sources.length > 0;
       const hasConnections = connections.length > 0;
 
-      if (!hasRuntimeUrls && !hasDirectSources && !hasConnections) {
+      const isOfferSender = typedTile.tile_type === "offer_sender";
+
+      if (
+        !hasRuntimeUrls &&
+        !hasDirectSources &&
+        !hasConnections &&
+        !isOfferSender
+      ) {
         writer.sendError(
           "No sources configured. Tile has no sources and no connected tiles.",
+          SSE_ERROR_CODES.NO_SOURCES,
+        );
+        writer.close();
+        return;
+      }
+      if (isOfferSender && !offerComment?.trim() && !hasConnections) {
+        writer.sendError(
+          "Offer Sender needs an instruction (comment) or a connected tile to know who to send to.",
           SSE_ERROR_CODES.NO_SOURCES,
         );
         writer.close();
@@ -419,7 +429,7 @@ export async function POST(
       );
       const fetchedContent = successfulFetches.map((r) => r.content!);
 
-      if (fetchedContent.length === 0) {
+      if (fetchedContent.length === 0 && !isOfferSender) {
         const errorDetails = sourceResults
           .filter((r) => !r.success)
           .map((r) => `${r.identifier}: ${r.error}`)
@@ -490,6 +500,20 @@ export async function POST(
         resultContent = githubResult.jobResultContent;
         resultFormat = "json";
         slackContent = githubResult.slackSummary;
+      } else if (isOfferSender) {
+        const offerResult = await executeOfferSender(
+          tileId,
+          fetchedContent,
+          offerComment,
+          typedTile.system_prompt,
+          (typedTile.config ?? {}) as unknown as OfferSenderConfig,
+          typedTile.language,
+          adminClient,
+        );
+        resultContent =
+          offerResult.jobResultContent as unknown as import("@/types/database").Json;
+        resultFormat = "json";
+        slackContent = offerResult.slackSummary;
       } else {
         // Standard tile: AI analysis
         const timezone = await getMosaicTimezone(adminClient, tileId);
@@ -649,23 +673,25 @@ export async function POST(
         console.error("Failed to trigger completed webhooks:", err),
       );
 
-      // Trigger downstream tiles (fire and forget)
-      triggerDownstreamTiles(adminClient, {
-        completedTileId: tileId,
-        completedJobId: job.id,
-        mosaicId: mosaicId,
-        userId: authResult.apiKey?.created_by || "api-key",
-      }).catch((err) =>
-        console.error(
-          `[v1/tiles/run] Failed to trigger downstream tiles (tile=${tileId}, job=${job.id}, mosaic=${mosaicId}):`,
-          err,
-        ),
-      );
+      // Offer Sender drafts are not "completed work" until the user approves
+      // the send — skip cascading and Slack output.
+      if (!isOfferSender) {
+        triggerDownstreamTiles(adminClient, {
+          completedTileId: tileId,
+          completedJobId: job.id,
+          mosaicId: mosaicId,
+          userId: authResult.apiKey?.created_by || "api-key",
+        }).catch((err) =>
+          console.error(
+            `[v1/tiles/run] Failed to trigger downstream tiles (tile=${tileId}, job=${job.id}, mosaic=${mosaicId}):`,
+            err,
+          ),
+        );
 
-      // Deliver to Slack output channel
-      await deliverSlackOutput(adminClient, typedTile, {
-        content: slackContent,
-      });
+        await deliverSlackOutput(adminClient, typedTile, {
+          content: slackContent,
+        });
+      }
 
       // Send done event
       writer.sendDone(job.id);

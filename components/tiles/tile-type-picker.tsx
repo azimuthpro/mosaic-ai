@@ -1,6 +1,15 @@
 "use client";
 
-import { BookOpen, Brain, CircleDot, Database, Globe, MessageSquare, Search } from "lucide-react";
+import {
+  BookOpen,
+  Brain,
+  CircleDot,
+  Database,
+  Globe,
+  Mail,
+  MessageSquare,
+  Search,
+} from "lucide-react";
 
 import {
   Card,
@@ -23,6 +32,7 @@ const TILE_ICONS = {
   catalog: Database,
   github_issue: CircleDot,
   knowledge_base: BookOpen,
+  offer_sender: Mail,
 };
 
 export function TileTypePicker({ onSelect, disabled }: TileTypePickerProps) {

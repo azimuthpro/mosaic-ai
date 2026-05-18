@@ -499,9 +499,12 @@ export async function GET(request: Request): Promise<Response> {
       tile.tile_sources.sort(compareBySortOrder);
     }
 
-    // Filter tiles that should run at the current time based on their schedule and timezone
+    // Filter tiles that should run at the current time based on their schedule and timezone.
+    // Offer Sender is excluded — emails require explicit user approval and must never
+    // be sent on a cron tick.
     const scheduledTiles = allTiles.filter((tile) => {
       if (!tile.schedule_cron) return false;
+      if (tile.tile_type === "offer_sender") return false;
       const settings = tile.mosaics.settings as MosaicSettings | null;
       return shouldTileRunNow(tile.schedule_cron, settings?.timezone);
     });

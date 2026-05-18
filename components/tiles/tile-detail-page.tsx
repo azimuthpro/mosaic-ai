@@ -51,16 +51,37 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { value: "status", label: "Status", icon: Activity, color: "text-amber-400", borderColor: "border-amber-500" },
-  { value: "input", label: "Input", icon: ArrowRight, color: "text-cyan-400", borderColor: "border-cyan-500" },
-  { value: "processing", label: "Processing", icon: Braces, color: "text-purple-400", borderColor: "border-purple-500" },
-  { value: "output", label: "Output", icon: ArrowRight, color: "text-green-400", borderColor: "border-green-500" },
+  {
+    value: "status",
+    label: "Status",
+    icon: Activity,
+    color: "text-amber-400",
+    borderColor: "border-amber-500",
+  },
+  {
+    value: "input",
+    label: "Input",
+    icon: ArrowRight,
+    color: "text-cyan-400",
+    borderColor: "border-cyan-500",
+  },
+  {
+    value: "processing",
+    label: "Processing",
+    icon: Braces,
+    color: "text-purple-400",
+    borderColor: "border-purple-500",
+  },
+  {
+    value: "output",
+    label: "Output",
+    icon: ArrowRight,
+    color: "text-green-400",
+    borderColor: "border-green-500",
+  },
 ];
 
-export function TileDetailPage({
-  tile,
-  mosaicId,
-}: TileDetailPageProps) {
+export function TileDetailPage({ tile, mosaicId }: TileDetailPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeTab = (searchParams.get("tab") as DrawerSection) || "status";
@@ -86,16 +107,23 @@ export function TileDetailPage({
       params.set("tab", tab);
     }
     const qs = params.toString();
-    router.replace(`/mosaics/${mosaicId}/tiles/${tile.id}${qs ? `?${qs}` : ""}`);
+    router.replace(
+      `/mosaics/${mosaicId}/tiles/${tile.id}${qs ? `?${qs}` : ""}`,
+    );
   }
 
-  async function handleRun(debug: boolean): Promise<void> {
+  async function handleRun(
+    debug: boolean,
+    options?: { comment?: string },
+  ): Promise<void> {
     state.setIsRunning(true);
     try {
+      const body: Record<string, unknown> = { tileId: tile.id, debug };
+      if (options?.comment) body.comment = options.comment;
       const response = await fetch("/api/tiles/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tileId: tile.id, debug }),
+        body: JSON.stringify(body),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -163,9 +191,7 @@ export function TileDetailPage({
                 {" · "}
                 Last run:{" "}
                 {state.executionStatus?.lastJob
-                  ? formatRelativeTime(
-                      state.executionStatus.lastJob.created_at,
-                    )
+                  ? formatRelativeTime(state.executionStatus.lastJob.created_at)
                   : "Never"}
               </span>
             </div>
@@ -286,11 +312,7 @@ export function TileDetailPage({
             <InputSection tile={tile} mosaicId={mosaicId} state={state} />
           )}
           {activeTab === "processing" && (
-            <ProcessingSection
-              tile={tile}
-              mosaicId={mosaicId}
-              state={state}
-            />
+            <ProcessingSection tile={tile} mosaicId={mosaicId} state={state} />
           )}
           {activeTab === "output" && (
             <OutputSection tile={tile} mosaicId={mosaicId} state={state} />
@@ -305,6 +327,7 @@ export function TileDetailPage({
         tileName={tile.name}
         isRunning={state.isRunning}
         onConfirm={handleRun}
+        commentMode={tile.tile_type === "offer_sender" ? "offer" : undefined}
       />
 
       {/* Delete confirm dialog */}

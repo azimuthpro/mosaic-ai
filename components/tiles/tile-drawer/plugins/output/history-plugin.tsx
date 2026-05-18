@@ -33,6 +33,7 @@ import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
 import type { PluginBaseProps } from "../../types";
 import { PluginCard } from "../plugin-card";
 import { getContentString } from "../utils";
+import { OfferDraftResultCard } from "./offer-draft-result";
 
 interface HistoryPluginProps extends PluginBaseProps {
   state: TileDrawerState;
@@ -41,14 +42,26 @@ interface HistoryPluginProps extends PluginBaseProps {
 function ResultContent({
   result,
   bordered,
+  tileType,
+  tileId,
 }: {
   result: TileJobResultSummary;
   bordered?: boolean;
+  tileType?: string;
+  tileId?: string;
 }) {
   const contentStr = getContentString(result);
   const wrapperClass = bordered
-    ? "rounded-lg border border-border bg-muted/30 p-3 max-h-[300px] overflow-y-auto select-text"
+    ? "rounded-lg border border-border bg-muted/30 p-3 max-h-[600px] overflow-y-auto select-text"
     : "";
+
+  if (tileType === "offer_sender" && tileId) {
+    return (
+      <div className={wrapperClass}>
+        <OfferDraftResultCard tileId={tileId} result={result} />
+      </div>
+    );
+  }
 
   if (result.format === "json") {
     return (
@@ -62,7 +75,9 @@ function ResultContent({
 
   return (
     <div className={`prose prose-sm prose-invert max-w-none ${wrapperClass}`}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{contentStr}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+        {contentStr}
+      </ReactMarkdown>
     </div>
   );
 }
@@ -90,7 +105,7 @@ function SourceUrlList({ urls }: { urls: string[] }) {
   );
 }
 
-export function HistoryPlugin({ disabled, state }: HistoryPluginProps) {
+export function HistoryPlugin({ tile, disabled, state }: HistoryPluginProps) {
   const {
     jobResults,
     setJobResults,
@@ -226,7 +241,12 @@ export function HistoryPlugin({ disabled, state }: HistoryPluginProps) {
 
                 {isExpanded && (
                   <div className="border-t border-border p-4">
-                    <ResultContent result={result} bordered />
+                    <ResultContent
+                      result={result}
+                      bordered
+                      tileType={tile.tile_type}
+                      tileId={tile.id}
+                    />
                     <SourceUrlList urls={result.source_urls ?? []} />
                   </div>
                 )}
@@ -283,7 +303,11 @@ export function HistoryPlugin({ disabled, state }: HistoryPluginProps) {
               </div>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto p-6 select-text cursor-text">
-              <ResultContent result={fullscreenResult} />
+              <ResultContent
+                result={fullscreenResult}
+                tileType={tile.tile_type}
+                tileId={tile.id}
+              />
               <SourceUrlList urls={fullscreenResult.source_urls ?? []} />
             </div>
           </DialogContent>

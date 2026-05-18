@@ -445,6 +445,7 @@ export const DEFAULT_TILE_SKILLS: Record<TileType, DefaultTileSkill[]> = {
   catalog: CATALOG_SKILLS,
   github_issue: GITHUB_ISSUE_SKILLS,
   knowledge_base: [],
+  offer_sender: [],
 };
 
 // All unique skills derived from the tile type record (deduplicates shared arrays like slack_reader → ANALYZER_SKILLS)

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `offer_sender` tile type — AI personalizes an HTML email template, posts a draft for approval, then sends via SendGrid
+- Slack Block Kit Approve/Cancel buttons for offer drafts (`/api/slack/interactivity`)
+- In-app draft preview with sandboxed iframe and Send/Cancel actions
+- Manual run dialog accepts an "Instruction" comment for offer tiles
+
 ## [1.4.0] - 2026-03-07
 
 ### Added

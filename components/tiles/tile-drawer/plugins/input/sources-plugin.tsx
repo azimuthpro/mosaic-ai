@@ -489,6 +489,8 @@ function getConnectionBehaviorHint(tileType: TileType): string {
       return "Full report content from the connected tile will be used to generate GitHub issues";
     case "knowledge_base":
       return "Knowledge base tiles provide static content and do not consume connections";
+    case "offer_sender":
+      return "Connected tiles provide additional context that the AI can fold into the personalized offer";
   }
 }
 

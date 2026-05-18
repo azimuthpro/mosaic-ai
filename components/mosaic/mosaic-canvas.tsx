@@ -9,8 +9,8 @@ import { TileCard } from "@/components/tiles/tile-card";
 import { getTileExecutionStatus } from "@/lib/actions/tile-execution";
 import { updateTilePosition } from "@/lib/actions/tiles";
 import {
-  TILE_TYPE_CONFIGS,
   type MosaicWithTiles,
+  TILE_TYPE_CONFIGS,
   type TileConnection,
   type TileType,
   type TileWithSources,
@@ -70,7 +70,7 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
   }
 
   const handleRunTile = useCallback(
-    async (tileId: string, debug: boolean) => {
+    async (tileId: string, debug: boolean, options?: { comment?: string }) => {
       setRunningTileIds((prev) => new Set(prev).add(tileId));
 
       // Pre-compute downstream tiles that will auto-trigger after this tile completes
@@ -87,10 +87,12 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
         .map((t) => t.id);
 
       try {
+        const body: Record<string, unknown> = { tileId, debug };
+        if (options?.comment) body.comment = options.comment;
         const response = await fetch("/api/tiles/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tileId, debug }),
+          body: JSON.stringify(body),
         });
         const data = await response.json();
         if (!response.ok) {
@@ -367,7 +369,6 @@ export function MosaicCanvas({ mosaic, connections }: MosaicCanvasProps) {
         hideTrigger
         initialType={createTileParam ?? undefined}
       />
-
     </div>
   );
 }

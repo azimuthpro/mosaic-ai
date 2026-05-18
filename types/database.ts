@@ -36,7 +36,8 @@ export type TileType =
   | "slack_reader"
   | "catalog"
   | "github_issue"
-  | "knowledge_base";
+  | "knowledge_base"
+  | "offer_sender";
 export type TilePattern = "solid" | "stripes" | "dots" | "gradient";
 
 export interface KnowledgeBaseConfig {
@@ -1163,6 +1164,14 @@ export const TILE_TYPE_CONFIGS: Record<TileType, TileTypeConfig> = {
     icon: "BookOpen",
     description: "Static text content for other tiles",
   },
+  offer_sender: {
+    type: "offer_sender",
+    label: "Offer Sender",
+    color: "#14b8a6",
+    pattern: "gradient",
+    icon: "Mail",
+    description: "Personalize an HTML offer template and send via email",
+  },
 };
 
 // Tile Webhooks
@@ -1230,6 +1239,42 @@ export interface GitHubIssueConfig {
   // Legacy single-repo format (backward compat)
   owner?: string;
   repo?: string;
+}
+
+// Offer Sender tile
+export interface OfferSenderConfig {
+  html_template: string;
+  from_email?: string;
+  from_name?: string;
+  reply_to_email?: string;
+  reply_to_name?: string;
+}
+
+export type OfferDraftStatus = "draft" | "sent" | "cancelled" | "failed";
+
+export interface OfferDraftSlackContext {
+  team_id: string;
+  channel_id: string;
+  thread_ts: string;
+  draft_message_ts?: string;
+}
+
+export interface OfferDraftResult {
+  status: OfferDraftStatus;
+  recipient_email: string;
+  recipient_name?: string;
+  subject: string;
+  html: string;
+  text: string;
+  from_email: string;
+  from_name: string;
+  reply_to_email?: string;
+  reply_to_name?: string;
+  ai_notes?: string;
+  sent_at?: string;
+  cancelled_at?: string;
+  sendgrid_error?: string;
+  slack_context?: OfferDraftSlackContext;
 }
 
 // Catalog types

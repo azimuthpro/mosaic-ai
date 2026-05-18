@@ -90,7 +90,12 @@ async function resolveUser(
 async function answerQuestion(
   thread: Thread,
   userId: string,
-  context?: { slackToken?: string; channelId?: string },
+  context?: {
+    slackToken?: string;
+    channelId?: string;
+    teamId?: string;
+    threadTs?: string;
+  },
 ): Promise<void> {
   console.log("[bot] answerQuestion for user", userId, "thread", thread.id);
   const tools = createBotTools(userId, context);
@@ -136,7 +141,12 @@ async function handleMessage(
   slackAdapter: SlackAdapterType,
   action: (
     userId: string,
-    context: { slackToken?: string; channelId?: string },
+    context: {
+      slackToken?: string;
+      channelId?: string;
+      teamId?: string;
+      threadTs?: string;
+    },
   ) => Promise<void>,
 ): Promise<void> {
   console.log(`[bot] ${event} fired`, {
@@ -151,12 +161,24 @@ async function handleMessage(
     const resolved = await resolveUser(thread, message, slackAdapter);
     if (!resolved) return;
 
-    const raw = message.raw as { channel?: string } | undefined;
+    const raw = message.raw as
+      | {
+          channel?: string;
+          team?: string;
+          team_id?: string;
+          thread_ts?: string;
+          ts?: string;
+        }
+      | undefined;
     const channelId = raw?.channel ?? "";
+    const teamId = raw?.team ?? raw?.team_id ?? "";
+    const threadTs = raw?.thread_ts ?? raw?.ts;
 
     await action(resolved.userId, {
       slackToken: resolved.botToken,
       channelId,
+      teamId,
+      threadTs,
     });
   } catch (err) {
     console.error(`[bot] ${event} error:`, err);
@@ -176,7 +198,12 @@ export function registerHandlers(
 ): void {
   const subscribeAndAnswer = async (
     userId: string,
-    context: { slackToken?: string; channelId?: string },
+    context: {
+      slackToken?: string;
+      channelId?: string;
+      teamId?: string;
+      threadTs?: string;
+    },
     thread: Thread,
   ) => {
     await thread.subscribe();
