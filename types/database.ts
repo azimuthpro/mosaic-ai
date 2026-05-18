@@ -930,21 +930,6 @@ export interface Database {
         };
         Returns: boolean;
       };
-      accept_mosaic_invitation: {
-        Args: {
-          p_token: string;
-          p_user_id: string;
-        };
-        Returns: Json;
-      };
-      transfer_mosaic_ownership: {
-        Args: {
-          p_mosaic_id: string;
-          p_current_owner_id: string;
-          p_new_owner_id: string;
-        };
-        Returns: Json;
-      };
       match_tiles: {
         Args: {
           query_embedding: string;

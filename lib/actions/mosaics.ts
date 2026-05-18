@@ -907,47 +907,96 @@ export async function cancelMosaicInvitation(invitationId: string) {
  * Accept a mosaic invitation
  */
 export async function acceptMosaicInvitation(token: string) {
-  const supabase = await createClient();
   const user = await getUser();
 
   if (!user) {
     return { error: "Not authenticated" };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)(
-    "accept_mosaic_invitation",
-    {
-      p_token: token,
-      p_user_id: user.id,
-    },
-  );
+  const adminClient = createAdminClient();
 
-  if (error) {
-    console.error("Error accepting invitation:", error);
+  const { data: invitationData } = await adminClient
+    .from("mosaic_invitations")
+    .select("id, mosaic_id, role, expires_at, status")
+    .eq("token", token)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  const invitation = invitationData as {
+    id: string;
+    mosaic_id: string;
+    role: MemberRole;
+    expires_at: string;
+    status: string;
+  } | null;
+
+  if (!invitation) {
+    return { error: "Invitation not found or already used" };
+  }
+
+  if (new Date(invitation.expires_at) < new Date()) {
+    await adminClient
+      .from("mosaic_invitations")
+      .update({
+        status: "expired",
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", invitation.id);
+    return { error: "Invitation has expired" };
+  }
+
+  const { data: existingMember } = await adminClient
+    .from("mosaic_members")
+    .select("id")
+    .eq("mosaic_id", invitation.mosaic_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingMember) {
+    await adminClient
+      .from("mosaic_invitations")
+      .update({
+        status: "accepted",
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", invitation.id);
+    revalidatePath(`/mosaics/${invitation.mosaic_id}`);
+    revalidatePath("/mosaics");
+    return {
+      success: true,
+      mosaicId: invitation.mosaic_id,
+      alreadyMember: true,
+    };
+  }
+
+  const { error: insertError } = await adminClient
+    .from("mosaic_members")
+    .insert({
+      mosaic_id: invitation.mosaic_id,
+      user_id: user.id,
+      role: invitation.role,
+    } as never);
+
+  if (insertError) {
+    console.error("Error inserting member:", insertError);
     return { error: "Failed to accept invitation" };
   }
 
-  const result = data as {
-    success: boolean;
-    error?: string;
-    mosaic_id?: string;
-    already_member?: boolean;
-  };
+  await adminClient
+    .from("mosaic_invitations")
+    .update({
+      status: "accepted",
+      updated_at: new Date().toISOString(),
+    } as never)
+    .eq("id", invitation.id);
 
-  if (!result.success) {
-    return { error: result.error || "Failed to accept invitation" };
-  }
-
-  if (result.mosaic_id) {
-    revalidatePath(`/mosaics/${result.mosaic_id}`);
-    revalidatePath("/mosaics");
-  }
+  revalidatePath(`/mosaics/${invitation.mosaic_id}`);
+  revalidatePath("/mosaics");
 
   return {
     success: true,
-    mosaicId: result.mosaic_id,
-    alreadyMember: result.already_member,
+    mosaicId: invitation.mosaic_id,
+    alreadyMember: false,
   };
 }
 
@@ -958,35 +1007,75 @@ export async function transferMosaicOwnership(
   mosaicId: string,
   newOwnerId: string,
 ) {
-  const supabase = await createClient();
   const user = await getUser();
 
   if (!user) {
     return { error: "Not authenticated" };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.rpc as any)(
-    "transfer_mosaic_ownership",
-    {
-      p_mosaic_id: mosaicId,
-      p_current_owner_id: user.id,
-      p_new_owner_id: newOwnerId,
-    },
-  );
+  const adminClient = createAdminClient();
 
-  if (error) {
-    console.error("Error transferring ownership:", error);
+  const { data: mosaicData } = await adminClient
+    .from("mosaics")
+    .select("id, owner_id")
+    .eq("id", mosaicId)
+    .maybeSingle();
+
+  const mosaic = mosaicData as { id: string; owner_id: string } | null;
+
+  if (!mosaic || mosaic.owner_id !== user.id) {
+    return { error: "Mosaic not found or you are not the owner" };
+  }
+
+  const { data: newOwnerMemberData } = await adminClient
+    .from("mosaic_members")
+    .select("id, role")
+    .eq("mosaic_id", mosaicId)
+    .eq("user_id", newOwnerId)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  if (!newOwnerMemberData) {
+    return { error: "New owner must be an admin member of the mosaic" };
+  }
+
+  const nowIso = new Date().toISOString();
+
+  const { error: mosaicUpdateError } = await adminClient
+    .from("mosaics")
+    .update({ owner_id: newOwnerId, updated_at: nowIso } as never)
+    .eq("id", mosaicId);
+
+  if (mosaicUpdateError) {
+    console.error("Error transferring ownership:", mosaicUpdateError);
     return { error: "Failed to transfer ownership" };
   }
 
-  const result = data as {
-    success: boolean;
-    error?: string;
-  };
+  await adminClient
+    .from("mosaic_members")
+    .update({ role: "owner" } as never)
+    .eq("mosaic_id", mosaicId)
+    .eq("user_id", newOwnerId);
 
-  if (!result.success) {
-    return { error: result.error || "Failed to transfer ownership" };
+  const { data: previousOwnerMember } = await adminClient
+    .from("mosaic_members")
+    .select("id")
+    .eq("mosaic_id", mosaicId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (previousOwnerMember) {
+    await adminClient
+      .from("mosaic_members")
+      .update({ role: "admin" } as never)
+      .eq("mosaic_id", mosaicId)
+      .eq("user_id", user.id);
+  } else {
+    await adminClient.from("mosaic_members").insert({
+      mosaic_id: mosaicId,
+      user_id: user.id,
+      role: "admin",
+    } as never);
   }
 
   revalidatePath(`/mosaics/${mosaicId}`);
