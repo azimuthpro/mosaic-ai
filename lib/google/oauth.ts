@@ -1,6 +1,5 @@
 const GOOGLE_OAUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 
 // drive.file restricts access to files we create/open with this app — the user
 // keeps full control of everything else in their Drive.
@@ -10,6 +9,22 @@ const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/spreadsheets",
 ].join(" ");
+
+function decodeIdTokenEmail(idToken: string | undefined): string {
+  if (!idToken) return "";
+  const parts = idToken.split(".");
+  if (parts.length < 2) return "";
+  try {
+    const payload = Buffer.from(
+      parts[1].replace(/-/g, "+").replace(/_/g, "/"),
+      "base64",
+    ).toString("utf8");
+    const claims = JSON.parse(payload) as { email?: string };
+    return typeof claims.email === "string" ? claims.email : "";
+  } catch {
+    return "";
+  }
+}
 
 function getRedirectUri(): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
@@ -87,20 +102,11 @@ export async function exchangeCodeForToken(
     );
   }
 
-  // Fetch email via userinfo (id_token decoding works too, but a single fetch is simpler).
-  const userinfoRes = await fetch(GOOGLE_USERINFO_URL, {
-    headers: { Authorization: `Bearer ${data.access_token}` },
-  });
-  if (!userinfoRes.ok) {
-    throw new Error(`Google userinfo HTTP ${userinfoRes.status}`);
-  }
-  const userinfo = (await userinfoRes.json()) as { email?: string };
-
   return {
     access_token: data.access_token,
     refresh_token: data.refresh_token,
     expires_in: data.expires_in,
-    email: userinfo.email ?? "",
+    email: decodeIdTokenEmail(data.id_token),
   };
 }
 

@@ -295,6 +295,7 @@ export interface Database {
           sheets_spreadsheet_id: string | null;
           sheets_spreadsheet_url: string | null;
           sheets_last_synced_at: string | null;
+          sheets_owner_user_id: string | null;
           config: Json;
           created_at: string;
           updated_at: string;
@@ -328,6 +329,7 @@ export interface Database {
           sheets_spreadsheet_id?: string | null;
           sheets_spreadsheet_url?: string | null;
           sheets_last_synced_at?: string | null;
+          sheets_owner_user_id?: string | null;
           config?: Json;
           created_at?: string;
           updated_at?: string;
@@ -361,6 +363,7 @@ export interface Database {
           sheets_spreadsheet_id?: string | null;
           sheets_spreadsheet_url?: string | null;
           sheets_last_synced_at?: string | null;
+          sheets_owner_user_id?: string | null;
           config?: Json;
           created_at?: string;
           updated_at?: string;

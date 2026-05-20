@@ -4,6 +4,7 @@ import {
   ExternalLink,
   FileSpreadsheet,
   Loader2,
+  LogOut,
   RefreshCw,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -16,6 +17,7 @@ import {
   enableCatalogSheetSync,
   syncCatalogSheet,
 } from "@/lib/actions/catalog";
+import { deleteUserIntegration } from "@/lib/actions/integrations";
 import { formatRelativeTime } from "@/lib/utils/format";
 
 import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
@@ -97,6 +99,33 @@ export function SheetsOutputPlugin({
     setLastSummary("Initial export complete.");
   }
 
+  async function handleDisconnect() {
+    setError(null);
+    setBusy(true);
+    // If sync is currently enabled on this tile, clear its columns first —
+    // otherwise the tile points at a sheet whose token we just revoked.
+    if (enabled) {
+      const disableResult = await disableCatalogSheetSync(tile.id);
+      if ("error" in disableResult) {
+        setBusy(false);
+        setError(disableResult.error);
+        return;
+      }
+      setEnabled(false);
+      setSpreadsheetUrl(null);
+      setLastSyncedAt(null);
+      setLastSummary(null);
+    }
+
+    const result = await deleteUserIntegration("google", "");
+    setBusy(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setGoogleStatus({ connected: false, email: null });
+  }
+
   async function handleSyncNow() {
     setError(null);
     setBusy(true);
@@ -166,11 +195,27 @@ export function SheetsOutputPlugin({
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Connected as {googleStatus.email ?? "Google user"}. One-way sync —
-              manual edits to the sheet will be overwritten on the next catalog
-              run.
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                Connected as {googleStatus.email ?? "Google user"}. One-way sync
+                — manual edits to the sheet will be overwritten on the next
+                catalog run.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 gap-1 text-xs text-muted-foreground hover:text-red-400"
+                onClick={handleDisconnect}
+                disabled={disabled || busy}
+              >
+                {busy ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <LogOut className="h-3 w-3" />
+                )}
+                Disconnect
+              </Button>
+            </div>
 
             {enabled && spreadsheetUrl && (
               <div className="space-y-3 rounded-md border border-border bg-background/40 p-3">

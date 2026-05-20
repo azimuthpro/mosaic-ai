@@ -277,12 +277,37 @@ async function authorizeCatalogTile(
 export async function enableCatalogSheetSync(
   tileId: string,
 ): Promise<{ url: string } | { error: string }> {
+  const user = await getUser();
+  if (!user) return { error: "Not authenticated" };
+
   const authz = await authorizeCatalogTile(tileId);
   if ("error" in authz) return { error: authz.error };
 
+  const adminClient = createAdminClient();
+
+  // Probe the integration directly via the service-role client so we surface
+  // a precise error if the OAuth row genuinely isn't there for this user.
+  const { data: integration } = await adminClient
+    .from("user_integrations")
+    .select("id, metadata")
+    .eq("user_id", user.id)
+    .eq("provider", "google")
+    .limit(1)
+    .maybeSingle();
+
+  if (!integration) {
+    console.error(
+      `[enableCatalogSheetSync] No google integration row for user_id=${user.id}. ` +
+        `Re-run the OAuth flow at /api/auth/google/connect.`,
+    );
+    return {
+      error:
+        "Google isn't connected for this account. Click 'Connect Google Sheets' to retry the OAuth flow.",
+    };
+  }
+
   try {
-    const adminClient = createAdminClient();
-    const { url } = await enableSheetSync(adminClient, authz.tile);
+    const { url } = await enableSheetSync(adminClient, authz.tile, user.id);
     revalidatePath(`/mosaics/${authz.tile.mosaic_id}`);
     return { url };
   } catch (err) {

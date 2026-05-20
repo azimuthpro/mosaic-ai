@@ -55,7 +55,7 @@ export async function GET(request: Request): Promise<Response> {
     };
 
     const adminClient = createAdminClient();
-    const { error: upsertError } = await adminClient
+    const { data: upserted, error: upsertError } = await adminClient
       .from("user_integrations")
       .upsert(
         {
@@ -67,18 +67,23 @@ export async function GET(request: Request): Promise<Response> {
           updated_at: new Date().toISOString(),
         } as never,
         { onConflict: "user_id,provider,provider_team_id" },
-      );
+      )
+      .select("id")
+      .maybeSingle();
 
-    if (upsertError) {
+    if (upsertError || !upserted) {
       console.error(
-        "[google/callback] Failed to save integration:",
-        upsertError,
+        `[google/callback] Failed to save integration for user_id=${user.id}:`,
+        upsertError ?? "no row returned",
       );
       return NextResponse.redirect(
         `${appUrl}${returnTo}?google_error=save_failed`,
       );
     }
 
+    console.log(
+      `[google/callback] Saved google integration for user_id=${user.id} (email=${tokenData.email || "unknown"})`,
+    );
     return NextResponse.redirect(`${appUrl}${returnTo}?google_connected=1`);
   } catch (err) {
     console.error("[google/callback] Token exchange failed:", err);

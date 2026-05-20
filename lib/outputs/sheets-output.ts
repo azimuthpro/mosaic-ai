@@ -132,13 +132,25 @@ function buildEventRow(event: CatalogEntryEvent, entryMatchKey: string): Row {
 }
 
 /**
- * Resolves Google token via the mosaic owner. Sync uses the mosaic owner's
- * Google account (matches the pattern in resolveSlackToken).
+ * Resolves the Google token used to push a catalog tile to its sheet.
+ *
+ * Prefers `tile.sheets_owner_user_id` (the user who enabled sync) so the
+ * spreadsheet ends up in their own Drive. Falls back to the mosaic owner for
+ * tiles enabled before that column existed.
  */
-async function resolveOwnerToken(
+async function resolveSyncToken(
   adminClient: AdminClient,
   tile: Tile,
+  preferUserId?: string,
 ): Promise<{ ok: true; token: string } | { ok: false; reason: string }> {
+  if (preferUserId) {
+    return resolveGoogleToken(adminClient, preferUserId);
+  }
+
+  if (tile.sheets_owner_user_id) {
+    return resolveGoogleToken(adminClient, tile.sheets_owner_user_id);
+  }
+
   const { data: mosaicData } = await adminClient
     .from("mosaics")
     .select("owner_id")
@@ -155,13 +167,17 @@ async function resolveOwnerToken(
 
 /**
  * Enables sheet sync for a catalog tile: creates a new spreadsheet in the
- * user's Drive, seeds tabs with headers, runs an initial push.
+ * acting user's Drive, seeds tabs with headers, runs an initial push.
+ *
+ * `userId` is the user who clicked "Enable" — their Google integration is
+ * used and stamped onto the tile so future pushes resolve the same account.
  */
 export async function enableSheetSync(
   adminClient: AdminClient,
   tile: Tile,
+  userId: string,
 ): Promise<{ url: string }> {
-  const resolved = await resolveOwnerToken(adminClient, tile);
+  const resolved = await resolveSyncToken(adminClient, tile, userId);
   if (!resolved.ok) throw new Error(resolved.reason);
 
   const snapshot = await loadCatalogSnapshot(adminClient, tile.id);
@@ -191,6 +207,7 @@ export async function enableSheetSync(
       sheets_sync_enabled: true,
       sheets_spreadsheet_id: created.spreadsheetId,
       sheets_spreadsheet_url: created.spreadsheetUrl,
+      sheets_owner_user_id: userId,
       sheets_last_synced_at: null,
     } as never)
     .eq("id", tile.id);
@@ -205,6 +222,7 @@ export async function enableSheetSync(
     sheets_sync_enabled: true,
     sheets_spreadsheet_id: created.spreadsheetId,
     sheets_spreadsheet_url: created.spreadsheetUrl,
+    sheets_owner_user_id: userId,
   };
   await pushCatalogToSheet(adminClient, updatedTile);
 
@@ -225,6 +243,7 @@ export async function disableSheetSync(
       sheets_sync_enabled: false,
       sheets_spreadsheet_id: null,
       sheets_spreadsheet_url: null,
+      sheets_owner_user_id: null,
       sheets_last_synced_at: null,
     } as never)
     .eq("id", tile.id);
@@ -291,7 +310,7 @@ export async function pushCatalogToSheet(
   if (!tile.sheets_sync_enabled || !tile.sheets_spreadsheet_id) return null;
 
   try {
-    const resolved = await resolveOwnerToken(adminClient, tile);
+    const resolved = await resolveSyncToken(adminClient, tile);
     if (!resolved.ok) {
       console.error("[sheets-output]", resolved.reason, "tile:", tile.id);
       return null;
