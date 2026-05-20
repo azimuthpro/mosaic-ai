@@ -45,8 +45,6 @@ export interface SheetTabSpec {
   headers: string[];
   /** Number of leading columns to hide (e.g. our `__match_key` / `__event_id`). */
   hiddenLeadingColumns?: number;
-  /** Whether to freeze the header row. */
-  freezeHeader?: boolean;
 }
 
 /**
@@ -65,7 +63,6 @@ export async function createSpreadsheet(
         sheetId: i + 1,
         title: tab.title,
         gridProperties: {
-          frozenRowCount: tab.freezeHeader === false ? 0 : 1,
           rowCount: 1000,
           columnCount: Math.max(tab.headers.length, 10),
         },

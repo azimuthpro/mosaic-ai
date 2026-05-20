@@ -190,13 +190,11 @@ export async function enableSheetSync(
         title: ENTRIES_TAB,
         headers: buildEntryHeaders(snapshot.schemaFields),
         hiddenLeadingColumns: 1,
-        freezeHeader: true,
       },
       {
         title: EVENTS_TAB,
         headers: buildEventHeaders(),
         hiddenLeadingColumns: 1,
-        freezeHeader: true,
       },
     ],
   );
