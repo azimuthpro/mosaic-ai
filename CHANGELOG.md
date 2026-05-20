@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Slack Block Kit Approve/Cancel buttons for offer drafts (`/api/slack/interactivity`)
 - In-app draft preview with sandboxed iframe and Send/Cancel actions
 - Manual run dialog accepts an "Instruction" comment for offer tiles
+- "Professional Business Offer" system skill for `offer_sender` tiles — sales tone, editorial polish, grammar, language-handling rules
 
 ## [1.4.0] - 2026-03-07
 
