@@ -21,10 +21,13 @@ npm run lint     # Run ESLint
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS v4 (via `@tailwindcss/postcss`, no tailwind.config file)
 - **Auth & Database**: Supabase (PostgreSQL with RLS, Magic Link auth)
-- **AI**: Vercel AI SDK with Google Gemini Flash
+- **AI**: Vercel AI SDK v6 with Google Gemini (Flash and Pro)
 - **Chat Bot**: Chat SDK (`chat` package) with `@chat-adapter/slack` for Slack bot
-- **Web Scraping**: Firecrawl
+- **Web Scraping**: Firecrawl v4 (also used for URL validation)
 - **Web Search**: Tavily API
+- **GitHub**: Octokit
+- **Google**: Google Sheets API (catalog export, OAuth)
+- **Email**: SendGrid (offer_sender tile delivery)
 - **Scheduling**: Vercel Cron Jobs
 - **Deployment**: Vercel
 
@@ -37,10 +40,14 @@ npm run lint     # Run ESLint
   - `url_reader`: Web pages scraped via Firecrawl. With connections: extracts URLs from connected tile data and scrapes them.
   - `web_search`: AI-powered web search via Tavily API. With connections: extracts keywords from connected tile data and uses them as search queries.
   - `analyzer`: Process and analyze connected tile data. Receives full report content from connections.
-  - `slack_reader`: Reads messages from connected Slack channels. Config: channel_id, max_messages, include_threads, hours_back.
-  - `catalog`: Persistent entity catalog with AI-detected schema. Tracks entities across executions with diffs and events.
-  - `github_issue`: Creates GitHub issues from connected tile data or instructions. Config: owner, repo, default_labels. Requires GitHub OAuth integration. Predefined skills: Blog Post, Bugfix, Feature Request.
+  - `slack_reader`: Reads messages from connected Slack channels. Config: channel_id, max_messages, include_threads, hours_back. Backlog skill available.
+  - `catalog`: Persistent entity catalog with AI-detected schema. Tracks entities across executions with diffs and events. Optional Google Sheets sync of entries and events (per-user OAuth, scoped to enabling user).
+  - `github_issue`: Creates GitHub issues from connected tile data or instructions. Config: owner, repo, default_labels, multi-repo picker with runtime repo param. Requires GitHub OAuth integration. Predefined skills: Blog Post, Bugfix, Feature Request.
+  - `knowledge_base`: Static text content surfaced to other tiles via connections (no execution).
+  - `offer_sender`: AI personalizes an HTML email template using connected data, posts a draft to Slack for approval via Block Kit buttons, then sends via SendGrid. System skill: Professional Business Offer.
 - **Tile Connections**: Universal data flow links between tiles. Any tile type can receive connections, with type-specific extraction of data from connected tiles.
+- **Tile Router**: Vector-search + LLM-reasoning router that selects the right tile for a request (`lib/router/`).
+- **Slack Bot**: Chat SDK-powered conversational bot with AI tools (run tiles, create GitHub issues, semantic search, web search grounding). Responds to mentions and DMs (`lib/bot/`).
 - **Tile Sources**: Data inputs for tiles (URLs, search queries, or referenced tiles)
 - **Mosaic Sharing**: Role-based access control (owner/admin/member) at mosaic level
 
@@ -95,13 +102,17 @@ npm run lint     # Run ESLint
 - `tile_skills` - Reusable skill/prompt templates for tiles
 
 **Integration Tables:**
-- `user_integrations` - OAuth tokens for external services (e.g., Slack); keyed by (user_id, provider, provider_team_id)
+- `user_integrations` - OAuth tokens for external services (Slack, GitHub, Google); keyed by (user_id, provider, provider_team_id)
 
 **Catalog Tables:**
 - `catalog_schemas` - AI-detected entity schema per catalog tile
 - `catalog_entries` - Persistent entities tracked across executions
 - `catalog_entry_events` - Chronological events per entity
 - `catalog_diffs` - Change summary per execution (added/updated entries, new events)
+- `tiles.google_sheets_*` - Per-tile Google Sheets sync config (sheet ID, owner user, enabled flag)
+
+**Router Tables:**
+- `tile_router_embeddings` - Vector embeddings per tile for semantic routing
 
 ### Key Utilities
 
@@ -133,11 +144,27 @@ npm run lint     # Run ESLint
 - `lib/actions/catalog.ts` - Server actions for catalog CRUD
 - `lib/actions/integrations.ts` - Server actions for user integrations (OAuth tokens)
 - `lib/actions/invite.ts` - Mosaic invitation handling
+- `lib/actions/router.ts` - Server actions for tile router queries
 - `lib/bot/index.ts` - Chat SDK Slack bot setup and entry point
+- `lib/bot/setup.ts` - Lazy bot factory and cached initialization
 - `lib/bot/handlers.ts` - Bot message and event handlers
-- `lib/bot/tools.ts` - AI tools available to the bot
+- `lib/bot/tools.ts` - AI tools available to the bot (run_tile, GitHub issue, semantic search, web search)
 - `lib/bot/data.ts` - Bot data access layer
 - `lib/slack/events/monitor-check.ts` - Slack event monitoring
+- `lib/google/oauth.ts` - Google OAuth flow
+- `lib/google/integration.ts` - Google token resolution
+- `lib/google/sheets-client.ts` - Google Sheets API client
+- `lib/outputs/sheets-output.ts` - Google Sheets append on tile execution
+- `lib/email/execute-offer-sender.ts` - Offer sender tile execution logic
+- `lib/email/post-offer-draft-slack.ts` - Slack approval draft post with Block Kit buttons
+- `lib/email/send-offer-draft.ts` - SendGrid send after approval
+- `lib/mosaics/access.ts` - Mosaic access checks
+- `lib/mosaics/timezone.ts` - Mosaic timezone helpers
+- `lib/router/embed.ts` - Tile embedding generation
+- `lib/router/index-tile.ts` / `lib/router/index.ts` - Tile index management
+- `lib/router/search.ts` - Vector search across indexed tiles
+- `lib/router/reason.ts` - LLM reasoning over candidates
+- `lib/router/enrich.ts` - Result enrichment
 
 ### Key API Routes
 
@@ -156,10 +183,16 @@ npm run lint     # Run ESLint
 - `/api/v1/tiles/[tileId]/webhooks/[webhookId]/test` - Webhook test delivery
 - `/api/v1/tiles/[tileId]/webhooks/[webhookId]/deliveries` - Webhook delivery history
 - `/api/v1/mosaics/[mosaicId]/keys` - API key management
-- `/api/slack/events` - Slack Events API handler (bot mentions, signature verification)
+- `/api/slack/events` - Slack Events API handler (bot mentions, DMs, signature verification)
+- `/api/slack/interactivity` - Slack Block Kit interaction handler (offer Approve/Cancel buttons)
 - `/api/auth/github/connect` - Initiate GitHub OAuth flow
 - `/api/auth/github/callback` - Handle GitHub OAuth callback
 - `/api/github/status` - Check GitHub connection status
+- `/api/github/repos` - List repos for connected GitHub account
+- `/api/auth/google/connect` - Initiate Google OAuth flow (Sheets scope)
+- `/api/auth/google/callback` - Handle Google OAuth callback
+- `/api/google/status` - Check Google connection status
+- `/api/v1/router` - Tile router query endpoint (vector search + LLM reasoning)
 - `/api/auth/check-allowlist` - Email allowlist verification for signup
 - `/api/auth/invitation` - Mosaic invitation handling
 
@@ -170,6 +203,7 @@ npm run lint     # Run ESLint
   - `/mosaics` - Mosaic list and management
   - `/mosaics/[id]` - Mosaic canvas with tiles
   - `/mosaics/[id]/settings` - Mosaic settings (timezone configuration)
+  - `/mosaics/[id]/tiles/[tileId]` - Tile detail page (replaces previous modal)
   - `/mosaics/[id]/tiles/[tileId]/settings` - Tile-specific settings
 - `(marketing)` - Public marketing landing page
 
@@ -196,7 +230,9 @@ Uses Supabase Magic Link authentication:
 ## Security Notes
 
 - Row Level Security (RLS) enabled on all Supabase tables
-- API keys (Firecrawl, Google AI, Tavily) stored in Vercel environment variables (server-side only)
-- OAuth tokens stored securely in Supabase
+- API keys (Firecrawl, Google AI, Tavily, SendGrid) stored in Vercel environment variables (server-side only)
+- OAuth tokens (Slack, GitHub, Google) stored securely in Supabase
 - Tile connections checked for circular dependencies
 - Rate limiting on execution (per-user hourly and concurrent limits)
+- Slack request signature verification on events and interactivity endpoints
+- SECURITY DEFINER functions audited per Supabase linter
