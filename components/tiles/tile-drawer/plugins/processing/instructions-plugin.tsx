@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { SkillSelector } from "@/components/tiles/skill-selector";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +38,8 @@ function countWords(text: string): number {
 }
 
 export function InstructionsPlugin({
+  tile,
+  mosaicId,
   disabled,
   state,
 }: InstructionsPluginProps) {
@@ -47,6 +50,10 @@ export function InstructionsPlugin({
     pluginState,
     updatePluginState,
   } = state;
+
+  // Skill picker selection (ephemeral — tiles don't persist a skill id;
+  // selecting a skill just populates the instructions textarea)
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -122,6 +129,25 @@ export function InstructionsPlugin({
     setSuggestedPrompt(null);
   };
 
+  const handleSkillSelect = (
+    skill: { id: string; name: string; prompt: string } | null,
+  ) => {
+    setSelectedSkillId(skill?.id ?? null);
+    if (!skill) return;
+    const current = configState.instructions.trim();
+    if (
+      current &&
+      current !== skill.prompt.trim() &&
+      !confirm(
+        `Replace current instructions with the "${skill.name}" skill template?`,
+      )
+    ) {
+      return;
+    }
+    setPreviousPrompt(configState.instructions);
+    updateConfigField("instructions", skill.prompt);
+  };
+
   const hasInstructions = configState.instructions.trim().length > 0;
   const wordCount = countWords(configState.instructions);
 
@@ -150,6 +176,17 @@ export function InstructionsPlugin({
       disabled={disabled}
     >
       <div className="space-y-3">
+        {/* Skill Template Selector */}
+        {tile.tile_type !== "knowledge_base" && (
+          <SkillSelector
+            mosaicId={mosaicId}
+            tileType={tile.tile_type}
+            selectedSkillId={selectedSkillId}
+            onSelect={handleSkillSelect}
+            disabled={isSaving || disabled}
+          />
+        )}
+
         {/* AI Prompt Improvement Section */}
         <div className="space-y-2 p-3 border border-purple-500/20 bg-purple-500/5 rounded-lg">
           <Label htmlFor="improvement-instructions" className="text-xs">
