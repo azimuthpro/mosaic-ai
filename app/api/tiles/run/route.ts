@@ -14,6 +14,7 @@ import {
 } from "@/lib/execution/context";
 import { executeGitHubIssue } from "@/lib/github/execute-github-issue";
 import { getMosaicTimezone } from "@/lib/mosaics/timezone";
+import { pushCatalogToSheet } from "@/lib/outputs/sheets-output";
 import { deliverSlackOutput } from "@/lib/outputs/slack-output";
 import {
   assertRateLimitAllowed,
@@ -490,6 +491,10 @@ export async function POST(request: Request): Promise<Response> {
         await deliverSlackOutput(adminClient, typedTile, {
           content: slackContent,
         });
+      }
+
+      if (typedTile.tile_type === "catalog") {
+        await pushCatalogToSheet(adminClient, typedTile);
       }
 
       // Update job as completed

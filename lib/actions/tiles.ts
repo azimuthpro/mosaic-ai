@@ -331,14 +331,12 @@ export async function createTile(params: CreateTileParams) {
         .select("id")
         .single();
       if (job) {
-        await adminClient
-          .from("tile_job_results")
-          .insert({
-            job_id: (job as { id: string }).id,
-            tile_id: tile.id,
-            content: kbContent,
-            format: "text",
-          } as never);
+        await adminClient.from("tile_job_results").insert({
+          job_id: (job as { id: string }).id,
+          tile_id: tile.id,
+          content: kbContent,
+          format: "text",
+        } as never);
       }
     }
   }
@@ -1302,9 +1300,8 @@ export async function saveKnowledgeBaseContent(
   }
 
   // Trigger downstream tiles that depend on this knowledge base
-  const { triggerDownstreamTiles } = await import(
-    "@/lib/tiles/trigger-downstream"
-  );
+  const { triggerDownstreamTiles } =
+    await import("@/lib/tiles/trigger-downstream");
   triggerDownstreamTiles(adminClient, {
     completedTileId: tileId,
     completedJobId: jobId,

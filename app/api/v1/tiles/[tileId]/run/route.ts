@@ -12,6 +12,7 @@ import {
 } from "@/lib/execution/context";
 import { executeGitHubIssue } from "@/lib/github/execute-github-issue";
 import { getMosaicTimezone } from "@/lib/mosaics/timezone";
+import { pushCatalogToSheet } from "@/lib/outputs/sheets-output";
 import { deliverSlackOutput } from "@/lib/outputs/slack-output";
 import { logTileJobExecutionEvent } from "@/lib/rate-limit/limiter";
 import {
@@ -691,6 +692,10 @@ export async function POST(
         await deliverSlackOutput(adminClient, typedTile, {
           content: slackContent,
         });
+
+        if (typedTile.tile_type === "catalog") {
+          await pushCatalogToSheet(adminClient, typedTile);
+        }
       }
 
       // Send done event

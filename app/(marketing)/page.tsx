@@ -143,20 +143,14 @@ Email: investor update pending
                   <div className="space-y-1">
                     <div>{"{"}</div>
                     <div className="pl-4">
-                      <span className="text-pink-400">
-                        &quot;tile&quot;
-                      </span>
-                      :{" "}
+                      <span className="text-pink-400">&quot;tile&quot;</span>:{" "}
                       <span className="text-cyan-400">
                         &quot;Morning Intelligence&quot;
                       </span>
                       ,
                     </div>
                     <div className="pl-4">
-                      <span className="text-pink-400">
-                        &quot;type&quot;
-                      </span>
-                      :{" "}
+                      <span className="text-pink-400">&quot;type&quot;</span>:{" "}
                       <span className="text-cyan-400">
                         &quot;analyzer&quot;
                       </span>
@@ -265,7 +259,8 @@ Email: investor update pending
             </h3>
             <p className="text-pretty text-slate-400 leading-relaxed text-lg mb-8">
               Any-to-any connections with automatic extraction — URLs, keywords,
-              or full reports. Downstream tiles auto-trigger when sources update.
+              or full reports. Downstream tiles auto-trigger when sources
+              update.
             </p>
             <div className="relative h-32 w-full bg-slate-950/50 rounded-2xl border border-slate-800 p-4">
               <div className="space-y-3">
@@ -288,8 +283,8 @@ Email: investor update pending
               AI-Powered Analysis.
             </h3>
             <p className="text-pretty text-slate-400 text-sm leading-relaxed">
-              Google Gemini 3 Flash processes your data with custom instructions.
-              Get text summaries or structured JSON output.
+              Google Gemini 3 Flash processes your data with custom
+              instructions. Get text summaries or structured JSON output.
             </p>
           </div>
 
@@ -377,9 +372,7 @@ Email: investor update pending
             <h2 className="text-balance text-4xl font-extrabold tracking-tight text-white mb-6 leading-tight">
               REST API.
               <br />
-              <span className="text-cyan-400 italic">
-                Real-time streaming.
-              </span>
+              <span className="text-cyan-400 italic">Real-time streaming.</span>
             </h2>
             <p className="text-pretty text-slate-400 text-lg leading-relaxed mb-8">
               Trigger any tile programmatically. Get streaming progress via
@@ -449,9 +442,7 @@ Email: investor update pending
                   <div>
                     <span className="text-pink-400 font-bold">data:</span>{" "}
                     <span className="text-cyan-400">
-                      {
-                        '{"job_id":"...","tile_id":"..."}'
-                      }
+                      {'{"job_id":"...","tile_id":"..."}'}
                     </span>
                   </div>
                   <div className="mt-2">
@@ -461,9 +452,7 @@ Email: investor update pending
                   <div>
                     <span className="text-pink-400 font-bold">data:</span>{" "}
                     <span className="text-cyan-400">
-                      {
-                        '{"job_id":"...","report":{...}}'
-                      }
+                      {'{"job_id":"...","report":{...}}'}
                     </span>
                   </div>
                   <div className="mt-2">
@@ -472,11 +461,7 @@ Email: investor update pending
                   </div>
                   <div>
                     <span className="text-pink-400 font-bold">data:</span>{" "}
-                    <span className="text-cyan-400">
-                      {
-                        '{"job_id":"..."}'
-                      }
-                    </span>
+                    <span className="text-cyan-400">{'{"job_id":"..."}'}</span>
                   </div>
                 </div>
               </div>

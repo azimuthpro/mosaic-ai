@@ -17,7 +17,5 @@ export default async function TilePage({ params }: TilePageProps) {
     notFound();
   }
 
-  return (
-    <TileDetailPage tile={tile} mosaicId={mosaic.id} />
-  );
+  return <TileDetailPage tile={tile} mosaicId={mosaic.id} />;
 }

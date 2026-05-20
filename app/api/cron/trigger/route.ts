@@ -10,6 +10,7 @@ import {
 } from "@/lib/execution/context";
 import { TimeoutError, withTimeout } from "@/lib/execution/timeout";
 import { executeGitHubIssue } from "@/lib/github/execute-github-issue";
+import { pushCatalogToSheet } from "@/lib/outputs/sheets-output";
 import { deliverSlackOutput } from "@/lib/outputs/slack-output";
 import {
   checkAndIncrementRateLimit,
@@ -327,6 +328,10 @@ async function processTile(
       await deliverSlackOutput(adminClient, tile, {
         content: slackContent,
       });
+
+      if (tile.tile_type === "catalog") {
+        await pushCatalogToSheet(adminClient, tile);
+      }
 
       // Mark job complete
       const completedUpdate: TileJobUpdate = {

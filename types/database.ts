@@ -291,6 +291,10 @@ export interface Database {
           slack_output_channel_id: string | null;
           slack_output_channel_name: string | null;
           slack_output_team_id: string | null;
+          sheets_sync_enabled: boolean;
+          sheets_spreadsheet_id: string | null;
+          sheets_spreadsheet_url: string | null;
+          sheets_last_synced_at: string | null;
           config: Json;
           created_at: string;
           updated_at: string;
@@ -320,6 +324,10 @@ export interface Database {
           slack_output_channel_id?: string | null;
           slack_output_channel_name?: string | null;
           slack_output_team_id?: string | null;
+          sheets_sync_enabled?: boolean;
+          sheets_spreadsheet_id?: string | null;
+          sheets_spreadsheet_url?: string | null;
+          sheets_last_synced_at?: string | null;
           config?: Json;
           created_at?: string;
           updated_at?: string;
@@ -349,6 +357,10 @@ export interface Database {
           slack_output_channel_id?: string | null;
           slack_output_channel_name?: string | null;
           slack_output_team_id?: string | null;
+          sheets_sync_enabled?: boolean;
+          sheets_spreadsheet_id?: string | null;
+          sheets_spreadsheet_url?: string | null;
+          sheets_last_synced_at?: string | null;
           config?: Json;
           created_at?: string;
           updated_at?: string;
@@ -1216,6 +1228,12 @@ export interface SlackIntegrationMetadata {
 export interface GitHubIntegrationMetadata {
   username: string;
   avatar_url?: string;
+}
+
+export interface GoogleIntegrationMetadata {
+  email: string;
+  refresh_token: string;
+  expires_at: string; // ISO timestamp; access_token (stored on access_token column) is valid until this time
 }
 
 export interface GitHubIssueConfig {

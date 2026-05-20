@@ -1,12 +1,22 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
+
+import {
+  disableSheetSync,
+  enableSheetSync,
+  pushCatalogToSheet,
+  type SyncResult,
+} from "@/lib/outputs/sheets-output";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient, getUser } from "@/lib/supabase/server";
 import type {
   CatalogDiff,
   CatalogEntry,
   CatalogEntryEvent,
   CatalogField,
   CatalogSchema,
+  Tile,
 } from "@/types/database";
 
 export interface CatalogStats {
@@ -218,4 +228,110 @@ export async function getCatalogSchemaFields(
   const schema = await getCatalogSchema(tileId);
   if (!schema) return [];
   return schema.fields as unknown as CatalogField[];
+}
+
+/**
+ * Loads the tile and verifies the calling user owns the mosaic (or is admin).
+ * Returns the tile on success, an error string otherwise.
+ */
+async function authorizeCatalogTile(
+  tileId: string,
+): Promise<{ tile: Tile } | { error: string }> {
+  const user = await getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const supabase = await createClient();
+  const { data: tileData } = await supabase
+    .from("tiles")
+    .select("*")
+    .eq("id", tileId)
+    .maybeSingle();
+  const tile = tileData as Tile | null;
+  if (!tile) return { error: "Tile not found" };
+  if (tile.tile_type !== "catalog") return { error: "Not a catalog tile" };
+
+  const { data: mosaicData } = await supabase
+    .from("mosaics")
+    .select("owner_id")
+    .eq("id", tile.mosaic_id)
+    .single();
+  const mosaic = mosaicData as { owner_id: string } | null;
+  if (!mosaic) return { error: "Mosaic not found" };
+
+  if (mosaic.owner_id !== user.id) {
+    const { data: membershipData } = await supabase
+      .from("mosaic_members")
+      .select("role")
+      .eq("mosaic_id", tile.mosaic_id)
+      .eq("user_id", user.id)
+      .single();
+    const membership = membershipData as { role: string } | null;
+    if (!membership || !["owner", "admin"].includes(membership.role)) {
+      return { error: "Not authorized" };
+    }
+  }
+
+  return { tile };
+}
+
+export async function enableCatalogSheetSync(
+  tileId: string,
+): Promise<{ url: string } | { error: string }> {
+  const authz = await authorizeCatalogTile(tileId);
+  if ("error" in authz) return { error: authz.error };
+
+  try {
+    const adminClient = createAdminClient();
+    const { url } = await enableSheetSync(adminClient, authz.tile);
+    revalidatePath(`/mosaics/${authz.tile.mosaic_id}`);
+    return { url };
+  } catch (err) {
+    console.error("[enableCatalogSheetSync] failed:", err);
+    return {
+      error: err instanceof Error ? err.message : "Failed to enable sheet sync",
+    };
+  }
+}
+
+export async function disableCatalogSheetSync(
+  tileId: string,
+): Promise<{ ok: true } | { error: string }> {
+  const authz = await authorizeCatalogTile(tileId);
+  if ("error" in authz) return { error: authz.error };
+
+  try {
+    const adminClient = createAdminClient();
+    await disableSheetSync(adminClient, authz.tile);
+    revalidatePath(`/mosaics/${authz.tile.mosaic_id}`);
+    return { ok: true };
+  } catch (err) {
+    console.error("[disableCatalogSheetSync] failed:", err);
+    return {
+      error:
+        err instanceof Error ? err.message : "Failed to disable sheet sync",
+    };
+  }
+}
+
+export async function syncCatalogSheet(
+  tileId: string,
+): Promise<({ ok: true } & SyncResult) | { error: string }> {
+  const authz = await authorizeCatalogTile(tileId);
+  if ("error" in authz) return { error: authz.error };
+
+  if (!authz.tile.sheets_sync_enabled || !authz.tile.sheets_spreadsheet_id) {
+    return { error: "Sheet sync is not enabled for this tile" };
+  }
+
+  const adminClient = createAdminClient();
+  const result = await pushCatalogToSheet(adminClient, authz.tile);
+  if (!result) {
+    return {
+      error:
+        "Sync failed — check that Google is connected and the spreadsheet is accessible.",
+    };
+  }
+
+  revalidatePath(`/mosaics/${authz.tile.mosaic_id}`);
+  return { ok: true, ...result };
 }

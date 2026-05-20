@@ -19,11 +19,10 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-
 import {
-  type ExecutionLogEntry,
   deleteAllExecutionLogs,
   deleteExecutionLog,
+  type ExecutionLogEntry,
   getTileAllExecutionLogs,
 } from "@/lib/actions/tile-execution";
 import { cn } from "@/lib/utils";
@@ -156,7 +155,12 @@ function MetadataDetails({
       const trigger = get(metadata, "trigger");
       const tileType = get(metadata, "tileType", "tile_type");
       const sourceCount = get(metadata, "sourceCount", "source_count");
-      const maxDepth = get(metadata, "maxDepth", "maxCascadeDepth", "max_cascade_depth");
+      const maxDepth = get(
+        metadata,
+        "maxDepth",
+        "maxCascadeDepth",
+        "max_cascade_depth",
+      );
       const timeoutMs = get(metadata, "timeoutMs", "timeout_ms");
       return (
         <div className="space-y-1">
@@ -248,16 +252,10 @@ function MetadataDetails({
       return (
         <div className="space-y-1">
           {visitedCount !== undefined && (
-            <MetadataRow
-              label="Visited tiles"
-              value={String(visitedCount)}
-            />
+            <MetadataRow label="Visited tiles" value={String(visitedCount)} />
           )}
           {cascadeDepth !== undefined && (
-            <MetadataRow
-              label="Cascade depth"
-              value={String(cascadeDepth)}
-            />
+            <MetadataRow label="Cascade depth" value={String(cascadeDepth)} />
           )}
           {triggeredBy !== undefined && (
             <MetadataRow label="Triggered by" value={String(triggeredBy)} />
@@ -268,24 +266,14 @@ function MetadataDetails({
 
     case "depth_exceeded": {
       const cascadeDepth = get(metadata, "cascadeDepth", "cascade_depth");
-      const maxDepth = get(
-        metadata,
-        "maxCascadeDepth",
-        "max_cascade_depth",
-      );
+      const maxDepth = get(metadata, "maxCascadeDepth", "max_cascade_depth");
       return (
         <div className="space-y-1">
           {cascadeDepth !== undefined && (
-            <MetadataRow
-              label="Cascade depth"
-              value={String(cascadeDepth)}
-            />
+            <MetadataRow label="Cascade depth" value={String(cascadeDepth)} />
           )}
           {maxDepth !== undefined && (
-            <MetadataRow
-              label="Max cascade depth"
-              value={String(maxDepth)}
-            />
+            <MetadataRow label="Max cascade depth" value={String(maxDepth)} />
           )}
         </div>
       );
@@ -308,10 +296,7 @@ function MetadataDetails({
             />
           )}
           {cascadeDepth !== undefined && (
-            <MetadataRow
-              label="Cascade depth"
-              value={String(cascadeDepth)}
-            />
+            <MetadataRow label="Cascade depth" value={String(cascadeDepth)} />
           )}
         </div>
       );

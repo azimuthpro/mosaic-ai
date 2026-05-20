@@ -7,6 +7,7 @@ import { CatalogBrowserPlugin } from "../plugins/output/catalog-browser-plugin";
 import { CatalogDiffPlugin } from "../plugins/output/catalog-diff-plugin";
 import { FormatPlugin } from "../plugins/output/format-plugin";
 import { HistoryPlugin } from "../plugins/output/history-plugin";
+import { SheetsOutputPlugin } from "../plugins/output/sheets-output-plugin";
 import { SlackOutputPlugin } from "../plugins/output/slack-output-plugin";
 import { WebhooksPlugin } from "../plugins/output/webhooks-plugin";
 
@@ -37,6 +38,12 @@ export function OutputSection({
               disabled={disabled}
             />
             <CatalogDiffPlugin
+              tile={tile}
+              mosaicId={mosaicId}
+              state={state}
+              disabled={disabled}
+            />
+            <SheetsOutputPlugin
               tile={tile}
               mosaicId={mosaicId}
               state={state}
