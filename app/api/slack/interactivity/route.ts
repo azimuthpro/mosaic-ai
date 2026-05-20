@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getBotAndAdapter } from "@/lib/bot";
 import { resolveSlackUser } from "@/lib/bot/data";
+import { ensureBotInitialized } from "@/lib/bot/setup";
 import { cancelOfferDraft, sendOfferDraft } from "@/lib/email/send-offer-draft";
 import { verifySlackSignature } from "@/lib/slack/verify-signature";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -53,6 +54,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const teamId = payload.team?.id ?? payload.user.team_id ?? "";
   const admin = createAdminClient();
+  await ensureBotInitialized();
   const { slackAdapter } = await getBotAndAdapter();
 
   const botToken = await slackAdapter
