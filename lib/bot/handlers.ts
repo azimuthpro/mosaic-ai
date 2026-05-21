@@ -41,7 +41,12 @@ Rules:
 - Think through complex questions carefully before answering
 - Keep responses concise and formatted for Slack (use *bold*, bullet points)
 - If the user doesn't have access to something, say so politely
-- When showing results, summarize key points rather than dumping raw data`;
+- When showing results, summarize key points rather than dumping raw data
+
+Tool-use discipline:
+- Call run_tile AT MOST ONCE per user request. If it returns success, reply with a one-line confirmation in text — do not call run_tile or any other tool again.
+- If run_tile returns success: false, explain the problem to the user in text. Do not retry with different parameters.
+- After every tool call, you MUST either produce a text response OR call exactly one more tool. Never chain more than 4 tool calls before producing text.`;
 
 interface ResolvedUser {
   userId: string;
@@ -120,7 +125,7 @@ async function answerQuestion(
         },
       } satisfies GoogleLanguageModelOptions,
     },
-    stopWhen: stepCountIs(15),
+    stopWhen: stepCountIs(6),
     onStepFinish: (event) => {
       console.log("[bot] step", event.stepNumber, {
         text: event.text.length,
@@ -130,7 +135,16 @@ async function answerQuestion(
     },
   });
 
-  await thread.post(result.fullStream);
+  try {
+    await thread.post(result.fullStream);
+  } catch (err) {
+    console.error("[bot] streamed post failed, falling back:", err);
+    const finalText = await result.text;
+    await thread.post(
+      finalText?.trim() ||
+        "I ran into a problem completing that. Check the tile in Mosaic AI to see if the action went through.",
+    );
+  }
 }
 
 /**
