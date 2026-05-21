@@ -23,7 +23,7 @@ CREATE TABLE public.tile_embeddings (
   -- The concatenated text that was embedded
   embedded_text text NOT NULL,
 
-  -- 768-dim vector (reduced from gemini-embedding-001's 3072 default)
+  -- 768-dim vector (reduced via outputDimensionality from gemini-embedding-2-preview)
   embedding extensions.vector(768) NOT NULL,
 
   created_at timestamptz DEFAULT now() NOT NULL,
