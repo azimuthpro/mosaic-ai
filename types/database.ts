@@ -1254,6 +1254,7 @@ export interface OfferSenderConfig {
   from_name?: string;
   reply_to_email?: string;
   reply_to_name?: string;
+  bcc_email?: string;
 }
 
 export type OfferDraftStatus = "draft" | "sent" | "cancelled" | "failed";
@@ -1276,6 +1277,7 @@ export interface OfferDraftResult {
   from_name: string;
   reply_to_email?: string;
   reply_to_name?: string;
+  bcc_email?: string;
   ai_notes?: string;
   sent_at?: string;
   cancelled_at?: string;

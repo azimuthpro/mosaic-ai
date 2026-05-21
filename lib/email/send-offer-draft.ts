@@ -50,6 +50,7 @@ export async function sendOfferDraft(
           ...(draft.reply_to_name ? { name: draft.reply_to_name } : {}),
         }
       : undefined,
+    bcc: draft.bcc_email ? { email: draft.bcc_email } : undefined,
   });
 
   const next: OfferDraftResult = sendOutcome.success

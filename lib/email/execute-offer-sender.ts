@@ -80,6 +80,7 @@ export async function executeOfferSender(
     config.from_name?.trim() || process.env.SENDGRID_FROM_NAME || "Mosaic AI";
   const replyToEmail = config.reply_to_email?.trim() || undefined;
   const replyToName = config.reply_to_name?.trim() || undefined;
+  const bccEmail = config.bcc_email?.trim() || undefined;
 
   const sections: string[] = [];
   const cleanedComment = comment ? normalizeSlackEmailLinks(comment) : null;
@@ -142,6 +143,7 @@ export async function executeOfferSender(
     from_name: fromName,
     reply_to_email: replyToEmail,
     reply_to_name: replyToName,
+    bcc_email: bccEmail,
     ai_notes: draftFields.modification_notes?.trim() || undefined,
     slack_context: slackContext,
   };

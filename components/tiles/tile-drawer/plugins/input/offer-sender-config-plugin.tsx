@@ -27,6 +27,7 @@ interface FormState {
   from_name: string;
   reply_to_email: string;
   reply_to_name: string;
+  bcc_email: string;
 }
 
 function readConfig(tile: TileWithSources): FormState {
@@ -37,6 +38,7 @@ function readConfig(tile: TileWithSources): FormState {
     from_name: cfg?.from_name ?? "",
     reply_to_email: cfg?.reply_to_email ?? "",
     reply_to_name: cfg?.reply_to_name ?? "",
+    bcc_email: cfg?.bcc_email ?? "",
   };
 }
 
@@ -50,6 +52,7 @@ export function OfferSenderConfigPlugin({
   const [fromName, setFromName] = useState(saved.from_name);
   const [replyToEmail, setReplyToEmail] = useState(saved.reply_to_email);
   const [replyToName, setReplyToName] = useState(saved.reply_to_name);
+  const [bccEmail, setBccEmail] = useState(saved.bcc_email);
   const [isSaving, setIsSaving] = useState(false);
 
   const dirty =
@@ -57,7 +60,8 @@ export function OfferSenderConfigPlugin({
     fromEmail !== saved.from_email ||
     fromName !== saved.from_name ||
     replyToEmail !== saved.reply_to_email ||
-    replyToName !== saved.reply_to_name;
+    replyToName !== saved.reply_to_name ||
+    bccEmail !== saved.bcc_email;
 
   async function handleSave() {
     setIsSaving(true);
@@ -67,6 +71,7 @@ export function OfferSenderConfigPlugin({
       ...(fromName.trim() ? { from_name: fromName.trim() } : {}),
       ...(replyToEmail.trim() ? { reply_to_email: replyToEmail.trim() } : {}),
       ...(replyToName.trim() ? { reply_to_name: replyToName.trim() } : {}),
+      ...(bccEmail.trim() ? { bcc_email: bccEmail.trim() } : {}),
     };
     const result = await updateTile(tile.id, {
       config: next as unknown as Json,
@@ -141,6 +146,17 @@ export function OfferSenderConfigPlugin({
               placeholder="(optional)"
               value={replyToName}
               onChange={(e) => setReplyToName(e.target.value)}
+              disabled={disabled || isSaving}
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="offer-bcc-email">BCC email (hidden copy)</Label>
+            <Input
+              id="offer-bcc-email"
+              type="email"
+              placeholder="(optional) — recipient won't see this"
+              value={bccEmail}
+              onChange={(e) => setBccEmail(e.target.value)}
               disabled={disabled || isSaving}
             />
           </div>

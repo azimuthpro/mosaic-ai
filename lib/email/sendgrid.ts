@@ -25,6 +25,7 @@ function capitalize(str: string): string {
 
 interface SendGridPersonalization {
   to: { email: string; name?: string }[];
+  bcc?: { email: string; name?: string }[];
   subject: string;
 }
 
@@ -87,6 +88,7 @@ interface SendCustomEmailParams {
   text: string;
   from?: { email?: string; name?: string };
   replyTo?: { email: string; name?: string };
+  bcc?: { email: string; name?: string };
 }
 
 /**
@@ -111,6 +113,16 @@ export async function sendCustomEmail(
             ...(params.to.name ? { name: params.to.name } : {}),
           },
         ],
+        ...(params.bcc?.email
+          ? {
+              bcc: [
+                {
+                  email: params.bcc.email,
+                  ...(params.bcc.name ? { name: params.bcc.name } : {}),
+                },
+              ],
+            }
+          : {}),
         subject: params.subject,
       },
     ],
