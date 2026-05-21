@@ -135,6 +135,16 @@ export async function sendCustomEmail(
     ],
   };
 
+  console.log("[sendgrid] sendCustomEmail payload", {
+    to: params.to.email,
+    bcc: params.bcc?.email ?? null,
+    subject: params.subject,
+    text_len: params.text?.length ?? 0,
+    html_len: params.html?.length ?? 0,
+    text_preview: params.text?.slice(0, 120),
+    html_preview: params.html?.slice(0, 200),
+  });
+
   return sendEmail(payload);
 }
 
