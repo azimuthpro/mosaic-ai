@@ -1,10 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { generateObject } from "ai";
+import { z } from "zod";
 
-import { analyzeContent } from "@/lib/ai/gemini";
+import { formatDateGrounding } from "@/lib/ai/date-grounding";
+import { flashModel } from "@/lib/ai/models";
+import { getLanguageInstruction } from "@/lib/constants/languages";
 import { getMosaicTimezone } from "@/lib/mosaics/timezone";
 import type {
   Database,
-  Json,
   LanguageCode,
   OfferDraftResult,
   OfferDraftSlackContext,
@@ -13,14 +16,32 @@ import type {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const OFFER_OUTPUT_SCHEMA = `z.object({
-  recipient_email: z.string().email().describe("Recipient's email address extracted from the input"),
-  recipient_name: z.string().optional().describe("Recipient's name if mentioned"),
-  subject: z.string().describe("Subject line for the email — natural-language, in the same language as the offer body"),
-  personalized_html: z.string().describe("The full personalized HTML email body. Start from the provided HTML template and apply the user's modification instructions. Output ONLY valid HTML, no commentary."),
-  plain_text: z.string().describe("Plain-text fallback version of the offer body (no HTML tags)"),
-  modification_notes: z.string().optional().describe("Short 1-2 sentence note on what you changed in the template and why")
-})`;
+const offerDraftSchema = z.object({
+  recipient_email: z
+    .string()
+    .describe("Recipient's email address extracted from the input."),
+  recipient_name: z
+    .string()
+    .optional()
+    .describe("Recipient's name if mentioned."),
+  subject: z
+    .string()
+    .describe(
+      "Subject line for the email — natural-language, in the same language as the offer body.",
+    ),
+  personalized_html: z
+    .string()
+    .describe(
+      "The full personalized HTML email body. Start from the provided HTML template and apply the user's modification instructions. Output ONLY valid HTML, no commentary.",
+    ),
+  plain_text: z
+    .string()
+    .describe("Plain-text fallback version of the offer body (no HTML tags)."),
+  modification_notes: z
+    .string()
+    .optional()
+    .describe("Short 1-2 sentence note on what you changed and why."),
+});
 
 export interface OfferSenderExecutionResult {
   jobResultContent: OfferDraftResult;
@@ -60,102 +81,74 @@ export async function executeOfferSender(
   const replyToEmail = config.reply_to_email?.trim() || undefined;
   const replyToName = config.reply_to_name?.trim() || undefined;
 
-  // Inputs are passed as the analyzeContent scrapedContent array so the
-  // existing prompt structure renders them under the "content to analyze" heading.
-  const inputs: string[] = [];
+  const sections: string[] = [];
   const cleanedComment = comment ? normalizeSlackEmailLinks(comment) : null;
   if (cleanedComment?.trim()) {
-    inputs.push(`# USER INSTRUCTION\n${cleanedComment.trim()}`);
+    sections.push(`# USER INSTRUCTION\n${cleanedComment.trim()}`);
   }
   fetchedContent.forEach((c, i) => {
-    inputs.push(`# CONNECTION ${i + 1}\n${c}`);
+    sections.push(`# CONNECTION ${i + 1}\n${c}`);
   });
 
-  const analysis = await analyzeContent(
-    inputs,
-    buildOfferPrompt(config.html_template, systemPrompt, fromName, fromEmail),
-    "json",
+  const timezone = await getMosaicTimezone(admin, tileId);
+  const prompt = buildOfferPrompt({
+    template: config.html_template,
+    extraInstructions: systemPrompt,
+    fromName,
+    fromEmail,
     language,
-    OFFER_OUTPUT_SCHEMA,
-    await getMosaicTimezone(admin, tileId),
-  );
+    timezone,
+    sections,
+  });
 
-  if (!analysis.success) {
-    throw new Error(
-      analysis.error || "AI failed to generate the personalized offer",
-    );
-  }
-
-  const parsed = parseOfferDraft(analysis.content);
-  if (!parsed) {
-    const missing = describeMissingFields(analysis.content);
-    console.error("[offer-sender] AI output missing required fields:", {
-      missing,
-      rawText: analysis.rawText?.slice(0, 2000),
+  let draftFields: z.infer<typeof offerDraftSchema>;
+  try {
+    const result = await generateObject({
+      model: flashModel,
+      schema: offerDraftSchema,
+      prompt,
+      maxOutputTokens: 32_000,
     });
+    draftFields = result.object;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[offer-sender] generateObject failed:", message);
+    throw new Error(`AI failed to generate the personalized offer: ${message}`);
+  }
+
+  const recipient_email = draftFields.recipient_email.trim();
+  const subject = draftFields.subject.trim();
+  const personalized_html = draftFields.personalized_html;
+
+  if (!EMAIL_REGEX.test(recipient_email)) {
     throw new Error(
-      `AI response did not contain a valid offer draft (missing: ${missing}). Check the tile's HTML template size — large templates can truncate the JSON output.`,
+      `Extracted recipient email "${recipient_email}" is not a valid email address`,
     );
   }
-  if (!EMAIL_REGEX.test(parsed.recipient_email)) {
+  if (!subject || !personalized_html.trim()) {
     throw new Error(
-      `Extracted recipient email "${parsed.recipient_email}" is not a valid email address`,
+      `AI response missing required fields (subject=${subject ? "ok" : "empty"}, html=${personalized_html.trim() ? "ok" : "empty"})`,
     );
   }
 
   const draft: OfferDraftResult = {
     status: "draft",
-    recipient_email: parsed.recipient_email,
-    recipient_name: parsed.recipient_name,
-    subject: parsed.subject,
-    html: parsed.personalized_html,
-    text: parsed.plain_text,
+    recipient_email,
+    recipient_name: draftFields.recipient_name?.trim() || undefined,
+    subject,
+    html: personalized_html,
+    text: draftFields.plain_text?.trim() || stripHtml(personalized_html),
     from_email: fromEmail,
     from_name: fromName,
     reply_to_email: replyToEmail,
     reply_to_name: replyToName,
-    ai_notes: parsed.modification_notes,
+    ai_notes: draftFields.modification_notes?.trim() || undefined,
     slack_context: slackContext,
   };
 
   const slackSummary = `*Offer draft ready*\nTo: ${draft.recipient_email}\nSubject: ${draft.subject}`;
 
   return { jobResultContent: draft, slackSummary };
-}
-
-interface ParsedOfferDraft {
-  recipient_email: string;
-  recipient_name?: string;
-  subject: string;
-  personalized_html: string;
-  plain_text: string;
-  modification_notes?: string;
-}
-
-function parseOfferDraft(content: Json): ParsedOfferDraft | null {
-  if (!content || typeof content !== "object" || Array.isArray(content)) {
-    return null;
-  }
-  const obj = content as Record<string, Json>;
-  const str = (k: string): string =>
-    typeof obj[k] === "string" ? (obj[k] as string) : "";
-
-  const recipient_email = str("recipient_email").trim();
-  const subject = str("subject").trim();
-  const personalized_html = str("personalized_html");
-  if (!recipient_email || !subject || !personalized_html) return null;
-
-  const recipient_name = str("recipient_name").trim();
-  const modification_notes = str("modification_notes");
-
-  return {
-    recipient_email,
-    recipient_name: recipient_name || undefined,
-    subject,
-    personalized_html,
-    plain_text: str("plain_text") || stripHtml(personalized_html),
-    modification_notes: modification_notes || undefined,
-  };
 }
 
 /**
@@ -171,27 +164,6 @@ function normalizeSlackEmailLinks(text: string): string {
     .replace(/\bmailto:([^\s|<>]+)/g, "$1");
 }
 
-/**
- * Returns a comma-separated list of required fields missing from the AI's
- * JSON output, for clearer error messages and debugging.
- */
-function describeMissingFields(content: Json): string {
-  if (!content || typeof content !== "object" || Array.isArray(content)) {
-    return "entire JSON object";
-  }
-  const obj = content as Record<string, Json>;
-  const required = [
-    "recipient_email",
-    "subject",
-    "personalized_html",
-    "plain_text",
-  ];
-  const missing = required.filter(
-    (k) => typeof obj[k] !== "string" || !(obj[k] as string).trim(),
-  );
-  return missing.length > 0 ? missing.join(", ") : "unknown";
-}
-
 function stripHtml(html: string): string {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -201,17 +173,38 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-function buildOfferPrompt(
-  template: string,
-  extraInstructions: string | null,
-  fromName: string,
-  fromEmail: string,
-): string {
+interface OfferPromptArgs {
+  template: string;
+  extraInstructions: string | null;
+  fromName: string;
+  fromEmail: string;
+  language: LanguageCode;
+  timezone?: string;
+  sections: string[];
+}
+
+function buildOfferPrompt(args: OfferPromptArgs): string {
+  const {
+    template,
+    extraInstructions,
+    fromName,
+    fromEmail,
+    language,
+    timezone,
+    sections,
+  } = args;
   const extra = extraInstructions?.trim()
     ? `Additional rules from the tile owner:\n${extraInstructions.trim()}\n\n`
     : "";
+  const languageInstruction = getLanguageInstruction(language);
+  const dateGrounding = formatDateGrounding(timezone);
+  const content = sections.length
+    ? sections.join("\n\n---\n\n")
+    : "(no additional context provided)";
 
-  return `You are preparing a personalized offer email on behalf of ${fromName} <${fromEmail}>.
+  return `${dateGrounding}
+
+You are preparing a personalized offer email on behalf of ${fromName} <${fromEmail}>.
 
 Your job:
 1. Read the user's instruction and any connection context.
@@ -219,13 +212,15 @@ Your job:
 3. Take the HTML template below and personalize it according to the user's instructions: replace placeholders, adjust copy, mention specific terms the user asked for, etc.
 4. Preserve the visual structure (tags, classes, inline styles, links) of the template — do NOT replace it with a different design.
 5. Produce a subject line that matches the offer content and the recipient's language.
-6. Produce a plain-text fallback (no HTML).
+6. Produce a plain-text fallback (no HTML tags).
 
-${extra}HTML TEMPLATE TO PERSONALIZE (use this as the starting point for personalized_html):
+${extra}${languageInstruction ? `${languageInstruction}\n\n` : ""}HTML TEMPLATE TO PERSONALIZE (use this as the starting point for personalized_html):
 
 \`\`\`html
 ${template}
 \`\`\`
 
-Return JSON only.`;
+User-provided context:
+
+${content}`;
 }
