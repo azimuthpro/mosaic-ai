@@ -58,5 +58,6 @@ npm run lint     # Run ESLint
 
 ## Documentation
 
-- [CLAUDE.md](CLAUDE.md) - Architecture and codebase guide
+- [docs/](docs/README.md) - Getting started, tile reference, integrations, API, bot, architecture
+- [CLAUDE.md](CLAUDE.md) - Architecture and codebase guide for Claude Code
 - [CHANGELOG.md](CHANGELOG.md) - Version history

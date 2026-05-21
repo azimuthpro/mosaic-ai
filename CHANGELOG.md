@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-app draft preview with sandboxed iframe and Send/Cancel actions
 - Manual run dialog accepts an "Instruction" comment for offer tiles
 - "Professional Business Offer" system skill for `offer_sender` tiles — sales tone, editorial polish, grammar, language-handling rules
+- Optional BCC hidden copy address on `offer_sender` tiles
 - Slack bot via Chat SDK with `@chat-adapter/slack` — mentions, DMs, streaming responses, loading reactions, multi-turn context, capabilities help
 - Bot AI tools: `run_tile`, GitHub issue creation, semantic search, web search grounding, thinking mode
 - Bot channel context and repo selection for issue creation
@@ -23,16 +24,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Skill picker in tile edit drawer
 - Backlog skill for `slack_reader` tiles
 - Tile duplicate action
+- Editable tile name in tile details header
 - Source drag-and-drop ordering with channel context and AI improve
 - Slack thread output with AI-generated summary
 - Tile execution debug mode and structured execution logs viewer plugin
 - AI prompts grounded in current date, weekday, and time
+- User-facing docs in `docs/` (getting-started, tiles, integrations, api, bot, architecture)
 
 ### Changed
 - Tech stack upgraded: Gemini Pro, AI SDK v6, Firecrawl v4
 - Tile detail UI replaced drawer with full-viewport dialog, then moved to dedicated subpage
 - Bot uses lazy init with cached factory
 - URL validation and scraping now use Firecrawl (replaces Tavily for URL validation)
+- Centralized Gemini model config in `lib/ai/models.ts` (pro, flash, embedding)
+- Embedding model switched to `gemini-embedding-2-preview`
+- `offer_sender` split AI into separate metadata + HTML calls; uses `generateObject`/`generateText` for reliable output
+- Dependency bumps: AI SDK 6.0.188, `@ai-sdk/google` 3.0.78, Chat SDK 4.29, Firecrawl 4.24, Supabase 2.106, Next 16.2.6, React 19.2.6, Zod 4.4
 - Synced documentation (README.md, CLAUDE.md, CHANGELOG.md) with current codebase state
 
 ### Fixed
@@ -42,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Slack summary language matches content
 - Tile job deletion from DB with missing RLS policy
 - Bot bot-token context lost across `next/after()` boundaries
+- Bot: stop `run_tile` loop and guard `not_authed` on stream stop
+- Offer: sanitize Slack mailto and log raw AI output
 - DB security definer linter warnings resolved
 - Firecrawl v4 API compatibility
 

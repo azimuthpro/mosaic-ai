@@ -134,7 +134,9 @@ npm run lint     # Run ESLint
 - `lib/catalog/execute-catalog.ts` - Catalog tile execution logic
 - `lib/execution/context.ts` - Execution context management
 - `lib/execution/timeout.ts` - Execution timeout handling
-- `lib/ai/gemini.ts` - Gemini model configuration and content analysis
+- `lib/ai/models.ts` - Centralized Gemini model exports (pro, flash, embedding)
+- `lib/ai/gemini.ts` - Gemini content analysis (text and structured output)
+- `lib/ai/date-grounding.ts` - Date/weekday/time grounding for AI prompts
 - `lib/search/tavily.ts` - Tavily web search client
 - `lib/slack/verify-signature.ts` - Slack request signature verification
 - `lib/github/oauth.ts` - GitHub OAuth flow
@@ -206,6 +208,16 @@ npm run lint     # Run ESLint
   - `/mosaics/[id]/tiles/[tileId]` - Tile detail page (replaces previous modal)
   - `/mosaics/[id]/tiles/[tileId]/settings` - Tile-specific settings
 - `(marketing)` - Public marketing landing page
+
+## Documentation
+
+User-facing docs live in `docs/`:
+- `docs/getting-started.md` - Local setup, env config, running the app
+- `docs/tiles.md` - Per-tile-type configuration reference
+- `docs/integrations.md` - Slack, GitHub, Google OAuth setup
+- `docs/api.md` - REST API, API keys, SSE streaming, webhooks
+- `docs/bot.md` - Slack bot commands and AI tools
+- `docs/architecture-analysis.md` - System design deep dive
 
 ## Path Alias
 
