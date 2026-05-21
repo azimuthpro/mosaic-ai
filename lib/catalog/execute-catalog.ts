@@ -1,8 +1,8 @@
-import { google } from "@ai-sdk/google";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
 
 import { formatDateGrounding } from "@/lib/ai/date-grounding";
+import { flashModel } from "@/lib/ai/models";
 import { getMosaicTimezone } from "@/lib/mosaics/timezone";
 import type {
   CatalogDiffPayload,
@@ -12,8 +12,6 @@ import type {
   Database,
   Json,
 } from "@/types/database";
-
-const model = google("gemini-flash-latest");
 
 const MAX_CATALOG_ENTRIES = 500;
 const MAX_ENTRIES_IN_AI_CONTEXT = 200;
@@ -441,7 +439,7 @@ Mark the primary identifying field with "is_key": true.
 Data to analyze:
 ${content.substring(0, 8000)}`;
 
-  const { text } = await generateText({ model, prompt });
+  const { text } = await generateText({ model: flashModel, prompt });
 
   return parseAIJson<SchemaDetectionResult>(text, {
     entity_type: "entity",
@@ -567,7 +565,7 @@ Event types: "funding", "hiring", "product", "expansion", "partnership", "acquis
 Source data:
 ${content.substring(0, 50000)}`;
 
-  const { text } = await generateText({ model, prompt });
+  const { text } = await generateText({ model: flashModel, prompt });
 
   return parseAIJson<AIExtractionResult>(text, { entities: [], events: [] });
 }

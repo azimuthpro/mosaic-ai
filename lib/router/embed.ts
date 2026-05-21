@@ -1,7 +1,6 @@
-import { google } from "@ai-sdk/google";
 import { embed, embedMany } from "ai";
 
-const embeddingModel = google.textEmbeddingModel("gemini-embedding-001");
+import { embeddingModel } from "@/lib/ai/models";
 
 const GOOGLE_DOC_OPTIONS = {
   google: {

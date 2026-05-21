@@ -1,10 +1,8 @@
-import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { NextResponse } from "next/server";
 
+import { flashModel } from "@/lib/ai/models";
 import { getUser } from "@/lib/supabase/server";
-
-const model = google("gemini-flash-latest");
 
 interface ImprovePromptRequest {
   currentPrompt: string;
@@ -60,7 +58,7 @@ ${improvementInstructions}
 Please provide an improved version of the prompt that applies the requested improvements while maintaining the original intent.`;
 
     const { text } = await generateText({
-      model,
+      model: flashModel,
       system: SYSTEM_PROMPT,
       prompt: userPrompt,
     });

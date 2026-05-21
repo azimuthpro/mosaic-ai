@@ -1,12 +1,9 @@
-import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 
 import { formatDateGrounding } from "@/lib/ai/date-grounding";
+import { flashModel, proModel } from "@/lib/ai/models";
 import { getLanguageInstruction } from "@/lib/constants/languages";
 import type { Json, LanguageCode, OutputFormat } from "@/types/database";
-
-const model = google("gemini-pro-latest");
-const summaryModel = google("gemini-flash-latest");
 
 const SUMMARY_INPUT_MAX_CHARS = 20_000;
 
@@ -100,7 +97,7 @@ Here is the content to analyze:
 ${combinedContent}`;
 
     const { text, usage, finishReason } = await generateText({
-      model,
+      model: proModel,
       prompt: fullPrompt,
     });
 
@@ -147,7 +144,7 @@ Report:
 ${input}`;
 
   try {
-    const { text } = await generateText({ model: summaryModel, prompt });
+    const { text } = await generateText({ model: flashModel, prompt });
     return stripCodeFences(text).trim() || null;
   } catch {
     return null;

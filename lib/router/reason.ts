@@ -1,10 +1,9 @@
-import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
+
+import { flashModel } from "@/lib/ai/models";
 
 import type { SelectedTile, TileCandidate } from "./types";
 import { stripCodeFences } from "./utils";
-
-const model = google("gemini-flash-latest");
 
 function formatCandidate(c: TileCandidate, index: number): string {
   return `[${index + 1}] ID: ${c.tile_id}
@@ -72,7 +71,7 @@ Respond with a JSON array of selected tiles. Each element must have:
 Respond ONLY with the JSON array, no code fences or other text.`;
 
   const { text } = await generateText({
-    model,
+    model: flashModel,
     prompt,
   });
 

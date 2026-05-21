@@ -1,13 +1,11 @@
-import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 
+import { flashModel } from "@/lib/ai/models";
 import { normalizeGitHubConfig } from "@/lib/github/execute-github-issue";
 import type { GitHubIssueConfig, Tile, TileSource } from "@/types/database";
 
 import type { TileEnrichment } from "./types";
 import { stripCodeFences } from "./utils";
-
-const model = google("gemini-flash-latest");
 
 function describeSource(s: TileSource): string {
   const config = s.config as Record<string, unknown> | null;
@@ -88,7 +86,7 @@ Generate a JSON object with exactly these fields:
 Respond ONLY with the JSON object, no code fences or other text.`;
 
   const { text } = await generateText({
-    model,
+    model: flashModel,
     prompt,
   });
 
