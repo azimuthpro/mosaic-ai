@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { generateObject } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 
 import { formatDateGrounding } from "@/lib/ai/date-grounding";
@@ -102,19 +102,32 @@ export async function executeOfferSender(
     sections,
   });
 
-  let draftFields: z.infer<typeof offerDraftSchema>;
+  let rawText: string;
   try {
-    const result = await generateObject({
+    const result = await generateText({
       model: flashModel,
-      schema: offerDraftSchema,
       prompt,
       maxOutputTokens: 32_000,
     });
-    draftFields = result.object;
+    rawText = result.text;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[offer-sender] generateObject failed:", message);
+    console.error("[offer-sender] generateText failed:", message);
     throw new Error(`AI failed to generate the personalized offer: ${message}`);
+  }
+
+  let draftFields: z.infer<typeof offerDraftSchema>;
+  try {
+    const parsed = JSON.parse(stripCodeFences(rawText));
+    draftFields = offerDraftSchema.parse(parsed);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[offer-sender] failed to parse AI response:", {
+      message,
+      raw_preview: rawText.slice(0, 1000),
+      raw_len: rawText.length,
+    });
+    throw new Error(`AI returned malformed JSON: ${message}`);
   }
 
   const recipient_email = draftFields.recipient_email.trim();
@@ -175,6 +188,11 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+function stripCodeFences(text: string): string {
+  const match = text.match(/^```\w*\n?([\s\S]*?)```$/);
+  return (match?.[1] ?? text).trim();
+}
+
 interface OfferPromptArgs {
   template: string;
   extraInstructions: string | null;
@@ -216,7 +234,7 @@ Your job:
 5. Produce a subject line that matches the offer content and the recipient's language.
 6. Produce a plain-text fallback (no HTML tags).
 
-${extra}${languageInstruction ? `${languageInstruction}\n\n` : ""}HTML TEMPLATE TO PERSONALIZE (use this as the starting point for personalized_html):
+${extra}${languageInstruction ? `${languageInstruction}\n\n` : ""}HTML TEMPLATE TO PERSONALIZE (use this as the starting point for personalized_html — output the FULL template, not a shortened version):
 
 \`\`\`html
 ${template}
@@ -224,5 +242,17 @@ ${template}
 
 User-provided context:
 
-${content}`;
+${content}
+
+Respond with a JSON object that matches this exact shape (no markdown code fences, no commentary):
+{
+  "recipient_email": "string",
+  "recipient_name": "string (optional)",
+  "subject": "string",
+  "personalized_html": "string — the COMPLETE personalized HTML, starting at <!DOCTYPE> or the template's first tag and ending at </html>. Do not truncate.",
+  "plain_text": "string — plain-text fallback, no HTML tags",
+  "modification_notes": "string (optional)"
+}
+
+Output ONLY the JSON object.`;
 }
