@@ -7,13 +7,14 @@ import {
   Copy,
   Loader2,
   Pause,
+  Pencil,
   Play,
   Power,
   Save,
   Trash2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { RunConfirmDialog } from "@/components/tiles/run-confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { deleteTile, duplicateTile } from "@/lib/actions/tiles";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils/format";
@@ -91,6 +93,36 @@ export function TileDetailPage({ tile, mosaicId }: TileDetailPageProps) {
   const [showRunConfirm, setShowRunConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const nameBeforeEditRef = useRef<string>(state.configState.name);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditingName) {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+    }
+  }, [isEditingName]);
+
+  function startNameEdit() {
+    nameBeforeEditRef.current = state.configState.name;
+    setIsEditingName(true);
+  }
+
+  function commitName() {
+    const trimmed = state.configState.name.trim();
+    if (!trimmed) {
+      state.updateConfigField("name", nameBeforeEditRef.current);
+    } else if (trimmed !== state.configState.name) {
+      state.updateConfigField("name", trimmed);
+    }
+    setIsEditingName(false);
+  }
+
+  function cancelNameEdit() {
+    state.updateConfigField("name", nameBeforeEditRef.current);
+    setIsEditingName(false);
+  }
 
   // Sync URL tab with drawer state so lazy-loading effects trigger correctly
   useEffect(() => {
@@ -183,9 +215,39 @@ export function TileDetailPage({ tile, mosaicId }: TileDetailPageProps) {
               />
             </div>
             <div className="flex items-baseline gap-2 min-w-0">
-              <h1 className="text-lg font-semibold truncate">
-                {state.configState.name}
-              </h1>
+              {isEditingName ? (
+                <Input
+                  ref={nameInputRef}
+                  value={state.configState.name}
+                  onChange={(e) =>
+                    state.updateConfigField("name", e.target.value)
+                  }
+                  onBlur={commitName}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitName();
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      cancelNameEdit();
+                    }
+                  }}
+                  className="h-8 text-lg font-semibold px-2 py-0"
+                  aria-label="Tile name"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={startNameEdit}
+                  className="group flex items-center gap-1.5 min-w-0 rounded px-1 -mx-1 hover:bg-muted/50 transition-colors"
+                  title="Edit name"
+                >
+                  <h1 className="text-lg font-semibold truncate">
+                    {state.configState.name}
+                  </h1>
+                  <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              )}
               <span className="shrink-0 text-xs text-muted-foreground">
                 {TILE_TYPE_LABELS[tile.tile_type]}
                 {" · "}
