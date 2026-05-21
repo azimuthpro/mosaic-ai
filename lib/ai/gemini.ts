@@ -97,7 +97,7 @@ Here is the content to analyze:
 ${combinedContent}`;
 
     const { text, usage, finishReason } = await generateText({
-      model: proModel,
+      model: flashModel,
       prompt: fullPrompt,
     });
 

@@ -2,7 +2,7 @@ import { type GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { stepCountIs, streamText } from "ai";
 import { type Chat, type Message, type Thread, toAiMessages } from "chat";
 
-import { proModel } from "@/lib/ai/models";
+import { flashModel } from "@/lib/ai/models";
 
 import { resolveSlackUser } from "./data";
 import { type getBotAndAdapter } from "./index";
@@ -108,7 +108,7 @@ async function answerQuestion(
   });
 
   const result = streamText({
-    model: proModel,
+    model: flashModel,
     system: SYSTEM_PROMPT,
     messages: history,
     tools,
