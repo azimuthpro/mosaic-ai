@@ -63,8 +63,9 @@ export async function executeOfferSender(
   // Inputs are passed as the analyzeContent scrapedContent array so the
   // existing prompt structure renders them under the "content to analyze" heading.
   const inputs: string[] = [];
-  if (comment?.trim()) {
-    inputs.push(`# USER INSTRUCTION\n${comment.trim()}`);
+  const cleanedComment = comment ? normalizeSlackEmailLinks(comment) : null;
+  if (cleanedComment?.trim()) {
+    inputs.push(`# USER INSTRUCTION\n${cleanedComment.trim()}`);
   }
   fetchedContent.forEach((c, i) => {
     inputs.push(`# CONNECTION ${i + 1}\n${c}`);
@@ -87,8 +88,13 @@ export async function executeOfferSender(
 
   const parsed = parseOfferDraft(analysis.content);
   if (!parsed) {
+    const missing = describeMissingFields(analysis.content);
+    console.error("[offer-sender] AI output missing required fields:", {
+      missing,
+      rawText: analysis.rawText?.slice(0, 2000),
+    });
     throw new Error(
-      "AI response did not contain a valid offer draft (recipient_email, subject, personalized_html, plain_text required)",
+      `AI response did not contain a valid offer draft (missing: ${missing}). Check the tile's HTML template size — large templates can truncate the JSON output.`,
     );
   }
   if (!EMAIL_REGEX.test(parsed.recipient_email)) {
@@ -150,6 +156,40 @@ function parseOfferDraft(content: Json): ParsedOfferDraft | null {
     plain_text: str("plain_text") || stripHtml(personalized_html),
     modification_notes: modification_notes || undefined,
   };
+}
+
+/**
+ * Slack renders email addresses as `<mailto:foo@bar.com|foo@bar.com>`. The
+ * chat-sdk's text extraction strips the angle brackets but leaves the
+ * `mailto:foo@bar.com|foo@bar.com` payload, which can confuse the AI when
+ * it tries to extract a plain email. Collapse these to bare addresses.
+ */
+function normalizeSlackEmailLinks(text: string): string {
+  return text
+    .replace(/<mailto:([^|<>\s]+)(?:\|[^<>]+)?>/g, "$1")
+    .replace(/\bmailto:([^\s|<>]+)\|[^\s<>]+/g, "$1")
+    .replace(/\bmailto:([^\s|<>]+)/g, "$1");
+}
+
+/**
+ * Returns a comma-separated list of required fields missing from the AI's
+ * JSON output, for clearer error messages and debugging.
+ */
+function describeMissingFields(content: Json): string {
+  if (!content || typeof content !== "object" || Array.isArray(content)) {
+    return "entire JSON object";
+  }
+  const obj = content as Record<string, Json>;
+  const required = [
+    "recipient_email",
+    "subject",
+    "personalized_html",
+    "plain_text",
+  ];
+  const missing = required.filter(
+    (k) => typeof obj[k] !== "string" || !(obj[k] as string).trim(),
+  );
+  return missing.length > 0 ? missing.join(", ") : "unknown";
 }
 
 function stripHtml(html: string): string {
