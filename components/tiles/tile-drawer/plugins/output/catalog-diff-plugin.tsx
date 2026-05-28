@@ -16,10 +16,13 @@ import type { CatalogDiff, CatalogDiffPayload } from "@/types/database";
 import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
 import type { PluginBaseProps } from "../../types";
 import { PluginCard } from "../plugin-card";
+import { CatalogPager } from "./catalog-pager";
 
 interface CatalogDiffPluginProps extends PluginBaseProps {
   state: TileDrawerState;
 }
+
+const PAGE_SIZE = 20;
 
 type DiffEntry = CatalogDiffPayload["added_entries"][number];
 type DiffUpdate = CatalogDiffPayload["updated_entries"][number];
@@ -33,16 +36,21 @@ export function CatalogDiffPlugin({
   const { pluginState, updatePluginState } = state;
 
   const [diffs, setDiffs] = useState<CatalogDiff[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
   const [expandedDiffId, setExpandedDiffId] = useState<string | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
-    getCatalogDiffs(tile.id, 20).then((data) => {
-      setDiffs(data);
+    getCatalogDiffs(tile.id, { page, pageSize: PAGE_SIZE }).then((result) => {
+      setDiffs(result.diffs);
+      setTotal(result.total);
       setIsLoading(false);
     });
-  }, [tile.id]);
+  }, [tile.id, page]);
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <PluginCard
@@ -54,8 +62,8 @@ export function CatalogDiffPlugin({
       collapsed={pluginState["catalog-diffs"] ?? true}
       onCollapsedChange={(c) => updatePluginState("catalog-diffs", c)}
       badge={{
-        text: `${diffs.length} runs`,
-        variant: diffs.length > 0 ? "secondary" : "outline",
+        text: `${total} runs`,
+        variant: total > 0 ? "secondary" : "outline",
       }}
       disabled={disabled}
     >
@@ -114,8 +122,8 @@ export function CatalogDiffPlugin({
                         </Badge>
                       )}
                       {!hasChanges && (
-                        <span className="text-xs text-muted-foreground">
-                          No changes
+                        <span className="text-xs text-muted-foreground truncate">
+                          {diff.summary || "No changes"}
                         </span>
                       )}
                     </div>
@@ -170,7 +178,7 @@ export function CatalogDiffPlugin({
                               className="flex items-center gap-2 text-sm"
                             >
                               <Badge className="text-xs bg-amber-500/20 text-amber-400">
-                                {e.id.substring(0, 8)}...
+                                {e.id.slice(0, 8)}...
                               </Badge>
                               <span className="text-xs text-muted-foreground">
                                 {e.changed_fields.join(", ")}
@@ -214,6 +222,15 @@ export function CatalogDiffPlugin({
           })}
         </div>
       )}
+
+      <CatalogPager
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        label="runs"
+        onPrev={() => setPage((p) => Math.max(1, p - 1))}
+        onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+      />
     </PluginCard>
   );
 }

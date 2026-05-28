@@ -26,8 +26,7 @@ import {
   deleteCatalogEntry,
   getCatalogEntries,
   getCatalogEntryEvents,
-  getCatalogSchemaFields,
-  getCatalogStats,
+  getCatalogSchema,
 } from "@/lib/actions/catalog";
 import { formatRelativeTime } from "@/lib/utils/format";
 import type { CatalogEntryEvent, CatalogField } from "@/types/database";
@@ -35,10 +34,15 @@ import type { CatalogEntryEvent, CatalogField } from "@/types/database";
 import type { TileDrawerState } from "../../hooks/use-tile-drawer-state";
 import type { PluginBaseProps } from "../../types";
 import { PluginCard } from "../plugin-card";
+import { CatalogPager } from "./catalog-pager";
 
 interface CatalogBrowserPluginProps extends PluginBaseProps {
   state: TileDrawerState;
 }
+
+const PAGE_SIZE = 20;
+const EVENT_PAGE_SIZE = 10;
+const URL_DISPLAY_MAX = 40;
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
   funding: "bg-green-500/20 text-green-400",
@@ -66,38 +70,36 @@ export function CatalogBrowserPlugin({
   const [sortField, setSortField] = useState("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [fields, setFields] = useState<CatalogField[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [entityType, setEntityType] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [entryEvents, setEntryEvents] = useState<CatalogEntryEvent[]>([]);
+  const [eventPage, setEventPage] = useState(1);
+  const [eventTotal, setEventTotal] = useState(0);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [stats, setStats] = useState<{
-    totalEntries: number;
-    entityType: string | null;
-  }>({ totalEntries: 0, entityType: null });
 
-  const pageSize = 20;
-
-  // Debounce search
+  // Debounce search and reset to first page atomically
   useEffect(() => {
     const timer = setTimeout(() => setSearchDebounced(search), 300);
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Load fields and stats on mount
+  // Load schema (fields + entity type) on mount
   useEffect(() => {
-    getCatalogSchemaFields(tile.id).then(setFields);
-    getCatalogStats(tile.id).then((s) =>
-      setStats({ totalEntries: s.totalEntries, entityType: s.entityType }),
-    );
+    getCatalogSchema(tile.id).then((schema) => {
+      if (!schema) return;
+      setFields((schema.fields as unknown as CatalogField[]) ?? []);
+      setEntityType(schema.entity_type ?? null);
+    });
   }, [tile.id]);
 
-  // Load entries
+  // Load entries — single source of truth for the count
   const loadEntries = useCallback(async () => {
     setIsLoading(true);
     const result = await getCatalogEntries(tile.id, {
       page,
-      pageSize,
+      pageSize: PAGE_SIZE,
       search: searchDebounced || undefined,
       sortField: sortField || undefined,
       sortDir,
@@ -105,26 +107,45 @@ export function CatalogBrowserPlugin({
     setEntries(result.entries);
     setTotal(result.total);
     setIsLoading(false);
-  }, [tile.id, page, pageSize, searchDebounced, sortField, sortDir]);
+  }, [tile.id, page, searchDebounced, sortField, sortDir]);
 
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
 
-  // Reset page on search change
-  useEffect(() => {
-    setPage(1);
-  }, [searchDebounced]);
-
-  // Load events when entry is expanded
+  // Load events for the expanded entry (paginated)
   useEffect(() => {
     if (!expandedEntryId) return;
     setIsLoadingEvents(true);
-    getCatalogEntryEvents(expandedEntryId, { pageSize: 50 }).then((result) => {
+    getCatalogEntryEvents(expandedEntryId, {
+      page: eventPage,
+      pageSize: EVENT_PAGE_SIZE,
+    }).then((result) => {
       setEntryEvents(result.events);
+      setEventTotal(result.total);
       setIsLoadingEvents(false);
     });
-  }, [expandedEntryId]);
+  }, [expandedEntryId, eventPage]);
+
+  const toggleEntry = (entryId: string, isExpanded: boolean) => {
+    setExpandedEntryId(isExpanded ? null : entryId);
+    setEventPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const handleSortFieldChange = (value: string) => {
+    setSortField(value === "__recent__" ? "" : value);
+    setPage(1);
+  };
+
+  const handleSortDirToggle = () => {
+    setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    setPage(1);
+  };
 
   const handleDelete = async (entryId: string) => {
     if (!confirm("Delete this entity and all its events?")) return;
@@ -132,15 +153,22 @@ export function CatalogBrowserPlugin({
     const result = await deleteCatalogEntry(entryId);
     if (result.error) {
       alert(result.error);
+      setDeletingId(null);
+      return;
+    }
+    if (expandedEntryId === entryId) setExpandedEntryId(null);
+    // Step back if this emptied a non-first page; otherwise refetch to
+    // backfill from the next page and refresh the authoritative total.
+    if (entries.length === 1 && page > 1) {
+      setPage((p) => p - 1);
     } else {
-      setEntries((prev) => prev.filter((e) => e.id !== entryId));
-      setTotal((prev) => prev - 1);
-      if (expandedEntryId === entryId) setExpandedEntryId(null);
+      await loadEntries();
     }
     setDeletingId(null);
   };
 
-  const totalPages = Math.ceil(total / pageSize);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const eventTotalPages = Math.ceil(eventTotal / EVENT_PAGE_SIZE);
   const keyField = fields.find((f) => f.is_key);
 
   return (
@@ -148,17 +176,15 @@ export function CatalogBrowserPlugin({
       id="catalog-browser"
       title="Entity Catalog"
       description={
-        stats.entityType
-          ? `${stats.entityType} entities`
-          : "Browse catalog entries"
+        entityType ? `${entityType} entities` : "Browse catalog entries"
       }
       icon={<Database className="h-4 w-4 text-green-400" />}
       section="output"
       collapsed={pluginState["catalog-browser"] ?? false}
       onCollapsedChange={(c) => updatePluginState("catalog-browser", c)}
       badge={{
-        text: `${stats.totalEntries} entities`,
-        variant: stats.totalEntries > 0 ? "secondary" : "outline",
+        text: `${total} entities`,
+        variant: total > 0 ? "secondary" : "outline",
       }}
       disabled={disabled}
     >
@@ -169,14 +195,14 @@ export function CatalogBrowserPlugin({
           <Input
             placeholder="Search entities..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-9 h-9"
           />
         </div>
         {fields.length > 0 && (
           <Select
             value={sortField || "__recent__"}
-            onValueChange={(v) => setSortField(v === "__recent__" ? "" : v)}
+            onValueChange={handleSortFieldChange}
           >
             <SelectTrigger className="w-[140px] h-9">
               <SelectValue placeholder="Sort by..." />
@@ -195,7 +221,7 @@ export function CatalogBrowserPlugin({
           variant="ghost"
           size="sm"
           className="h-9 px-2"
-          onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+          onClick={handleSortDirToggle}
         >
           {sortDir === "asc" ? "A-Z" : "Z-A"}
         </Button>
@@ -208,7 +234,7 @@ export function CatalogBrowserPlugin({
         </div>
       ) : entries.length === 0 ? (
         <div className="py-8 text-center text-muted-foreground">
-          {search
+          {searchDebounced
             ? "No matching entities found."
             : "No entities yet. Run the tile to populate the catalog."}
         </div>
@@ -232,9 +258,7 @@ export function CatalogBrowserPlugin({
               >
                 {/* Entry Header */}
                 <button
-                  onClick={() =>
-                    setExpandedEntryId(isExpanded ? null : entry.id)
-                  }
+                  onClick={() => toggleEntry(entry.id, isExpanded)}
                   className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
                 >
                   {isExpanded ? (
@@ -261,28 +285,38 @@ export function CatalogBrowserPlugin({
                 {isExpanded && (
                   <div className="border-t border-border px-4 py-4 space-y-4">
                     {/* Entity Fields */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-3">
                       {fields.map((field) => {
                         const value = data[field.name];
                         if (value === undefined || value === null) return null;
+                        const str = String(value);
                         return (
                           <div key={field.name}>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground mb-0.5">
                               {field.name}
+                              {field.is_key && (
+                                <span className="ml-1 text-[10px] uppercase tracking-wide text-green-400">
+                                  key
+                                </span>
+                              )}
                             </p>
-                            <p className="text-sm break-all">
+                            <p
+                              className={`text-sm break-words ${field.is_key ? "font-medium text-foreground" : ""}`}
+                            >
                               {field.type === "url" ? (
                                 <a
-                                  href={String(value)}
+                                  href={str}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-cyan-400 hover:underline inline-flex items-center gap-1"
                                 >
-                                  {String(value).substring(0, 40)}...
-                                  <ExternalLink className="h-3 w-3" />
+                                  {str.length > URL_DISPLAY_MAX
+                                    ? `${str.slice(0, URL_DISPLAY_MAX)}…`
+                                    : str}
+                                  <ExternalLink className="h-3 w-3 shrink-0" />
                                 </a>
                               ) : (
-                                String(value)
+                                str
                               )}
                             </p>
                           </div>
@@ -340,6 +374,18 @@ export function CatalogBrowserPlugin({
                             </div>
                           ))}
                         </div>
+                        <CatalogPager
+                          page={eventPage}
+                          totalPages={eventTotalPages}
+                          total={eventTotal}
+                          label="events"
+                          onPrev={() => setEventPage((p) => Math.max(1, p - 1))}
+                          onNext={() =>
+                            setEventPage((p) =>
+                              Math.min(eventTotalPages, p + 1),
+                            )
+                          }
+                        />
                       </div>
                     ) : null}
 
@@ -369,31 +415,14 @@ export function CatalogBrowserPlugin({
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-          <p className="text-xs text-muted-foreground">
-            Page {page} of {totalPages} ({total} total)
-          </p>
-          <div className="flex gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
-              Prev
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+      <CatalogPager
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        label="entities"
+        onPrev={() => setPage((p) => Math.max(1, p - 1))}
+        onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+      />
     </PluginCard>
   );
 }

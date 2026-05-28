@@ -176,18 +176,23 @@ export async function deleteCatalogEntry(
 
 export async function getCatalogDiffs(
   tileId: string,
-  limit: number = 10,
-): Promise<CatalogDiff[]> {
+  options: { page?: number; pageSize?: number } = {},
+): Promise<{ diffs: CatalogDiff[]; total: number }> {
+  const { page = 1, pageSize = 20 } = options;
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const from = (page - 1) * pageSize;
+  const { data, count } = await supabase
     .from("catalog_diffs")
-    .select("*")
+    .select("*", { count: "exact" })
     .eq("tile_id", tileId)
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(from, from + pageSize - 1);
 
-  return (data || []) as CatalogDiff[];
+  return {
+    diffs: (data || []) as CatalogDiff[],
+    total: count || 0,
+  };
 }
 
 export async function getCatalogStats(tileId: string): Promise<CatalogStats> {
