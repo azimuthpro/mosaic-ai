@@ -159,7 +159,7 @@ interface CreateTileParams {
   outputFormat?: OutputFormat;
   outputSchema?: string;
   language?: LanguageCode;
-  scheduleCron?: string;
+  scheduleCron?: string | null;
   triggerOnSourceUpdate?: boolean;
   sources?: {
     url?: string;

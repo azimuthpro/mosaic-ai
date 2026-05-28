@@ -359,7 +359,7 @@ export function useTileDrawerState({
       await updateTile(tile.id, {
         name: configState.name,
         systemPrompt: configState.instructions,
-        scheduleCron: configState.scheduleCron ?? undefined,
+        scheduleCron: configState.scheduleCron,
         triggerOnSourceUpdate: configState.triggerOnSourceUpdate,
         outputFormat: configState.outputFormat,
         outputSchema:
