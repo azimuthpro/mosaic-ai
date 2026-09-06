@@ -21,7 +21,7 @@ bun run lint     # Run ESLint
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS v4 (via `@tailwindcss/postcss`, no tailwind.config file)
 - **Auth & Database**: Supabase (PostgreSQL with RLS, Magic Link auth)
-- **AI**: Vercel AI SDK v6 routed through the Vercel AI Gateway (`google/gemini-3.8-flash`, `google/gemini-embedding-2`)
+- **AI**: Vercel AI SDK v7 routed through the Vercel AI Gateway (`google/gemini-3.8-flash`, `google/gemini-embedding-2`)
 - **Chat Bot**: Chat SDK (`chat` package) with `@chat-adapter/slack` for Slack bot
 - **Web Scraping**: Firecrawl v4 (also used for URL validation)
 - **Web Search**: Tavily API

@@ -30,7 +30,7 @@ Automated intelligence gathering and analysis platform. Create visual workspaces
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS v4
 - **Auth & Database**: Supabase (PostgreSQL with RLS, Magic Link auth)
-- **AI**: Vercel AI SDK v6 routed through the Vercel AI Gateway (`google/gemini-3.8-flash`, `google/gemini-embedding-2`)
+- **AI**: Vercel AI SDK v7 routed through the Vercel AI Gateway (`google/gemini-3.8-flash`, `google/gemini-embedding-2`)
 - **Chat Bot**: Chat SDK (`chat` package) with `@chat-adapter/slack`
 - **Web Scraping**: Firecrawl v4
 - **Web Search**: Tavily API
