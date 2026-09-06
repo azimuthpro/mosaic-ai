@@ -4,7 +4,7 @@ Set up a local Mosaic AI development environment.
 
 ## Prerequisites
 
-- Node.js 20+ and npm
+- [Bun](https://bun.sh) 1.2+ (package manager and script runner)
 - A Supabase project (free tier is fine)
 - API keys for the services you want to enable (see [Environment Variables](#environment-variables))
 
@@ -13,7 +13,7 @@ Set up a local Mosaic AI development environment.
 ```bash
 git clone <repo-url>
 cd mosaic-ai
-npm install
+bun install
 ```
 
 ## 2. Configure environment
@@ -50,8 +50,8 @@ GitHub and Google OAuth credentials are configured per [Integrations](integratio
 The schema lives in `supabase/migrations/` as numbered SQL files.
 
 ```bash
-npx supabase link --project-ref <your-project-ref>
-npx supabase db push
+bunx supabase link --project-ref <your-project-ref>
+bunx supabase db push
 ```
 
 Migrations include the schema, RLS policies, RPC functions for atomic rate limiting, and pgvector extension for the tile router.
@@ -67,7 +67,7 @@ insert into allowlist (email) values ('you@example.com');
 ## 5. Run the dev server
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 Open http://localhost:3000 and sign in via magic link.
@@ -75,10 +75,10 @@ Open http://localhost:3000 and sign in via magic link.
 ## Scripts
 
 ```bash
-npm run dev      # Next dev server on :3000
-npm run build    # Production build
-npm run start    # Production server (after build)
-npm run lint     # ESLint
+bun run dev      # Next dev server on :3000
+bun run build    # Production build
+bun run start    # Production server (after build)
+bun run lint     # ESLint
 ```
 
 ## Cron

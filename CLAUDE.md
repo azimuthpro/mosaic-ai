@@ -9,10 +9,10 @@ Mosaic AI is an automated intelligence gathering and analysis platform. Users cr
 ## Development Commands
 
 ```bash
-npm run dev      # Start development server (http://localhost:3000)
-npm run build    # Production build
-npm run start    # Start production server
-npm run lint     # Run ESLint
+bun run dev      # Start development server (http://localhost:3000)
+bun run build    # Production build
+bun run start    # Start production server
+bun run lint     # Run ESLint
 ```
 
 ## Tech Stack

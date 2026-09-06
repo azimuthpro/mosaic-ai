@@ -43,17 +43,17 @@ Automated intelligence gathering and analysis platform. Create visual workspaces
 ## Getting Started
 
 ```bash
-npm install
-npm run dev      # http://localhost:3000
+bun install
+bun run dev      # http://localhost:3000
 ```
 
 ## Scripts
 
 ```bash
-npm run dev      # Start development server
-npm run build    # Production build
-npm run start    # Start production server
-npm run lint     # Run ESLint
+bun run dev      # Start development server
+bun run build    # Production build
+bun run start    # Start production server
+bun run lint     # Run ESLint
 ```
 
 ## Documentation
