@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Mosaic AI is an automated intelligence gathering and analysis platform. Users create **Mosaics** (workspaces) containing visual **Tiles** that periodically scrape web pages using Firecrawl, perform web searches via Tavily, read Slack channels, and process data with AI (Google Gemini). Results are stored in a database with optional Slack output and Google Sheets integration.
+Mosaic AI is an automated intelligence gathering and analysis platform. Users create **Mosaics** (workspaces) containing visual **Tiles** that periodically scrape web pages using Firecrawl, perform web searches via Tavily, read Slack channels, and process data with AI (Gemini Flash via the Vercel AI Gateway). Results are stored in a database with optional Slack output and Google Sheets integration.
 
 ## Development Commands
 
@@ -21,7 +21,7 @@ bun run lint     # Run ESLint
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS v4 (via `@tailwindcss/postcss`, no tailwind.config file)
 - **Auth & Database**: Supabase (PostgreSQL with RLS, Magic Link auth)
-- **AI**: Vercel AI SDK v6 with Google Gemini (Flash and Pro)
+- **AI**: Vercel AI SDK v6 routed through the Vercel AI Gateway (`google/gemini-3.8-flash`, `google/gemini-embedding-2`)
 - **Chat Bot**: Chat SDK (`chat` package) with `@chat-adapter/slack` for Slack bot
 - **Web Scraping**: Firecrawl v4 (also used for URL validation)
 - **Web Search**: Tavily API
@@ -134,8 +134,8 @@ bun run lint     # Run ESLint
 - `lib/catalog/execute-catalog.ts` - Catalog tile execution logic
 - `lib/execution/context.ts` - Execution context management
 - `lib/execution/timeout.ts` - Execution timeout handling
-- `lib/ai/models.ts` - Centralized Gemini model exports (pro, flash, embedding)
-- `lib/ai/gemini.ts` - Gemini content analysis (text and structured output)
+- `lib/ai/models.ts` - Centralized AI Gateway model IDs (flash, embedding)
+- `lib/ai/gemini.ts` - Content analysis (text and structured output)
 - `lib/ai/date-grounding.ts` - Date/weekday/time grounding for AI prompts
 - `lib/search/tavily.ts` - Tavily web search client
 - `lib/slack/verify-signature.ts` - Slack request signature verification
@@ -242,7 +242,7 @@ Uses Supabase Magic Link authentication:
 ## Security Notes
 
 - Row Level Security (RLS) enabled on all Supabase tables
-- API keys (Firecrawl, Google AI, Tavily, SendGrid) stored in Vercel environment variables (server-side only)
+- API keys (Firecrawl, Tavily, SendGrid) stored in Vercel environment variables (server-side only); model calls authenticate to the AI Gateway via `VERCEL_OIDC_TOKEN` or `AI_GATEWAY_API_KEY`
 - OAuth tokens (Slack, GitHub, Google) stored securely in Supabase
 - Tile connections checked for circular dependencies
 - Rate limiting on execution (per-user hourly and concurrent limits)

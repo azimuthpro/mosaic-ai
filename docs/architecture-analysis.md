@@ -57,7 +57,7 @@ The Tile is the atomic unit of computation, configuration, and composition. Ever
 | System | Integration Point | Protocol |
 |--------|-------------------|----------|
 | **Supabase** | Database, Auth, RLS, RPC functions | PostgreSQL, REST |
-| **Google Gemini** | Content analysis, entity extraction, prompt improvement | Vercel AI SDK |
+| **Vercel AI Gateway** (Gemini Flash) | Content analysis, entity extraction, prompt improvement | Vercel AI SDK |
 | **Tavily** | Web search, URL extraction, content scraping | REST API |
 | **Firecrawl** | Legacy web scraping | REST API |
 | **Slack** | Channel reading, message posting, OAuth, Events API, bot | REST + WebSocket |
@@ -301,10 +301,10 @@ Trigger (Cron / Manual / API / Bot / Cascade)
 | **Verb** | Analyzes, classifies, structures |
 | **Noun** | Fetched content → structured intelligence reports |
 | **Adjective** | Configurable, multilingual, format-aware |
-| **Tech** | Vercel AI SDK, Google Gemini Pro, Zod schema validation |
+| **Tech** | Vercel AI SDK via AI Gateway, Gemini Flash, Zod schema validation |
 | **Input** | Content array, system prompt, output format, language, optional schema |
 | **Output** | AnalysisResult { content (JSON/text), debug info, token usage } |
-| **Dependencies** | Vercel AI SDK, Gemini model config |
+| **Dependencies** | Vercel AI SDK, AI Gateway model config |
 | **Context** | Core processing step for standard tiles (url_reader, web_search, analyzer) |
 | **Problem** | Raw fetched content must be transformed into actionable, structured intelligence per user instructions |
 | **Reuse** | Any LLM-powered content analysis pipeline with configurable output formats |
@@ -397,7 +397,7 @@ Trigger (Cron / Manual / API / Bot / Cascade)
 | **Verb** | Embeds, searches, reasons, selects |
 | **Noun** | Natural language queries → best-matching tiles |
 | **Adjective** | Semantic, LLM-augmented, vector-indexed |
-| **Tech** | Google Embeddings, pgvector, Gemini reasoning |
+| **Tech** | Gemini embeddings via AI Gateway, pgvector, Gemini reasoning |
 | **Input** | User query, mosaic context |
 | **Output** | RouterResult { selected_tiles with justification and confidence } |
 | **Dependencies** | tile_embeddings table, Gemini, Supabase |

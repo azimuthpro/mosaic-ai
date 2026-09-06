@@ -18,7 +18,7 @@ Automated intelligence gathering and analysis platform. Create visual workspaces
 - **Team Sharing**: Role-based access (owner/admin/member) with email invitations
 - **Skills Library**: Built-in skill templates per tile type, plus user-created custom skills
 - **AI Prompt Editor**: Describe what you want in plain language — AI generates a production-ready prompt for your tiles
-- **AI Processing**: Google Gemini (Flash and Pro) — text or structured JSON output with optional Zod schema, grounded in current date/time
+- **AI Processing**: Gemini Flash via the Vercel AI Gateway — text or structured JSON output with optional Zod schema, grounded in current date/time
 - **Multi-Language Output**: English, Polish, Spanish, Italian, German
 - **Memory Mode**: Source-level historical context from the last 30 days
 - **Rate Limiting**: Per-user hourly and concurrent execution limits
@@ -30,7 +30,7 @@ Automated intelligence gathering and analysis platform. Create visual workspaces
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS v4
 - **Auth & Database**: Supabase (PostgreSQL with RLS, Magic Link auth)
-- **AI**: Vercel AI SDK v6 with Google Gemini (Flash and Pro)
+- **AI**: Vercel AI SDK v6 routed through the Vercel AI Gateway (`google/gemini-3.8-flash`, `google/gemini-embedding-2`)
 - **Chat Bot**: Chat SDK (`chat` package) with `@chat-adapter/slack`
 - **Web Scraping**: Firecrawl v4
 - **Web Search**: Tavily API

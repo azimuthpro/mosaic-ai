@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 
 import { formatDateGrounding } from "@/lib/ai/date-grounding";
-import { flashModel, proModel } from "@/lib/ai/models";
+import { flashModel } from "@/lib/ai/models";
 import { getLanguageInstruction } from "@/lib/constants/languages";
 import type { Json, LanguageCode, OutputFormat } from "@/types/database";
 
@@ -111,7 +111,7 @@ ${combinedContent}`;
       rawText: text,
       debugInfo: {
         fullPrompt,
-        modelId: "gemini-flash-latest",
+        modelId: flashModel,
         promptTokens,
         completionTokens,
         totalTokens: promptTokens + completionTokens,
@@ -129,7 +129,7 @@ ${combinedContent}`;
 }
 
 /**
- * Produces a 1–2 sentence plain-text summary of content using gemini-flash-latest.
+ * Produces a 1–2 sentence plain-text summary of content using the flash model.
  * Returns null on error so callers can fall back to posting the full content.
  */
 export async function summarizeContent(

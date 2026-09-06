@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.78",
     "@chat-adapter/slack": "^4.29.0",
     "@chat-adapter/state-memory": "^4.29.0",
     "@dnd-kit/core": "^6.3.1",

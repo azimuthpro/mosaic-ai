@@ -31,17 +31,19 @@ cp env.local.example .env.local
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project settings → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase project settings → API (server-only) |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | https://aistudio.google.com/apikey |
 | `CRON_SECRET` | `openssl rand -hex 32` |
 
 ### Optional (per feature)
 
 | Variable | Used for |
 |----------|----------|
+| `AI_GATEWAY_API_KEY` | Model calls, when not running on Vercel — see below |
 | `FIRECRAWL_API_KEY` | `url_reader` scraping and URL validation |
 | `TAVILY_API_KEY` | `web_search` tiles, bot web search |
 | `SENDGRID_API_KEY` | Magic-link emails, invitations, `offer_sender` delivery |
 | `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` / `SLACK_SIGNING_SECRET` | Slack OAuth, bot, signature verification |
+
+All model calls (text generation and embeddings) go through the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway); no provider API key is needed. On Vercel, and locally after `vercel env pull .env.local`, auth uses the provisioned `VERCEL_OIDC_TOKEN` (valid ~24h locally — re-pull when it expires). Elsewhere, set `AI_GATEWAY_API_KEY` instead.
 
 GitHub and Google OAuth credentials are configured per [Integrations](integrations.md).
 

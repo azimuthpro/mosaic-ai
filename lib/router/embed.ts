@@ -2,17 +2,21 @@ import { embed, embedMany } from "ai";
 
 import { embeddingModel } from "@/lib/ai/models";
 
+/** Must match the `vector(768)` column that stores these embeddings. */
+const EMBEDDING_DIMENSIONS = 768;
+
+// Provider options are forwarded verbatim to Google by the AI Gateway.
 const GOOGLE_DOC_OPTIONS = {
   google: {
-    outputDimensionality: 768,
-    taskType: "RETRIEVAL_DOCUMENT" as const,
+    outputDimensionality: EMBEDDING_DIMENSIONS,
+    taskType: "RETRIEVAL_DOCUMENT",
   },
 };
 
 const GOOGLE_QUERY_OPTIONS = {
   google: {
-    outputDimensionality: 768,
-    taskType: "RETRIEVAL_QUERY" as const,
+    outputDimensionality: EMBEDDING_DIMENSIONS,
+    taskType: "RETRIEVAL_QUERY",
   },
 };
 

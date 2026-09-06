@@ -1,6 +1,6 @@
 # Mosaic AI Documentation
 
-Automated intelligence gathering and analysis platform. Users assemble **Tiles** on a visual **Mosaic** canvas; tiles fetch from the web, search engines, Slack, GitHub, or upstream tiles, process the content with Gemini, and deliver results to Slack, webhooks, Google Sheets, or downstream tiles.
+Automated intelligence gathering and analysis platform. Users assemble **Tiles** on a visual **Mosaic** canvas; tiles fetch from the web, search engines, Slack, GitHub, or upstream tiles, process the content with Gemini Flash, and deliver results to Slack, webhooks, Google Sheets, or downstream tiles.
 
 ## Start here
 
@@ -22,7 +22,7 @@ app/                Next.js App Router (routes, API, pages)
 components/         React components (UI, mosaic, tiles, slack, github)
 lib/                Domain logic
   actions/          Server actions (CRUD)
-  ai/               Gemini configuration and analysis
+  ai/               AI Gateway model configuration and analysis
   bot/              Slack bot (Chat SDK)
   catalog/          Catalog tile execution
   email/            SendGrid + offer_sender flow

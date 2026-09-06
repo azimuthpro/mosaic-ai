@@ -1,4 +1,3 @@
-import { type GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { stepCountIs, streamText } from "ai";
 import { type Chat, type Message, type Thread, toAiMessages } from "chat";
 
@@ -117,13 +116,14 @@ async function answerQuestion(
     system: SYSTEM_PROMPT,
     messages: history,
     tools,
+    // Forwarded verbatim to Google by the AI Gateway.
     providerOptions: {
       google: {
         thinkingConfig: {
           thinkingBudget: 4096,
           includeThoughts: false,
         },
-      } satisfies GoogleLanguageModelOptions,
+      },
     },
     stopWhen: stepCountIs(6),
     onStepFinish: (event) => {

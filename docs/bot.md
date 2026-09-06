@@ -1,6 +1,6 @@
 # Mosaic AI Bot
 
-Mosaic AI includes a Slack bot powered by Google Gemini Pro. The bot helps users interact with their mosaics and tiles directly from Slack — listing workspaces, checking execution results, running tiles on demand, and searching the web.
+Mosaic AI includes a Slack bot powered by Gemini Flash via the Vercel AI Gateway. The bot helps users interact with their mosaics and tiles directly from Slack — listing workspaces, checking execution results, running tiles on demand, and searching the web.
 
 ## Capabilities
 
@@ -139,7 +139,7 @@ Built-in Google Search grounding via Gemini. Used alongside `web_search` for com
 1. A user mentions the bot in a channel, sends a DM, or replies in a thread the bot is following
 2. The bot adds reaction emojis to acknowledge the message
 3. The user's Slack email is matched to their Mosaic account
-4. The bot generates a response using Gemini Pro with access to all tools above
+4. The bot generates a response using Gemini Flash with access to all tools above
 5. The response is streamed back to the Slack thread in real time
 6. The bot subscribes to the thread for follow-up messages
 
