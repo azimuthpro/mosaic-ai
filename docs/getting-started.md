@@ -4,6 +4,7 @@ Set up a local Mosaic AI development environment.
 
 ## Prerequisites
 
+- Node.js 24 LTS (`.nvmrc` pins the version — `nvm use` picks it up)
 - [Bun](https://bun.sh) 1.2+ (package manager and script runner)
 - A Supabase project (free tier is fine)
 - API keys for the services you want to enable (see [Environment Variables](#environment-variables))

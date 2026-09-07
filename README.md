@@ -42,6 +42,8 @@ Automated intelligence gathering and analysis platform. Create visual workspaces
 
 ## Getting Started
 
+Requires Node.js 24 LTS (see `.nvmrc`) and Bun 1.2+.
+
 ```bash
 bun install
 bun run dev      # http://localhost:3000
