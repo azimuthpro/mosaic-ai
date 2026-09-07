@@ -107,7 +107,7 @@ Used by `catalog` tiles to sync entries and events to a Google Sheet. Sync is sc
 
 `https://www.googleapis.com/auth/spreadsheets` and `https://www.googleapis.com/auth/drive.file` (to create and write the sync sheet).
 
-The sheet is created on first sync; its ID is stored on `tiles.google_sheets_sheet_id`. The owning user is recorded so revoking that user's connection cleanly disables the sync.
+The sheet is created on first sync; its ID is stored on `tiles.sheets_spreadsheet_id` (alongside `sheets_sync_enabled`, `sheets_spreadsheet_url`, and `sheets_last_synced_at`). The enabling user is recorded on `tiles.sheets_owner_user_id` so revoking that user's connection cleanly disables the sync.
 
 ---
 
@@ -119,7 +119,7 @@ When a tile runs, the executor resolves the integration token through this chain
 tile.mosaic_id → mosaics.owner_id → user_integrations(provider, owner_id)
 ```
 
-This means the **mosaic owner's** integration is used, not the user who triggered the run. Multi-workspace Slack uses `provider_team_id` to pick the right token when the tile is bound to a specific Slack workspace.
+This means the **mosaic owner's** integration is used, not the user who triggered the run. Multi-workspace Slack uses `provider_team_id` to pick the right token when the tile is bound to a specific Slack workspace. Google Sheets sync is the exception: it prefers `tiles.sheets_owner_user_id` (the user who enabled sync) and only falls back to the mosaic owner.
 
 Implementations:
 - `lib/slack/integration.ts`

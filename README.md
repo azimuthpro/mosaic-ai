@@ -8,7 +8,7 @@ Automated intelligence gathering and analysis platform. Create visual workspaces
 - **Visual Canvas**: Drag-and-drop tiles on a spatial workspace with colors and patterns
 - **Tile Connections**: Build data pipelines by linking tiles — downstream tiles auto-trigger on updates (cascading execution)
 - **Scheduling**: Manual, hourly, or custom cron (specific hours/days), timezone-aware per mosaic
-- **Slack Bot**: Chat SDK-powered conversational bot with AI tools (run tiles, create GitHub issues, semantic search, web search grounding) over mentions and DMs
+- **Slack Bot**: Chat SDK-powered conversational bot with AI tools (run tiles, create GitHub issues, semantic search, Tavily web search) over mentions and DMs
 - **Slack Integration**: OAuth-based channel reading, result delivery (with AI thread summaries), and Events API. Multi-workspace support
 - **Google Sheets Sync**: OAuth-based catalog entry and event export to Google Sheets
 - **GitHub Integration**: OAuth-based issue creation with multi-repo support and runtime repo selection

@@ -22,7 +22,7 @@ The Tile is the atomic unit of computation, configuration, and composition. Ever
 
 | Domain | Scope |
 |--------|-------|
-| **Content Acquisition** | Web scraping (Tavily/Firecrawl), web search (Tavily), Slack channel reading, tile report fetching |
+| **Content Acquisition** | Web scraping (Firecrawl), web search (Tavily), Slack channel reading, tile report fetching |
 | **AI Analysis** | LLM-driven content analysis, entity/event extraction, keyword extraction, prompt composition |
 | **Execution Orchestration** | Job lifecycle, cascading triggers, execution context propagation, timeout/depth/cycle guards |
 | **Integration Management** | OAuth flows (Slack, GitHub), token resolution, multi-workspace support |
@@ -58,11 +58,11 @@ The Tile is the atomic unit of computation, configuration, and composition. Ever
 |--------|-------------------|----------|
 | **Supabase** | Database, Auth, RLS, RPC functions | PostgreSQL, REST |
 | **Vercel AI Gateway** (Gemini Flash) | Content analysis, entity extraction, prompt improvement | Vercel AI SDK |
-| **Tavily** | Web search, URL extraction, content scraping | REST API |
-| **Firecrawl** | Legacy web scraping | REST API |
+| **Tavily** | Web search | REST API |
+| **Firecrawl** | Web page scraping, URL validation | REST API |
 | **Slack** | Channel reading, message posting, OAuth, Events API, bot | REST + WebSocket |
 | **GitHub** | Issue creation, repo listing, OAuth | Octokit REST |
-| **SendGrid** | Invitation and magic link emails | REST API |
+| **SendGrid** | Invitation, magic link, and `offer_sender` emails | REST API |
 | **Vercel** | Hosting, cron jobs, serverless functions | Platform |
 | **Google Sheets** | Data append (optional output) | API |
 
@@ -92,7 +92,7 @@ The Tile is the atomic unit of computation, configuration, and composition. Ever
 │  Prompt Composition │ Output Format Parsing │ Schema Validation  │
 ├─────────────────────────────────────────────────────────────────┤
 │                     DATA ACQUISITION LAYER                      │
-│  Tile Content Fetcher │ Tavily Search/Extract │ Slack Client     │
+│  Tile Content Fetcher │ Firecrawl Scrape │ Tavily Search │ Slack │
 │  URL Extraction │ Keyword Extraction │ Connection Resolution    │
 ├─────────────────────────────────────────────────────────────────┤
 │                     INTEGRATION LAYER                           │
@@ -115,7 +115,7 @@ Trigger (Cron / Manual / API / Bot / Cascade)
   ├─► Create TileJob (status: pending → processing)
   │
   ├─► Content Fetching (parallel, 3 concurrent)
-  │   ├─ URL sources → Tavily Extract
+  │   ├─ URL sources → Firecrawl Scrape
   │   ├─ Search sources → Tavily Search
   │   ├─ Slack sources → Slack API
   │   └─ Connection sources → upstream TileJobResult
@@ -198,7 +198,7 @@ Trigger (Cron / Manual / API / Bot / Cascade)
 ┌─────────┴────────┐  ┌──────────────┴──────────┐  ┌────────────┴───────┐
 │  CONTENT FETCHER │  │   AI PROCESSING          │  │  OUTPUT DELIVERY   │
 │                  │  │                           │  │                    │
-│  URL → Tavily    │  │  Standard → Gemini       │  │  Slack → mrkdwn    │
+│  URL → Firecrawl │  │  Standard → Gemini       │  │  Slack → mrkdwn    │
 │  Search → Tavily │  │  Catalog → Entity/Event  │  │  Webhook → Retry   │
 │  Slack → API     │  │  GitHub → Issue Create   │  │  Sheets → Append   │
 │  Connection →    │  │  Router → Embed+Reason   │  │                    │
@@ -253,10 +253,10 @@ Trigger (Cron / Manual / API / Bot / Cascade)
 | **Verb** | Fetches, aggregates, truncates |
 | **Noun** | Web content, search results, Slack messages, upstream tile reports |
 | **Adjective** | Resilient, size-bounded, concurrent, type-polymorphic |
-| **Tech** | Tavily API, Slack API, Supabase queries, Promise concurrency |
+| **Tech** | Firecrawl API, Tavily API, Slack API, Supabase queries, Promise concurrency |
 | **Input** | TileSource[], TileConnection[], ExecutionContext |
 | **Output** | TileSourceContent[] (unified content envelope) |
-| **Dependencies** | Tavily client, Slack client, integration resolver, execution context |
+| **Dependencies** | Firecrawl client, Tavily client, Slack client, integration resolver, execution context |
 | **Context** | Called by all three execution entry points before AI analysis |
 | **Problem** | Heterogeneous data sources must be normalized into a uniform content stream for LLM consumption without exceeding memory/token budgets |
 | **Reuse** | Any system needing multi-source content aggregation with size and concurrency control |

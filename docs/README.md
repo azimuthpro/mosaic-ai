@@ -23,18 +23,27 @@ components/         React components (UI, mosaic, tiles, slack, github)
 lib/                Domain logic
   actions/          Server actions (CRUD)
   ai/               AI Gateway model configuration and analysis
+  api/              API key auth, SSE writer
+  auth/             Magic link actions, email allowlist
   bot/              Slack bot (Chat SDK)
   catalog/          Catalog tile execution
+  constants/        Tile types, languages, skill templates
   email/            SendGrid + offer_sender flow
   execution/        ExecutionContext, timeout guards
+  firecrawl/        Scrape client, URL metadata validation
   github/           OAuth, issue creation
   google/           OAuth, Sheets client
+  mosaics/          Access checks, timezone helpers
   outputs/          Slack and Sheets output delivery
   rate-limit/       Per-user limits
   router/           Vector search + LLM reasoning for tile routing
+  search/           Tavily web search client
   slack/            OAuth, client, signature verification
   sources/          Tile content fetcher
+  supabase/         Browser / server / admin clients
   tiles/            Connection extraction, cascade triggers
+  utils/            Shared formatting helpers
+  validation/       URL/SSRF validation
 supabase/migrations Numbered SQL migrations
 ```
 

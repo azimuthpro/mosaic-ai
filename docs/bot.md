@@ -7,11 +7,11 @@ Mosaic AI includes a Slack bot powered by Gemini Flash via the Vercel AI Gateway
 - **Mentions** — mention the bot in any channel to ask a question
 - **Direct messages** — DM the bot for a private conversation
 - **Thread follow-ups** — the bot subscribes to threads it participates in and responds to follow-up messages
-- **Agentic reasoning** — the bot can chain up to 15 tool-calling steps to answer complex questions
+- **Agentic reasoning** — the bot can chain up to 6 tool-calling steps to answer complex questions
 - **Extended thinking** — internal reasoning (4096 token budget) for better responses
 - **Streaming** — responses are streamed to Slack in real time (800ms update intervals)
 - **Multi-workspace** — supports multiple Slack workspaces, each with its own bot token
-- **Web search** — can search the web via both Google Search and Tavily for external information
+- **Web search** — can search the web via Tavily for external information
 
 ## Tools
 
@@ -125,12 +125,6 @@ Search the web using Tavily for detailed, structured results. Supports advanced 
 | `depth` | `"basic"` \| `"advanced"` | No | Search depth. Use `advanced` for thorough research. |
 
 **Returns:** Array of results with `title`, `url`, `content`, and `score`.
-
----
-
-### google_search
-
-Built-in Google Search grounding via Gemini. Used alongside `web_search` for comprehensive web research.
 
 ---
 

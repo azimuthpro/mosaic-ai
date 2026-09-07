@@ -47,7 +47,7 @@ bun run lint     # Run ESLint
   - `offer_sender`: AI personalizes an HTML email template using connected data, posts a draft to Slack for approval via Block Kit buttons, then sends via SendGrid. System skill: Professional Business Offer.
 - **Tile Connections**: Universal data flow links between tiles. Any tile type can receive connections, with type-specific extraction of data from connected tiles.
 - **Tile Router**: Vector-search + LLM-reasoning router that selects the right tile for a request (`lib/router/`).
-- **Slack Bot**: Chat SDK-powered conversational bot with AI tools (run tiles, create GitHub issues, semantic search, web search grounding). Responds to mentions and DMs (`lib/bot/`).
+- **Slack Bot**: Chat SDK-powered conversational bot with AI tools (run tiles, create GitHub issues, semantic search, Tavily web search). Responds to mentions and DMs (`lib/bot/`).
 - **Tile Sources**: Data inputs for tiles (URLs, search queries, or referenced tiles)
 - **Mosaic Sharing**: Role-based access control (owner/admin/member) at mosaic level
 
@@ -109,10 +109,10 @@ bun run lint     # Run ESLint
 - `catalog_entries` - Persistent entities tracked across executions
 - `catalog_entry_events` - Chronological events per entity
 - `catalog_diffs` - Change summary per execution (added/updated entries, new events)
-- `tiles.google_sheets_*` - Per-tile Google Sheets sync config (sheet ID, owner user, enabled flag)
+- `tiles.sheets_*` - Per-tile Google Sheets sync config (`sheets_sync_enabled`, `sheets_spreadsheet_id`, `sheets_spreadsheet_url`, `sheets_last_synced_at`, `sheets_owner_user_id`)
 
 **Router Tables:**
-- `tile_router_embeddings` - Vector embeddings per tile for semantic routing
+- `tile_embeddings` - Vector embeddings per tile for semantic routing
 
 ### Key Utilities
 
@@ -173,6 +173,7 @@ bun run lint     # Run ESLint
 - `/api/ai/improve-prompt` - AI-powered prompt improvement suggestions
 - `/api/cron/trigger` - Protected endpoint for scheduled job execution (hourly, respects mosaic timezone)
 - `/api/tiles/run` - Manual tile execution endpoint
+- `/api/tiles/[tileId]/jobs/[jobId]/send-offer` - Send or cancel an offer_sender draft from the UI
 - `/api/slack/channels` - List Slack channels for connected workspaces
 - `/api/auth/slack/connect` - Initiate Slack OAuth flow
 - `/api/auth/slack/callback` - Handle Slack OAuth callback

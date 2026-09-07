@@ -42,6 +42,10 @@ cp env.local.example .env.local
 | `TAVILY_API_KEY` | `web_search` tiles, bot web search |
 | `SENDGRID_API_KEY` | Magic-link emails, invitations, `offer_sender` delivery |
 | `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` / `SLACK_SIGNING_SECRET` | Slack OAuth, bot, signature verification |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | `github_issue` tiles |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Sheets sync from `catalog` tiles |
+| `NEXT_PUBLIC_APP_URL` | Base URL for Slack/GitHub/Google OAuth redirect URIs |
+| `NEXT_PUBLIC_SITE_URL` | Base URL used in magic-link and invitation emails |
 
 All model calls (text generation and embeddings) go through the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway); no provider API key is needed. On Vercel, and locally after `vercel env pull .env.local`, auth uses the provisioned `VERCEL_OIDC_TOKEN` (valid ~24h locally — re-pull when it expires). Elsewhere, set `AI_GATEWAY_API_KEY` instead.
 

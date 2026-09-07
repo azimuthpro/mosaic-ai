@@ -86,7 +86,7 @@ Webhooks deliver tile job events to external URLs with retries and a delivery au
 
 ### `POST /api/v1/router`
 
-Routes a natural-language query to the best-matching tile using vector search (`tile_router_embeddings`) plus LLM reasoning.
+Routes a natural-language query to the best-matching tile using vector search (`tile_embeddings`) plus LLM reasoning.
 
 ```json
 {
@@ -114,6 +114,7 @@ Not part of the V1 API contract, but useful to know:
 | `/api/slack/events` | Slack Events API. HMAC-verified. |
 | `/api/slack/interactivity` | Slack Block Kit actions (offer Approve/Cancel). HMAC-verified. |
 | `/api/ai/improve-prompt` | AI-powered prompt improvement (UI). |
+| `/api/tiles/[tileId]/jobs/[jobId]/send-offer` | Send or cancel an `offer_sender` draft from the UI. Supabase session. |
 
 ## Rate limits
 
