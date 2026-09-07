@@ -7,17 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-07
+
+### Breaking Changes
+- All model calls now route through the Vercel AI Gateway. `GOOGLE_GENERATIVE_AI_API_KEY` is no longer read — authentication uses `VERCEL_OIDC_TOKEN` (provisioned on Vercel and by `vercel env pull`) or `AI_GATEWAY_API_KEY`, and the Vercel team needs AI Gateway credits since free-tier requests are rate-limited. Model slugs are pinned: `google/gemini-3.8-flash` and `google/gemini-embedding-2`. The `proModel` export was dropped.
+- The package manager is now Bun. `package-lock.json` was replaced by `bun.lock` (migrated 1:1, no dependency versions changed) and Vercel auto-detects the change, so deploys switch to `bun install`.
+- Database migrations `00009`–`00019` must be applied: new `tile_type` enum values (`github_issue`, `knowledge_base`, `offer_sender`), the pgvector `tile_embeddings` table, Google Sheets sync columns on `tiles`, tile source sort order, an execution-log delete policy, seeded system skills, and revised SECURITY DEFINER functions.
+
 ### Added
 - `knowledge_base` tile type for static text content surfaced to other tiles
 - `github_issue` tile type with GitHub OAuth, multi-repo picker, runtime repo param, and predefined skills (Blog Post, Bugfix, Feature Request)
 - `offer_sender` tile type — AI personalizes an HTML email template, posts a draft for approval, then sends via SendGrid
 - Slack Block Kit Approve/Cancel buttons for offer drafts (`/api/slack/interactivity`)
-- In-app draft preview with sandboxed iframe and Send/Cancel actions
+- In-app draft preview with sandboxed iframe and Send/Cancel actions (`/api/tiles/[tileId]/jobs/[jobId]/send-offer`)
 - Manual run dialog accepts an "Instruction" comment for offer tiles
 - "Professional Business Offer" system skill for `offer_sender` tiles — sales tone, editorial polish, grammar, language-handling rules
 - Optional BCC hidden copy address on `offer_sender` tiles
 - Slack bot via Chat SDK with `@chat-adapter/slack` — mentions, DMs, streaming responses, loading reactions, multi-turn context, capabilities help
-- Bot AI tools: `run_tile`, GitHub issue creation, semantic search, web search grounding, thinking mode
+- Bot AI tools: `run_tile`, GitHub issue creation, semantic tile search, Tavily web search, thinking mode
 - Bot channel context and repo selection for issue creation
 - Tile router with vector search and LLM reasoning (`lib/router/`, `/api/v1/router`)
 - Google Sheets sync: catalog entries and events to Google Sheets (per-user OAuth, disconnect option)
@@ -32,17 +39,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - User-facing docs in `docs/` (getting-started, tiles, integrations, api, bot, architecture)
 
 ### Changed
-- Tech stack upgraded: Gemini Pro, AI SDK v6, Firecrawl v4
+- Tech stack upgraded: Gemini Flash via the AI Gateway, AI SDK v7, Chat SDK 4.40, Firecrawl v4
 - Tile detail UI replaced drawer with full-viewport dialog, then moved to dedicated subpage
 - Bot uses lazy init with cached factory
-- URL validation and scraping now use Firecrawl (replaces Tavily for URL validation)
-- Centralized Gemini model config in `lib/ai/models.ts` (pro, flash, embedding)
-- Embedding model switched to `gemini-embedding-2-preview`
+- URL validation and scraping now use Firecrawl (replaces Tavily, which is now web search only)
+- Centralized model config in `lib/ai/models.ts` (flash, embedding)
 - `offer_sender` split AI into separate metadata + HTML calls; uses `generateObject`/`generateText` for reliable output
-- Dependency bumps: AI SDK 6.0.188, `@ai-sdk/google` 3.0.78, Chat SDK 4.29, Firecrawl 4.24, Supabase 2.106, Next 16.2.6, React 19.2.6, Zod 4.4
-- Synced documentation (README.md, CLAUDE.md, CHANGELOG.md) with current codebase state
+- Dependency bumps: `ai` 7.0.93, `chat` and `@chat-adapter/*` 4.40, Firecrawl 4.24, Supabase 2.115, Next 16.2.6, React 19.2.6, Zod 4.4; `@ai-sdk/google` dropped in favour of gateway model strings
+- Synced documentation (README.md, CLAUDE.md, docs/) with current codebase state
+
+### Removed
+- `google_search` grounding tool from the Slack bot — `web_search` (Tavily) is the only search tool
 
 ### Fixed
+- Scheduler: persist a switch back to the manual schedule
+- Catalog: correct pagination and polish output UI
 - Slack interactivity: initialize bot before adapter use
 - Sheets export: drop frozen header row, scope sync to enabling user
 - Cron: run midnight schedules in mosaic timezone
