@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
+import { getSupabaseSecretKey } from "@/lib/supabase/keys";
 import type { Database } from "@/types/database";
 
 const SUPABASE_FETCH_TIMEOUT_MS = 15_000;
@@ -39,7 +40,7 @@ function fetchWithTimeout(
 export function createAdminClient() {
   return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    getSupabaseSecretKey()!,
     {
       auth: {
         autoRefreshToken: false,
