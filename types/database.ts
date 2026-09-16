@@ -553,6 +553,7 @@ export interface Database {
           executions_this_hour: number;
           hour_window_start: string;
           concurrent_executions: number;
+          last_execution_started_at: string | null;
           updated_at: string;
         };
         Insert: {
@@ -560,6 +561,7 @@ export interface Database {
           executions_this_hour?: number;
           hour_window_start?: string;
           concurrent_executions?: number;
+          last_execution_started_at?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -567,6 +569,7 @@ export interface Database {
           executions_this_hour?: number;
           hour_window_start?: string;
           concurrent_executions?: number;
+          last_execution_started_at?: string | null;
           updated_at?: string;
         };
       };
