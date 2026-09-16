@@ -6,7 +6,7 @@ Set up a local Mosaic AI development environment.
 
 - Node.js 24 LTS (`.nvmrc` pins the version — `nvm use` picks it up)
 - [Bun](https://bun.sh) 1.2+ (package manager and script runner)
-- A Supabase project (free tier is fine)
+- Docker (for the local Supabase stack), or a hosted Supabase project
 - API keys for the services you want to enable (see [Environment Variables](#environment-variables))
 
 ## 1. Clone and install
@@ -52,23 +52,56 @@ All model calls (text generation and embeddings) go through the [Vercel AI Gatew
 
 GitHub and Google OAuth credentials are configured per [Integrations](integrations.md).
 
-## 3. Apply database migrations
+## 3. Start the database
 
-The schema lives in `supabase/migrations/` as numbered SQL files.
+### Local Supabase (recommended)
+
+Run Supabase in Docker. `supabase start` applies every migration in
+`supabase/migrations/` to a fresh database:
+
+```bash
+bunx supabase start
+bunx supabase status -o env   # URLs and keys for .env.local
+```
+
+Point `.env.local` at the local stack. These keys are the Supabase CLI's fixed
+local-development keys:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:54321"
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="<PUBLISHABLE_KEY from status>"
+SUPABASE_SECRET_KEY="<SECRET_KEY from status>"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+Studio runs at http://127.0.0.1:54323. Apply new migrations with
+`bunx supabase migration up --local`, or rebuild from scratch with
+`bunx supabase db reset`. Stop the stack with `bunx supabase stop`.
+
+Do not use `vercel env pull` for the Supabase variables: they are marked
+sensitive on Vercel and pull as empty strings. The pull also writes
+production-only `VERCEL_*` system variables.
+
+### Hosted project
 
 ```bash
 bunx supabase link --project-ref <your-project-ref>
 bunx supabase db push
 ```
 
-Migrations include the schema, RLS policies, RPC functions for atomic rate limiting, and pgvector extension for the tile router.
+Migrations include the schema, RLS policies, RPC functions for atomic rate
+limiting, and the pgvector extension for the tile router. New tables and
+functions must grant their own privileges to `anon`, `authenticated` and
+`service_role` (see `00021_explicit_api_role_grants.sql`); current Supabase
+versions no longer grant them by default.
 
 ## 4. Allowlist your email
 
-Signup is invite-only via the `allowlist` table. Insert your email manually in the Supabase SQL editor:
+Signup is invite-only via the `allowlist` table. Insert your email in Studio's
+SQL editor:
 
 ```sql
-insert into allowlist (email) values ('you@example.com');
+insert into allowlist (email, is_active) values ('you@example.com', true);
 ```
 
 ## 5. Run the dev server
@@ -77,7 +110,9 @@ insert into allowlist (email) values ('you@example.com');
 bun run dev
 ```
 
-Open http://localhost:3000 and sign in via magic link.
+Open http://localhost:3000 and sign in via magic link. In development without
+`SENDGRID_API_KEY`, emails are not sent; the dev server console prints them,
+including the magic link.
 
 ## Scripts
 
