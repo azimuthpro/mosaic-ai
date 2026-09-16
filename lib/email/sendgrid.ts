@@ -54,6 +54,18 @@ async function sendEmail(payload: SendGridPayload): Promise<SendEmailResult> {
   const apiKey = process.env.SENDGRID_API_KEY;
 
   if (!apiKey) {
+    // Local development runs without SendGrid: print the email so magic links
+    // and invitations can be opened from the dev server console.
+    if (process.env.NODE_ENV === "development") {
+      const text = payload.content.find((c) => c.type === "text/plain");
+      console.log(
+        `[email] SENDGRID_API_KEY not set, not sending.\n` +
+          `To: ${payload.personalizations.flatMap((p) => p.to.map((t) => t.email)).join(", ")}\n` +
+          `Subject: ${payload.subject}\n\n` +
+          (text?.value ?? payload.content[0]?.value ?? ""),
+      );
+      return { success: true };
+    }
     console.error("SendGrid API key not configured");
     return { success: false, error: "Email service not configured" };
   }
