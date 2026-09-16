@@ -1,10 +1,10 @@
 -- Enable pgvector extension for vector similarity search
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
 
--- Drop previous partial migration state if exists
+-- Drop previous partial migration state if exists.
+-- DROP TABLE removes the table's trigger and policy; DROP TRIGGER/POLICY
+-- would fail on a fresh database where the table does not exist yet.
 DROP FUNCTION IF EXISTS public.match_tiles(extensions.vector(768), uuid, float, int);
-DROP TRIGGER IF EXISTS set_tile_embeddings_updated_at ON public.tile_embeddings;
-DROP POLICY IF EXISTS "Users can view accessible tile embeddings" ON public.tile_embeddings;
 DROP INDEX IF EXISTS public.tile_embeddings_embedding_idx;
 DROP INDEX IF EXISTS public.tile_embeddings_mosaic_id_idx;
 DROP TABLE IF EXISTS public.tile_embeddings;
