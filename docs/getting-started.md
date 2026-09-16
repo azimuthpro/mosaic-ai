@@ -30,8 +30,8 @@ cp env.local.example .env.local
 | Variable | Source |
 |----------|--------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project settings → API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project settings → API |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase project settings → API (server-only) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase project settings → API Keys (`sb_publishable_…`; falls back to legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY`) |
+| `SUPABASE_SECRET_KEY` | Supabase project settings → API Keys (`sb_secret_…`, server-only; falls back to legacy `SUPABASE_SERVICE_ROLE_KEY`) |
 | `CRON_SECRET` | `openssl rand -hex 32` |
 
 ### Optional (per feature)
