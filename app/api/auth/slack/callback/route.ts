@@ -1,12 +1,38 @@
+import { timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { getBotAndAdapter } from "@/lib/bot";
-import { ensureBotInitialized } from "@/lib/bot/setup";
-import { exchangeCodeForToken } from "@/lib/slack/oauth";
+import { appRedirectUrl, exchangeCodeForToken } from "@/lib/slack/oauth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import type { SlackIntegrationMetadata } from "@/types/database";
+
+function sameState(a: string, b: string): boolean {
+  const left = Buffer.from(a, "utf8");
+  const right = Buffer.from(b, "utf8");
+  // timingSafeEqual throws on a length mismatch, so compare byte lengths first.
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+/**
+ * Reads the CSRF nonce and return path out of the cookie set by the connect
+ * route. Returns null for anything unusable — malformed JSON, or no nonce to
+ * compare the query parameter against.
+ */
+function parseStateCookie(
+  cookieValue: string | undefined,
+): { state: string; returnTo: string } | null {
+  try {
+    const parsed = JSON.parse(cookieValue ?? "") as {
+      state?: string;
+      returnTo?: string;
+    };
+    if (!parsed.state) return null;
+    return { state: parsed.state, returnTo: parsed.returnTo ?? "/" };
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(request: Request): Promise<Response> {
   const { searchParams } = new URL(request.url);
@@ -16,37 +42,38 @@ export async function GET(request: Request): Promise<Response> {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
+  // The state cookie holds both the CSRF nonce and where to send the user back
+  // to. Consume it before anything can fail, so a nonce is never reusable.
+  const cookieStore = await cookies();
+  const saved = cookieStore.get("slack_oauth_state")?.value;
+  cookieStore.delete("slack_oauth_state");
+
+  // Validate state before acting on anything else in the query, including the
+  // error branch — otherwise that branch is an unauthenticated redirect.
+  const savedState = parseStateCookie(saved);
+  if (!savedState || !state || !sameState(savedState.state, state)) {
+    return NextResponse.redirect(
+      appRedirectUrl(appUrl, "/", { slack_error: "invalid_state" }),
+    );
+  }
+  const { returnTo } = savedState;
+
   // Handle user declining authorization
   if (error) {
     return NextResponse.redirect(
-      `${appUrl}/?slack_error=${encodeURIComponent(error)}`,
+      appRedirectUrl(appUrl, returnTo, { slack_error: error }),
     );
   }
 
-  if (!code || !state) {
-    return NextResponse.redirect(`${appUrl}/?slack_error=missing_params`);
+  if (!code) {
+    return NextResponse.redirect(
+      appRedirectUrl(appUrl, returnTo, { slack_error: "missing_params" }),
+    );
   }
-
-  // Validate state to prevent CSRF
-  const cookieStore = await cookies();
-  const savedState = cookieStore.get("slack_oauth_state")?.value;
-
-  // State encodes "stateValue:encodedReturnTo"
-  const colonIndex = state.indexOf(":");
-  const stateValue = colonIndex === -1 ? state : state.slice(0, colonIndex);
-  const returnTo =
-    colonIndex === -1 ? "/" : decodeURIComponent(state.slice(colonIndex + 1));
-
-  if (!savedState || savedState !== stateValue) {
-    return NextResponse.redirect(`${appUrl}/?slack_error=invalid_state`);
-  }
-
-  // Clear the state cookie
-  cookieStore.delete("slack_oauth_state");
 
   const user = await getUser();
   if (!user) {
-    return NextResponse.redirect(`${appUrl}/sign-in`);
+    return NextResponse.redirect(appRedirectUrl(appUrl, "/sign-in"));
   }
 
   try {
@@ -59,6 +86,9 @@ export async function GET(request: Request): Promise<Response> {
     };
 
     const adminClient = createAdminClient();
+    // Single write: user_integrations is the only place a bot token lives. The
+    // bot resolves tokens from here per request, so a workspace connected now
+    // works immediately on every instance.
     const { error: upsertError } = await adminClient
       .from("user_integrations")
       .upsert(
@@ -76,31 +106,22 @@ export async function GET(request: Request): Promise<Response> {
     if (upsertError) {
       console.error(
         "[slack/callback] Failed to save integration:",
-        upsertError,
+        upsertError.message,
       );
       return NextResponse.redirect(
-        `${appUrl}${returnTo}?slack_error=save_failed`,
+        appRedirectUrl(appUrl, returnTo, { slack_error: "save_failed" }),
       );
     }
 
-    // Dual-write: also seed the Chat SDK adapter with this installation
-    try {
-      await ensureBotInitialized();
-      const { slackAdapter } = await getBotAndAdapter();
-      await slackAdapter.setInstallation(tokenData.team.id, {
-        botToken: tokenData.access_token,
-        botUserId: tokenData.bot_user_id,
-      });
-    } catch (sdkErr) {
-      // Non-fatal: bot will pick this up on next cold start via seedInstallations
-      console.error("[slack/callback] Chat SDK dual-write failed:", sdkErr);
-    }
-
-    return NextResponse.redirect(`${appUrl}${returnTo}?slack_connected=1`);
+    return NextResponse.redirect(
+      appRedirectUrl(appUrl, returnTo, { slack_connected: "1" }),
+    );
   } catch (err) {
     console.error("[slack/callback] Token exchange failed:", err);
     return NextResponse.redirect(
-      `${appUrl}${returnTo}?slack_error=token_exchange_failed`,
+      appRedirectUrl(appUrl, returnTo, {
+        slack_error: "token_exchange_failed",
+      }),
     );
   }
 }
