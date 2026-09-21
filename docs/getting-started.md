@@ -43,6 +43,7 @@ cp env.local.example .env.local
 | `TAVILY_API_KEY` | `web_search` tiles, bot web search |
 | `SENDGRID_API_KEY` | Magic-link emails, invitations, `offer_sender` delivery |
 | `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` / `SLACK_SIGNING_SECRET` | Slack OAuth, bot, signature verification |
+| `POSTGRES_URL` | Shared Slack bot state (thread subscriptions, locks, dedupe). Required in production whenever the bot is used; falls back to in-memory state locally |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | `github_issue` tiles |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Sheets sync from `catalog` tiles |
 | `NEXT_PUBLIC_APP_URL` | Base URL for Slack/GitHub/Google OAuth redirect URIs |
@@ -121,6 +122,7 @@ bun run dev      # Next dev server on :3000
 bun run build    # Production build
 bun run start    # Production server (after build)
 bun run lint     # ESLint
+bun run test     # Unit tests for pure helpers (bun test)
 ```
 
 ## Cron

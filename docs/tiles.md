@@ -82,8 +82,29 @@ AI personalizes an HTML email template using connected data, posts a draft to Sl
 **Flow:**
 1. Tile executes; Gemini produces a personalized HTML body.
 2. `lib/email/post-offer-draft-slack.ts` posts a draft to the configured channel.
-3. Slack user clicks Approve → `/api/slack/interactivity` → `lib/email/send-offer-draft.ts` sends the email.
+3. Slack user clicks Approve → `/api/slack/interactivity` acknowledges immediately, then `lib/email/send-offer-draft.ts` claims the draft and sends the email.
 4. Cancel discards the draft.
+
+**Draft statuses:** `draft` → `sending` → `sent` | `failed`, or `draft` → `cancelled`.
+
+Approval is idempotent: `claim_offer_draft` moves the draft out of `draft` in a
+single conditional UPDATE, so of several concurrent clicks exactly one sends.
+Only the person who clicked is authorized, against the tile's mosaic — being in
+the channel is not enough.
+
+A draft left in `sending` means the function died mid-send; the email may or may
+not have gone out, which is why nothing retries it automatically. Check SendGrid,
+then resolve it by hand:
+
+```sql
+-- find them
+SELECT job_id, tile_id, created_at FROM tile_job_results
+WHERE content->>'status' = 'sending' AND created_at < now() - interval '10 minutes';
+
+-- after checking SendGrid, settle one
+UPDATE tile_job_results SET content = jsonb_set(content, '{status}', '"failed"')
+WHERE job_id = '<job-id>';
+```
 
 ---
 

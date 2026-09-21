@@ -13,6 +13,7 @@ bun run dev      # Start development server (http://localhost:3000)
 bun run build    # Production build
 bun run start    # Start production server
 bun run lint     # Run ESLint
+bun run test     # Run unit tests for pure helpers (bun test)
 ```
 
 ## Tech Stack
@@ -22,7 +23,7 @@ bun run lint     # Run ESLint
 - **Styling**: Tailwind CSS v4 (via `@tailwindcss/postcss`, no tailwind.config file)
 - **Auth & Database**: Supabase (PostgreSQL with RLS, Magic Link auth)
 - **AI**: Vercel AI SDK v7 routed through the Vercel AI Gateway (`google/gemini-3.8-flash`, `google/gemini-embedding-2`)
-- **Chat Bot**: Chat SDK (`chat` package) with `@chat-adapter/slack` for Slack bot
+- **Chat Bot**: Chat SDK (`chat` package) with `@chat-adapter/slack` for Slack bot; `@chat-adapter/state-pg` for shared bot state (`POSTGRES_URL`)
 - **Web Scraping**: Firecrawl v4 (also used for URL validation)
 - **Web Search**: Tavily API
 - **GitHub**: Octokit
@@ -47,7 +48,7 @@ bun run lint     # Run ESLint
   - `offer_sender`: AI personalizes an HTML email template using connected data, posts a draft to Slack for approval via Block Kit buttons, then sends via SendGrid. System skill: Professional Business Offer.
 - **Tile Connections**: Universal data flow links between tiles. Any tile type can receive connections, with type-specific extraction of data from connected tiles.
 - **Tile Router**: Vector-search + LLM-reasoning router that selects the right tile for a request (`lib/router/`).
-- **Slack Bot**: Chat SDK-powered conversational bot with AI tools (run tiles, create GitHub issues, semantic search, Tavily web search). Responds to mentions and DMs (`lib/bot/`).
+- **Slack Bot**: Chat SDK-powered conversational bot with AI tools (run tiles, create GitHub issues, semantic search, Tavily web search). Responds to mentions, DMs and thread follow-ups (`lib/bot/`). Slack users are matched to Mosaic accounts by email; every tool is scoped to that account. Needs `POSTGRES_URL` for shared state.
 - **Tile Sources**: Data inputs for tiles (URLs, search queries, or referenced tiles)
 - **Mosaic Sharing**: Role-based access control (owner/admin/member) at mosaic level
 
@@ -128,7 +129,7 @@ bun run lint     # Run ESLint
 - `lib/tiles/extract-keywords-from-job.ts` - Keyword extraction from connected tile job results
 - `lib/tiles/trigger-downstream.ts` - Cascading tile execution
 - `lib/slack/client.ts` - Slack API client
-- `lib/slack/integration.ts` - Slack integration helpers
+- `lib/slack/integration.ts` - Slack integration helpers (`resolveBotTokenForTeam` resolves a bot token by workspace)
 - `lib/slack/oauth.ts` - Slack OAuth flow
 - `lib/outputs/slack-output.ts` - Slack message delivery after tile execution
 - `lib/catalog/execute-catalog.ts` - Catalog tile execution logic
@@ -147,12 +148,11 @@ bun run lint     # Run ESLint
 - `lib/actions/integrations.ts` - Server actions for user integrations (OAuth tokens)
 - `lib/actions/invite.ts` - Mosaic invitation handling
 - `lib/actions/router.ts` - Server actions for tile router queries
-- `lib/bot/index.ts` - Chat SDK Slack bot setup and entry point
-- `lib/bot/setup.ts` - Lazy bot factory and cached initialization
-- `lib/bot/handlers.ts` - Bot message and event handlers
+- `lib/bot/index.ts` - Chat SDK bot factory (per-team token resolution, shared Postgres state)
+- `lib/bot/setup.ts` - `getBot()`: cached, race-free initialization
+- `lib/bot/handlers.ts` - Bot message and event handlers (identity, reactions, streaming)
 - `lib/bot/tools.ts` - AI tools available to the bot (run_tile, GitHub issue, semantic search, web search)
-- `lib/bot/data.ts` - Bot data access layer
-- `lib/slack/events/monitor-check.ts` - Slack event monitoring
+- `lib/bot/data.ts` - Bot data access layer; every tile lookup is scoped to the resolved user
 - `lib/google/oauth.ts` - Google OAuth flow
 - `lib/google/integration.ts` - Google token resolution
 - `lib/google/sheets-client.ts` - Google Sheets API client
@@ -249,3 +249,6 @@ Uses Supabase Magic Link authentication:
 - Rate limiting on execution (per-user hourly and concurrent limits)
 - Slack request signature verification on events and interactivity endpoints
 - SECURITY DEFINER functions audited per Supabase linter
+- Bot tools resolve the Slack user to a Mosaic account server-side and scope every query to it — tile IDs come from an LLM and are never trusted
+- Slack bot tokens are resolved by workspace (`provider_team_id`), never "the first row"
+- Offer approvals are claimed with a single conditional UPDATE (`claim_offer_draft`), so Approve is idempotent; both Slack webhooks acknowledge before doing work

@@ -17,13 +17,18 @@ The Slack integration is bidirectional: tiles can read channels, deliver results
 ### Create the Slack app
 
 1. https://api.slack.com/apps → **Create New App** → From scratch
-2. **OAuth & Permissions** → add bot scopes:
+2. **OAuth & Permissions** → add bot scopes. This list must stay in sync with
+   `SLACK_SCOPES` in `lib/slack/oauth.ts`: Slack grants what the authorize URL
+   asks for, so a scope only configured here is never actually granted.
    - `channels:read`, `channels:history`
    - `groups:read`, `groups:history`
-   - `chat:write`, `reactions:write`
+   - `chat:write`, `reactions:read`, `reactions:write`
    - `app_mentions:read`, `im:history`, `im:read`, `im:write` (for the bot)
    - `users:read`, `users:read.email` (to match Slack users to Mosaic accounts)
-3. **Event Subscriptions** → Request URL: `https://<your-host>/api/slack/events`
+3. **Event Subscriptions** → Request URL: `https://<your-host>/api/slack/events`,
+   and subscribe to the bot events `app_mention`, `message.im`,
+   `message.channels` and `message.groups`. Without the last two the bot answers
+   a mention but never sees thread replies.
 4. **Interactivity & Shortcuts** → Request URL: `https://<your-host>/api/slack/interactivity` (offer Approve/Cancel)
 5. **Basic Information** → copy Client ID, Client Secret, Signing Secret into `.env.local`:
    ```
@@ -36,10 +41,15 @@ The Slack integration is bidirectional: tiles can read channels, deliver results
 
 | Route | Purpose |
 |-------|---------|
-| `GET /api/auth/slack/connect` | Redirects to Slack install URL |
-| `GET /api/auth/slack/callback` | Exchanges code, upserts `user_integrations` (`provider=slack`, `provider_team_id=<team>`) |
+| `GET /api/auth/slack/connect` | Redirects to Slack install URL. Stores a CSRF nonce and the `return_to` path in an HttpOnly cookie |
+| `GET /api/auth/slack/callback` | Validates the nonce, exchanges code, upserts `user_integrations` (`provider=slack`, `provider_team_id=<team>`) |
 
 A single user can install multiple workspaces; each is stored as a separate row.
+Bot tokens are resolved **by `provider_team_id`**, not per user, so several people
+connecting the same workspace is harmless.
+
+After changing the scope list, each workspace must reinstall — Slack cannot
+upgrade an existing token's scopes.
 
 ### Signature verification
 

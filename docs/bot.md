@@ -131,14 +131,26 @@ Search the web using Tavily for detailed, structured results. Supports advanced 
 ## How It Works
 
 1. A user mentions the bot in a channel, sends a DM, or replies in a thread the bot is following
-2. The bot adds reaction emojis to acknowledge the message
+2. Messages from the bot itself and from other bots are ignored
 3. The user's Slack email is matched to their Mosaic account
-4. The bot generates a response using Gemini Flash with access to all tools above
-5. The response is streamed back to the Slack thread in real time
-6. The bot subscribes to the thread for follow-up messages
+4. The bot adds reaction emojis (👀 and ⏳) to acknowledge the message
+5. The bot generates a response using Gemini Flash with access to all tools above
+6. The response is streamed back to the Slack thread in real time
+7. The bot subscribes to the thread for follow-up messages, and ⏳ is removed
+
+If a step fails the bot says so in the thread rather than going quiet.
 
 ## Authentication
 
-The bot maps Slack users to Mosaic accounts by matching email addresses. When a user interacts with the bot, their Slack profile email is looked up against Supabase auth users. Only users with a matching Mosaic account can access their mosaics and tiles through the bot.
+The bot maps Slack users to Mosaic accounts by matching email addresses. When a user interacts with the bot, their Slack profile email is looked up against Supabase auth users (`find_user_id_by_email`). Only users with a matching Mosaic account can access their mosaics and tiles through the bot, and **every tool scopes its queries to that account** — a tile ID alone grants nothing.
 
-Each Slack workspace has its own bot token stored in the `user_integrations` table, enabling multi-workspace support.
+Matches are cached for 10 minutes per `(workspace, Slack user)`. Failures are reported differently depending on the cause: a missing `users:read.email` scope needs an admin to reconnect Slack, whereas an unknown email needs the user to sign up with their Slack address. In a followed thread the bot stays silent for people it cannot identify, so team conversations are not interrupted.
+
+Each Slack workspace has its own bot token stored in the `user_integrations` table, resolved by team ID, enabling multi-workspace support.
+
+## Deployment requirements
+
+| Requirement | Why |
+|-------------|-----|
+| `POSTGRES_URL` (or `DATABASE_URL`) | Thread subscriptions, message dedupe and thread locks are stored via `@chat-adapter/state-pg`. Without it the bot falls back to in-memory state: on serverless, thread follow-ups are dropped when a reply lands on another instance, and retried Slack events are answered twice |
+| Both webhook routes reachable unauthenticated | `/api/slack/events` and `/api/slack/interactivity` authenticate by Slack signature. An auth redirect in front of them makes Slack report "your URL didn't respond" |
