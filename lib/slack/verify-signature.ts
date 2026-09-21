@@ -18,10 +18,13 @@ export function verifySlackSignature(
     throw new Error("SLACK_SIGNING_SECRET is not configured");
   }
 
-  // Reject requests older than 5 minutes to prevent replay attacks
-  const ts = parseInt(timestamp, 10);
+  // Reject requests older than 5 minutes to prevent replay attacks.
+  // parseInt would accept "1700000000abc", so require digits only.
+  if (!/^\d+$/.test(timestamp)) {
+    return false;
+  }
+  const ts = Number(timestamp);
   if (
-    isNaN(ts) ||
     Math.abs(Math.floor(Date.now() / 1000) - ts) > MAX_TIMESTAMP_AGE_SECONDS
   ) {
     return false;
@@ -32,12 +35,16 @@ export function verifySlackSignature(
     .createHmac("sha256", signingSecret)
     .update(baseString)
     .digest("hex");
-  const expected = `v0=${hmac}`;
+  const expected = Buffer.from(`v0=${hmac}`, "utf8");
+  const provided = Buffer.from(signature, "utf8");
 
-  // Constant-time comparison to prevent timing attacks
-  if (expected.length !== signature.length) {
+  // Compare BYTE lengths, not string lengths: a forged signature of the same
+  // character count containing a multi-byte character makes timingSafeEqual
+  // throw, turning a rejected request into a 500.
+  if (expected.length !== provided.length) {
     return false;
   }
 
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  // Constant-time comparison to prevent timing attacks
+  return crypto.timingSafeEqual(expected, provided);
 }
