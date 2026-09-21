@@ -2,14 +2,29 @@ import { stepCountIs, streamText } from "ai";
 import { type Chat, type Message, type Thread, toAiMessages } from "chat";
 
 import { flashModel } from "@/lib/ai/models";
+import { resolveBotTokenForTeam } from "@/lib/slack/integration";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-import { resolveSlackUser } from "./data";
-import { type getBotAndAdapter } from "./index";
-import { createBotTools } from "./tools";
+import { resolveSlackIdentity, type SlackIdentityFailure } from "./data";
+import { type createBot } from "./index";
+import { type BotToolContext, createBotTools } from "./tools";
 
-type SlackAdapterType = Awaited<
-  ReturnType<typeof getBotAndAdapter>
->["slackAdapter"];
+type SlackAdapterType = ReturnType<typeof createBot>["slackAdapter"];
+
+/** Emoji must be Slack built-ins: a custom one (`:loading:`) only exists in
+ * workspaces that uploaded it, and the reaction call fails everywhere else. */
+const SEEN_EMOJI = "eyes";
+const WORKING_EMOJI = "hourglass_flowing_sand";
+
+const IDENTITY_MESSAGES: Record<SlackIdentityFailure, string> = {
+  // Nothing the user can do about a missing scope — point at the fix.
+  no_email:
+    "I can't read your Slack email, so I can't tell who you are. Ask a workspace admin to reconnect Slack in Mosaic AI so the app gets email permission.",
+  no_matching_user:
+    "I couldn't match your Slack account to a Mosaic AI user. Make sure you're using the same email address for both.",
+  slack_api_error:
+    "I couldn't reach Slack to check who you are. Try again in a minute.",
+};
 
 const SYSTEM_PROMPT = `You are Mosaic AI's Slack assistant. You help users understand their mosaics, tiles, and execution results. You can also run tiles on demand.
 
@@ -47,46 +62,34 @@ Tool-use discipline:
 - If run_tile returns success: false, explain the problem to the user in text. Do not retry with different parameters.
 - After every tool call, you MUST either produce a text response OR call exactly one more tool. Never chain more than 4 tool calls before producing text.`;
 
-interface ResolvedUser {
-  userId: string;
-  botToken: string;
+interface SlackOrigin {
+  teamId: string;
+  channelId: string;
+  threadTs?: string;
 }
 
 /**
- * Resolves the Mosaic user ID and bot token for the Slack message author.
- * Returns null if the user can't be matched.
+ * Reads workspace, channel and thread out of a raw Slack message event.
+ * Returns null when team or channel is missing: an empty ID fails later, inside
+ * a token lookup or a Slack call, far from the cause.
  */
-async function resolveUser(
-  thread: Thread,
-  message: Message,
-  slackAdapter: SlackAdapterType,
-): Promise<ResolvedUser | null> {
-  const raw = message.raw as { team?: string; team_id?: string } | undefined;
-  const teamId = raw?.team ?? raw?.team_id ?? "";
-  console.log(
-    "[bot] resolveUser for team",
-    teamId,
-    "slack user",
-    message.author.userId,
-  );
-  const installation = await slackAdapter.getInstallation(teamId);
-  if (!installation?.botToken) {
-    console.error("[bot] no installation for team", teamId);
-    return null;
-  }
+function extractOrigin(message: Message): SlackOrigin | null {
+  const raw = message.raw as
+    | {
+        channel?: string;
+        team?: string;
+        team_id?: string;
+        thread_ts?: string;
+        ts?: string;
+      }
+    | undefined;
 
-  const userId = await resolveSlackUser(
-    installation.botToken,
-    message.author.userId,
-  );
-  if (!userId) {
-    await thread.post(
-      "I couldn't match your Slack account to a Mosaic AI user. Make sure you're using the same email address for both.",
-    );
-    return null;
-  }
+  const teamId = raw?.team ?? raw?.team_id;
+  const channelId = raw?.channel;
+  if (!teamId || !channelId) return null;
 
-  return { userId, botToken: installation.botToken };
+  // A reply carries thread_ts; a top-level message is itself the thread root.
+  return { teamId, channelId, threadTs: raw?.thread_ts ?? raw?.ts };
 }
 
 /**
@@ -96,14 +99,9 @@ async function resolveUser(
 async function answerQuestion(
   thread: Thread,
   userId: string,
-  context?: {
-    slackToken?: string;
-    channelId?: string;
-    teamId?: string;
-    threadTs?: string;
-  },
+  context?: BotToolContext,
 ): Promise<void> {
-  console.log("[bot] answerQuestion for user", userId, "thread", thread.id);
+  console.log("[bot] answerQuestion thread", thread.id);
   const tools = createBotTools(userId, context);
 
   await thread.refresh();
@@ -147,60 +145,87 @@ async function answerQuestion(
   }
 }
 
+type Trigger = "onNewMention" | "onDirectMessage" | "onSubscribedMessage";
+
 /**
- * Shared handler logic: adds reactions, resolves user, runs callback, cleans up.
+ * Shared handler logic: identifies the author, adds reactions, answers, cleans up.
  */
 async function handleMessage(
-  event: string,
+  trigger: Trigger,
   thread: Thread,
   message: Message,
   slackAdapter: SlackAdapterType,
-  action: (
-    userId: string,
-    context: {
-      slackToken?: string;
-      channelId?: string;
-      teamId?: string;
-      threadTs?: string;
-    },
-  ) => Promise<void>,
 ): Promise<void> {
-  console.log(`[bot] ${event} fired`, {
-    threadId: thread.id,
-    text: message.text.slice(0, 50),
-  });
-  await slackAdapter.addReaction(thread.id, message.id, "eyes").catch(() => {});
+  // Skip our own messages and every other bot. Bots have no email, so without
+  // this each one gets an "I can't identify you" reply — and two bots in a
+  // followed thread can answer each other indefinitely.
+  if (message.author.isMe || message.author.isBot === true) return;
+
+  console.log(`[bot] ${trigger} fired`, { threadId: thread.id });
+
+  const origin = extractOrigin(message);
+  if (!origin) {
+    console.error("[bot] message without team or channel", {
+      threadId: thread.id,
+    });
+    return;
+  }
+
+  const installation = await resolveBotTokenForTeam(
+    createAdminClient(),
+    origin.teamId,
+  );
+  if (!installation) {
+    console.error("[bot] no Slack integration for team", origin.teamId);
+    return;
+  }
+
+  const identity = await resolveSlackIdentity(
+    installation.botToken,
+    origin.teamId,
+    message.author.userId,
+  );
+  if (!identity.ok) {
+    console.warn("[bot] identity failed:", identity.reason);
+    // In a followed thread the bot sees every reply, including colleagues
+    // talking to each other. Only answer people who addressed it directly.
+    if (trigger !== "onSubscribedMessage") {
+      await thread.post(IDENTITY_MESSAGES[identity.reason]);
+    }
+    return;
+  }
+
+  // React only once the author is known, so the bot never marks a message it
+  // then ignores.
   await slackAdapter
-    .addReaction(thread.id, message.id, "loading")
+    .addReaction(thread.id, message.id, SEEN_EMOJI)
     .catch(() => {});
+  await slackAdapter
+    .addReaction(thread.id, message.id, WORKING_EMOJI)
+    .catch(() => {});
+
   try {
-    const resolved = await resolveUser(thread, message, slackAdapter);
-    if (!resolved) return;
+    // Subscribing is a state write; the thread is already followed on a
+    // follow-up message.
+    if (trigger !== "onSubscribedMessage") await thread.subscribe();
 
-    const raw = message.raw as
-      | {
-          channel?: string;
-          team?: string;
-          team_id?: string;
-          thread_ts?: string;
-          ts?: string;
-        }
-      | undefined;
-    const channelId = raw?.channel ?? "";
-    const teamId = raw?.team ?? raw?.team_id ?? "";
-    const threadTs = raw?.thread_ts ?? raw?.ts;
-
-    await action(resolved.userId, {
-      slackToken: resolved.botToken,
-      channelId,
-      teamId,
-      threadTs,
+    await answerQuestion(thread, identity.userId, {
+      slackToken: installation.botToken,
+      channelId: origin.channelId,
+      teamId: origin.teamId,
+      threadTs: origin.threadTs,
     });
   } catch (err) {
-    console.error(`[bot] ${event} error:`, err);
+    console.error(`[bot] ${trigger} error:`, err);
+    // Silence after the 👀 reaction reads as "still working" forever. Say so.
+    await thread
+      .post(
+        "Something went wrong while I was working on that. Nothing was changed — try again.",
+      )
+      .catch(() => {});
   } finally {
     await slackAdapter
-      .removeReaction(thread.id, message.id, "loading")
+      .removeReaction(thread.id, message.id, WORKING_EMOJI)
       .catch(() => {});
   }
 }
@@ -212,48 +237,15 @@ export function registerHandlers(
   bot: Chat,
   slackAdapter: SlackAdapterType,
 ): void {
-  const subscribeAndAnswer = async (
-    userId: string,
-    context: {
-      slackToken?: string;
-      channelId?: string;
-      teamId?: string;
-      threadTs?: string;
-    },
-    thread: Thread,
-  ) => {
-    await thread.subscribe();
-    await answerQuestion(thread, userId, context);
-  };
+  bot.onNewMention((thread, message) =>
+    handleMessage("onNewMention", thread, message, slackAdapter),
+  );
 
-  bot.onNewMention(async (thread, message) => {
-    await handleMessage(
-      "onNewMention",
-      thread,
-      message,
-      slackAdapter,
-      (userId, context) => subscribeAndAnswer(userId, context, thread),
-    );
-  });
+  bot.onDirectMessage((thread, message) =>
+    handleMessage("onDirectMessage", thread, message, slackAdapter),
+  );
 
-  bot.onDirectMessage(async (thread, message) => {
-    await handleMessage(
-      "onDirectMessage",
-      thread,
-      message,
-      slackAdapter,
-      (userId, context) => subscribeAndAnswer(userId, context, thread),
-    );
-  });
-
-  bot.onSubscribedMessage(async (thread, message) => {
-    if (message.author.isMe) return;
-    await handleMessage(
-      "onSubscribedMessage",
-      thread,
-      message,
-      slackAdapter,
-      (userId, context) => answerQuestion(thread, userId, context),
-    );
-  });
+  bot.onSubscribedMessage((thread, message) =>
+    handleMessage("onSubscribedMessage", thread, message, slackAdapter),
+  );
 }

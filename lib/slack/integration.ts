@@ -2,6 +2,45 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/database";
 
+/**
+ * Resolves the bot token for a Slack workspace.
+ *
+ * A bot token belongs to the workspace, not to whoever clicked Connect, so the
+ * team ID is the key. Several users may have connected the same workspace;
+ * ordering by `updated_at` makes the choice deterministic and prefers the most
+ * recently refreshed token instead of an arbitrary row.
+ */
+export async function resolveBotTokenForTeam(
+  adminClient: SupabaseClient<Database>,
+  teamId: string,
+): Promise<{ botToken: string; botUserId?: string } | null> {
+  if (!teamId) return null;
+
+  const { data, error } = await adminClient
+    .from("user_integrations")
+    .select("access_token, metadata")
+    .eq("provider", "slack")
+    .eq("provider_team_id", teamId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .returns<
+      { access_token: string; metadata: Record<string, unknown> | null }[]
+    >();
+
+  if (error) {
+    console.error("[slack] resolveBotTokenForTeam error:", error.message);
+    return null;
+  }
+
+  const row = data?.[0];
+  if (!row) return null;
+
+  const botUserId = (row.metadata as { bot_user_id?: string } | null)
+    ?.bot_user_id;
+
+  return { botToken: row.access_token, ...(botUserId ? { botUserId } : {}) };
+}
+
 type SlackTokenResult =
   | { ok: true; token: string }
   | { ok: false; reason: string };

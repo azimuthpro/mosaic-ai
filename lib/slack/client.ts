@@ -647,24 +647,28 @@ export async function updateMessage(
 }
 
 /**
- * Adds a reaction emoji to a message.
- * Silently succeeds if the reaction was already added (idempotent).
+ * Replies privately to whoever triggered an interaction, via the payload's
+ * `response_url`. Takes no token and works in channels the bot isn't in;
+ * the URL is valid for 30 minutes and 5 uses.
  */
-export async function addReaction(
-  token: string,
-  channel: string,
-  timestamp: string,
-  name: string,
+export async function postEphemeralResponse(
+  responseUrl: string,
+  text: string,
 ): Promise<void> {
-  try {
-    await slackFetch(token, "reactions.add", {
-      body: { channel, timestamp, name },
-    });
-  } catch (err) {
-    // "already_reacted" is expected on Slack retries — swallow it
-    const message = err instanceof Error ? err.message : "";
-    if (!message.includes("already_reacted")) {
-      throw err;
-    }
+  const response = await fetch(responseUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({
+      response_type: "ephemeral",
+      replace_original: false,
+      text,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Slack response_url HTTP error: ${response.status}`);
   }
 }
+
+// Reactions are added through the Chat SDK adapter (lib/bot/handlers.ts), which
+// already tracks the thread and message IDs, so this client has no reaction helper.

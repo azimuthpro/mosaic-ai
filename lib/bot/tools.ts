@@ -93,8 +93,8 @@ export function createBotTools(userId: string, context?: BotToolContext) {
         tile_id: z.string().describe("The tile ID (UUID)."),
       }),
       execute: async ({ tile_id }) => {
-        const result = await getTileStatus(tile_id);
-        if (!result.tile) return "Tile not found.";
+        const result = await getTileStatus(tile_id, userId);
+        if (!result?.tile) return "Tile not found, or you don't have access.";
         const tileInfo: Record<string, unknown> = {
           name: result.tile.name,
           type: result.tile.tile_type,
@@ -123,8 +123,10 @@ export function createBotTools(userId: string, context?: BotToolContext) {
         tile_id: z.string().describe("The tile ID (UUID)."),
       }),
       execute: async ({ tile_id }) => {
-        const result = await getLatestTileResult(tile_id);
-        if (!result) return "No results found for this tile.";
+        const result = await getLatestTileResult(tile_id, userId);
+        if (!result) {
+          return "No results found for this tile, or you don't have access.";
+        }
 
         const text =
           typeof result.content === "string"

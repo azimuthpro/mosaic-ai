@@ -1,80 +1,30 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import type { Chat } from "chat";
 
 import { registerHandlers } from "./handlers";
-import { getBotAndAdapter } from "./index";
+import { createBot } from "./index";
 
-let initialized = false;
+let ready: Promise<Chat> | null = null;
 
-/**
- * Idempotent bot initialization: registers handlers, initializes adapters,
- * and seeds existing Slack installations from the database.
- */
-export async function ensureBotInitialized(): Promise<void> {
-  if (initialized) return;
-  initialized = true;
-
-  try {
-    const { bot, slackAdapter } = await getBotAndAdapter();
-    registerHandlers(bot, slackAdapter);
-    await bot.initialize();
-    await seedInstallations(slackAdapter);
-    console.log("[bot] initialized");
-  } catch (err) {
-    initialized = false;
-    throw err;
-  }
+async function initialize(): Promise<Chat> {
+  const { bot, slackAdapter } = createBot();
+  registerHandlers(bot, slackAdapter);
+  await bot.initialize();
+  console.log("[bot] initialized");
+  return bot;
 }
 
 /**
- * Reads all Slack integrations from user_integrations,
- * deduplicates by team, and seeds them into the Chat SDK state.
+ * Returns the initialized bot, creating it on first use.
+ *
+ * The promise is cached rather than a boolean flag: a flag set before the
+ * awaits lets a second webhook arriving during a cold start skip initialization
+ * and reach a bot with no handlers registered, so that event is dropped without
+ * an error. A failed init clears the cache so the next request retries.
  */
-async function seedInstallations(
-  slackAdapter: Awaited<ReturnType<typeof getBotAndAdapter>>["slackAdapter"],
-): Promise<void> {
-  const admin = createAdminClient();
-
-  const { data, error } = await admin
-    .from("user_integrations")
-    .select("access_token, provider_team_id, metadata")
-    .eq("provider", "slack")
-    .returns<
-      {
-        access_token: string;
-        provider_team_id: string | null;
-        metadata: Record<string, unknown> | null;
-      }[]
-    >();
-
-  if (error || !data) {
-    console.error("[bot] failed to seed installations:", error?.message);
-    return;
-  }
-
-  // Deduplicate by team -- take the first token per team
-  const byTeam = new Map<
-    string,
-    { botToken: string; botUserId?: string; teamName?: string }
-  >();
-
-  for (const row of data) {
-    const teamId = row.provider_team_id;
-    if (!teamId || byTeam.has(teamId)) continue;
-
-    const meta = row.metadata as {
-      bot_user_id?: string;
-      team_name?: string;
-    } | null;
-    byTeam.set(teamId, {
-      botToken: row.access_token,
-      botUserId: meta?.bot_user_id,
-      teamName: meta?.team_name,
-    });
-  }
-
-  for (const [teamId, installation] of byTeam) {
-    await slackAdapter.setInstallation(teamId, installation);
-  }
-
-  console.log(`[bot] seeded ${byTeam.size} Slack installation(s)`);
+export function getBot(): Promise<Chat> {
+  ready ??= initialize().catch((err: unknown) => {
+    ready = null;
+    throw err;
+  });
+  return ready;
 }

@@ -44,77 +44,143 @@ import type {
 } from "@/types/database";
 
 const SLACK_API_BASE = "https://slack.com/api";
-const userCache = new Map<string, string>();
+
+// Type helper for RPC calls (since functions are created dynamically via migration)
+type RpcClient = {
+  rpc: <T>(
+    fn: string,
+    params?: Record<string, unknown>,
+  ) => Promise<{ data: T | null; error: Error | null }>;
+};
+
+/** How long a resolved Slack → Mosaic user match is trusted. */
+const USER_CACHE_TTL_MS = 10 * 60 * 1000;
 
 /**
- * Resolves a Slack user to a Mosaic user ID by looking up
- * the Slack user's email and matching it against Supabase auth.users.
+ * Keyed by `teamId:slackUserId` — Slack user IDs are only unique within a
+ * workspace. Entries expire so a user removed from Mosaic stops being matched
+ * without waiting for the instance to recycle.
  */
-export async function resolveSlackUser(
+const userCache = new Map<string, { userId: string; expiresAt: number }>();
+
+export type SlackIdentityFailure =
+  | "slack_api_error"
+  | "no_email"
+  | "no_matching_user";
+
+export type SlackIdentityResult =
+  | { ok: true; userId: string }
+  | { ok: false; reason: SlackIdentityFailure };
+
+interface SlackUsersInfoResponse {
+  ok: boolean;
+  error?: string;
+  user?: { profile?: { email?: string } };
+}
+
+/**
+ * Resolves a Slack user to a Mosaic user ID by looking up the Slack user's
+ * email and matching it against Supabase auth.users.
+ *
+ * Returns a reason on failure: a missing `users:read.email` scope and an
+ * unknown email need different messages, and only the second one is
+ * something the user can fix themselves.
+ */
+export async function resolveSlackIdentity(
   token: string,
+  teamId: string,
   slackUserId: string,
-): Promise<string | null> {
-  const cached = userCache.get(slackUserId);
-  if (cached) return cached;
+): Promise<SlackIdentityResult> {
+  const cacheKey = `${teamId}:${slackUserId}`;
+  const cached = userCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { ok: true, userId: cached.userId };
+  }
+  userCache.delete(cacheKey);
 
   // Get email from Slack
-  const res = await fetch(
-    `${SLACK_API_BASE}/users.info?user=${slackUserId}&include_locale=false`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  const data = (await res.json()) as {
-    ok: boolean;
-    error?: string;
-    user?: { profile?: { email?: string } };
-  };
+  let data: SlackUsersInfoResponse;
+  try {
+    const res = await fetch(
+      `${SLACK_API_BASE}/users.info?user=${encodeURIComponent(slackUserId)}&include_locale=false`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    data = (await res.json()) as SlackUsersInfoResponse;
+  } catch (err) {
+    console.error("[bot] Slack users.info request failed:", err);
+    return { ok: false, reason: "slack_api_error" };
+  }
 
   if (!data.ok) {
     console.error("[bot] Slack users.info failed:", data.error);
-    return null;
+    return { ok: false, reason: "slack_api_error" };
   }
 
-  const email = data.user?.profile?.email;
+  const email = data.user?.profile?.email?.trim().toLowerCase();
   if (!email) {
-    console.error("[bot] Slack user has no email:", slackUserId);
-    return null;
+    // Almost always a token without the users:read.email scope.
+    console.error("[bot] Slack profile has no email for user", slackUserId);
+    return { ok: false, reason: "no_email" };
   }
 
-  console.log("[bot] resolving Slack email:", email);
-
-  // Match against Supabase auth.users
+  // Match against Supabase auth.users with a single indexed lookup.
+  // Cast to RpcClient to handle dynamic RPC functions from migrations.
   const admin = createAdminClient();
-  const {
-    data: { users },
-    error,
-  } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const rpcClient = admin as unknown as RpcClient;
+  const { data: userId, error } = await rpcClient.rpc<string>(
+    "find_user_id_by_email",
+    { p_email: email },
+  );
 
   if (error) {
-    console.error("[bot] listUsers error:", error.message);
-    return null;
+    console.error("[bot] find_user_id_by_email failed:", error.message);
+    return { ok: false, reason: "slack_api_error" };
   }
+  // Misses are never cached: someone who signs up a minute later must get in.
+  if (!userId) return { ok: false, reason: "no_matching_user" };
 
-  if (!users || users.length === 0) {
-    console.error("[bot] no users found in Supabase");
-    return null;
-  }
+  userCache.set(cacheKey, {
+    userId,
+    expiresAt: Date.now() + USER_CACHE_TTL_MS,
+  });
+  return { ok: true, userId };
+}
 
-  console.log(
-    "[bot] searching",
-    users.length,
-    "Supabase users for email:",
-    email,
-  );
+/**
+ * Convenience wrapper for callers that only need the ID (the interactivity
+ * route, which has no thread to explain a failure in).
+ */
+export async function resolveSlackUser(
+  token: string,
+  teamId: string,
+  slackUserId: string,
+): Promise<string | null> {
+  const result = await resolveSlackIdentity(token, teamId, slackUserId);
+  return result.ok ? result.userId : null;
+}
 
-  const match = users.find(
-    (u) => u.email?.toLowerCase() === email.toLowerCase(),
-  );
-  if (!match) {
-    console.error("[bot] no Supabase user matches email:", email);
-    return null;
-  }
+/**
+ * Verifies the user can reach a tile, via the mosaic that owns it.
+ *
+ * Every tile lookup in this module goes through here: the bot's tile IDs come
+ * from an LLM, which takes them from whatever is in the Slack thread, so an
+ * unscoped query would let any matched user read another mosaic's data.
+ */
+async function verifyTileAccess(
+  admin: ReturnType<typeof createAdminClient>,
+  tileId: string,
+  userId: string,
+): Promise<boolean> {
+  const { data } = await admin
+    .from("tiles")
+    .select("mosaic_id")
+    .eq("id", tileId)
+    .maybeSingle();
 
-  userCache.set(slackUserId, match.id);
-  return match.id;
+  const mosaicId = (data as { mosaic_id?: string } | null)?.mosaic_id;
+  if (!mosaicId) return false;
+
+  return verifyMosaicAccess(admin, mosaicId, userId);
 }
 
 interface MosaicRow {
@@ -244,11 +310,14 @@ export async function getMosaicTiles(mosaicId: string, userId: string) {
 }
 
 /**
- * Gets the latest execution result for a tile.
+ * Reads the latest result row without an access check. Callers must already
+ * have established access — either with verifyTileAccess, or by having found
+ * the tile inside a mosaic the user can reach.
  */
-export async function getLatestTileResult(tileId: string) {
-  const admin = createAdminClient();
-
+async function fetchLatestResultRow(
+  admin: ReturnType<typeof createAdminClient>,
+  tileId: string,
+) {
   const { data: results, error } = await admin
     .from("tile_job_results")
     .select("id, tile_id, content, format, created_at")
@@ -258,24 +327,34 @@ export async function getLatestTileResult(tileId: string) {
     .returns<ResultRow[]>();
 
   if (error) {
-    console.error("[bot] getLatestTileResult error:", error.message);
+    console.error("[bot] fetchLatestResultRow error:", error.message);
     return null;
   }
-
-  console.log(
-    "[bot] getLatestTileResult",
-    tileId,
-    results?.length ? `found (${results[0].created_at})` : "no results",
-  );
 
   return results?.[0] ?? null;
 }
 
 /**
- * Gets recent execution status for a tile.
+ * Gets the latest execution result for a tile the user has access to.
+ * Returns null when the tile does not exist OR is not the user's — the bot must
+ * not confirm that an ID it was handed is real.
  */
-export async function getTileStatus(tileId: string) {
+export async function getLatestTileResult(tileId: string, userId: string) {
   const admin = createAdminClient();
+
+  if (!(await verifyTileAccess(admin, tileId, userId))) return null;
+
+  return fetchLatestResultRow(admin, tileId);
+}
+
+/**
+ * Gets recent execution status for a tile the user has access to.
+ * Returns null when the tile does not exist or is not the user's.
+ */
+export async function getTileStatus(tileId: string, userId: string) {
+  const admin = createAdminClient();
+
+  if (!(await verifyTileAccess(admin, tileId, userId))) return null;
 
   const { data: tileRows } = await admin
     .from("tiles")
@@ -432,9 +511,10 @@ export async function findTilesByQuery(userId: string, query: string) {
 
   if (topCandidates.length === 0) return { tiles: [] };
 
-  // Fetch latest result for the top match
+  // Fetch latest result for the top match. Access is already established: the
+  // candidates only come from mosaics the user can reach.
   const topTileId = topCandidates[0].tile_id;
-  const latestResult = await getLatestTileResult(topTileId);
+  const latestResult = await fetchLatestResultRow(admin, topTileId);
   const resultSnippet = latestResult
     ? (typeof latestResult.content === "string"
         ? latestResult.content

@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
-import { getBotAndAdapter } from "@/lib/bot";
 import { resolveSlackUser } from "@/lib/bot/data";
-import { ensureBotInitialized } from "@/lib/bot/setup";
 import { cancelOfferDraft, sendOfferDraft } from "@/lib/email/send-offer-draft";
+import { postEphemeralResponse } from "@/lib/slack/client";
+import { resolveBotTokenForTeam } from "@/lib/slack/integration";
 import { verifySlackSignature } from "@/lib/slack/verify-signature";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -18,8 +18,19 @@ interface SlackBlockActionsPayload {
   user: { id: string; team_id?: string };
   team?: { id?: string };
   channel?: { id?: string };
+  response_url?: string;
   actions: SlackBlockAction[];
 }
+
+/**
+ * Approval buttons posted by the offer_sender tile, keyed by Block Kit action.
+ * A Map, not an object literal: an unknown action_id must miss, and an object
+ * would resolve names like "constructor" off the prototype chain.
+ */
+const OFFER_ACTIONS = new Map<string, typeof sendOfferDraft>([
+  ["offer.send", sendOfferDraft],
+  ["offer.cancel", cancelOfferDraft],
+]);
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,58 +63,77 @@ export async function POST(request: Request): Promise<Response> {
     return new Response("", { status: 200 });
   }
 
-  const teamId = payload.team?.id ?? payload.user.team_id ?? "";
-  const admin = createAdminClient();
-  await ensureBotInitialized();
-  const { slackAdapter } = await getBotAndAdapter();
+  // Acknowledge inside Slack's 3-second window, then do the work. Sending the
+  // email before responding makes Slack show the user "operation timed out",
+  // and the natural reaction to that is to click Approve again.
+  after(() => handleBlockActions(payload));
+  return new Response("", { status: 200 });
+}
 
-  const botToken = await slackAdapter
-    .getInstallation(teamId)
-    .then((i) => i?.botToken ?? undefined)
-    .catch((err) => {
-      console.error("[slack-interactivity] getInstallation failed:", err);
-      return undefined;
-    });
+async function handleBlockActions(
+  payload: SlackBlockActionsPayload,
+): Promise<void> {
+  // Answers the clicker privately. Needs no token, and works even where the bot
+  // cannot post; a click that silently does nothing is the worst outcome.
+  const reply = async (text: string): Promise<void> => {
+    if (!payload.response_url) return;
+    await postEphemeralResponse(payload.response_url, text).catch((err) =>
+      console.error("[slack-interactivity] response_url failed:", err),
+    );
+  };
 
-  const approverUserId = botToken
-    ? await resolveSlackUser(botToken, payload.user.id)
-    : null;
-  if (!approverUserId) {
-    // Return 200 so Slack doesn't retry; the draft message stays in place.
-    console.warn(
-      "[slack-interactivity] could not map slack user → mosaic user",
+  try {
+    const teamId = payload.team?.id ?? payload.user.team_id ?? "";
+    const admin = createAdminClient();
+
+    const installation = await resolveBotTokenForTeam(admin, teamId);
+    if (!installation) {
+      console.error("[slack-interactivity] no integration for team", teamId);
+      return;
+    }
+
+    const approverUserId = await resolveSlackUser(
+      installation.botToken,
+      teamId,
       payload.user.id,
     );
-    return new Response("", { status: 200 });
-  }
-
-  for (const action of payload.actions ?? []) {
-    const jobId = action.value;
-    if (!jobId) continue;
-
-    let handler: typeof sendOfferDraft | null = null;
-    if (action.action_id === "offer.send") handler = sendOfferDraft;
-    else if (action.action_id === "offer.cancel") handler = cancelOfferDraft;
-    if (!handler) continue;
-
-    try {
-      const outcome = await handler(admin, jobId, approverUserId, {
-        slackBotToken: botToken,
-      });
-      if (!outcome.ok) {
-        console.warn(
-          `[slack-interactivity] ${action.action_id} failed:`,
-          outcome.error,
-        );
-      }
-    } catch (err) {
-      console.error(
-        "[slack-interactivity] action error",
-        action.action_id,
-        err,
+    if (!approverUserId) {
+      console.warn(
+        "[slack-interactivity] could not map slack user → mosaic user",
+        payload.user.id,
       );
+      await reply(
+        "I couldn't match your Slack account to a Mosaic AI user, so I can't act on that.",
+      );
+      return;
     }
-  }
 
-  return new Response("", { status: 200 });
+    for (const action of payload.actions ?? []) {
+      const jobId = action.value;
+      const handler = OFFER_ACTIONS.get(action.action_id);
+      if (!jobId || !handler) continue;
+
+      try {
+        const outcome = await handler(admin, jobId, approverUserId, {
+          slackBotToken: installation.botToken,
+        });
+        if (!outcome.ok) {
+          console.warn(
+            `[slack-interactivity] ${action.action_id} failed:`,
+            outcome.error,
+          );
+          await reply(outcome.error);
+        }
+      } catch (err) {
+        console.error(
+          "[slack-interactivity] action error",
+          action.action_id,
+          err,
+        );
+        await reply("Something went wrong handling that click.");
+      }
+    }
+  } catch (err) {
+    console.error("[slack-interactivity] handler error:", err);
+  }
 }

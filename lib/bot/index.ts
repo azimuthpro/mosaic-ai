@@ -1,43 +1,65 @@
 import { createSlackAdapter } from "@chat-adapter/slack";
 import { createMemoryState } from "@chat-adapter/state-memory";
-import { Chat } from "chat";
+import { createPostgresState } from "@chat-adapter/state-pg";
+import { Chat, type StateAdapter } from "chat";
 
+import { resolveBotTokenForTeam } from "@/lib/slack/integration";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type SlackAdapterType = ReturnType<typeof createSlackAdapter>;
-let cached: { bot: Chat; slackAdapter: SlackAdapterType } | null = null;
 
-export async function getBotAndAdapter(): Promise<{
-  bot: Chat;
-  slackAdapter: SlackAdapterType;
-}> {
-  if (cached) return cached;
+/**
+ * Thread subscriptions, message dedupe keys and thread locks live in the state
+ * adapter. In-memory state is per-instance, so on serverless it loses track of
+ * which threads the bot follows (follow-up replies are ignored) and lets a
+ * retried Slack event be answered twice. Any deployment with more than one
+ * instance needs the shared adapter.
+ */
+function createBotState(): StateAdapter {
+  const url = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
+  if (url) return createPostgresState({ url });
 
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("user_integrations")
-    .select("access_token")
-    .eq("provider", "slack")
-    .limit(1)
-    .returns<{ access_token: string }[]>()
-    .maybeSingle();
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "[bot] POSTGRES_URL is not set — falling back to in-memory state. " +
+        "Thread follow-ups will be dropped and Slack retries answered twice.",
+    );
+  }
+  return createMemoryState();
+}
 
+export function createBot(): { bot: Chat; slackAdapter: SlackAdapterType } {
   const slackAdapter = createSlackAdapter({
     clientId: process.env.SLACK_CLIENT_ID!,
     clientSecret: process.env.SLACK_CLIENT_SECRET!,
     signingSecret: process.env.SLACK_SIGNING_SECRET!,
-    ...(data?.access_token ? { botToken: data.access_token } : {}),
+    // Tokens are resolved per webhook from user_integrations, keyed by team, so
+    // there is no single `botToken` and no copy of the installations to keep in
+    // sync: a workspace connected a second ago works on every instance.
+    installationProvider: {
+      getInstallation: async (installationId) => {
+        const resolved = await resolveBotTokenForTeam(
+          createAdminClient(),
+          installationId,
+        );
+        if (!resolved) return null;
+        return {
+          botToken: resolved.botToken,
+          ...(resolved.botUserId ? { botUserId: resolved.botUserId } : {}),
+        };
+      },
+    },
   });
 
   const bot = new Chat({
     userName: "Mosaic AI",
     adapters: { slack: slackAdapter },
-    state: createMemoryState(),
+    state: createBotState(),
     streamingUpdateIntervalMs: 800,
     onLockConflict: "force",
-    logger: "debug",
+    // "debug" logs every webhook payload, including message text.
+    logger: process.env.NODE_ENV === "production" ? "warn" : "debug",
   });
 
-  cached = { bot, slackAdapter };
-  return cached;
+  return { bot, slackAdapter };
 }
