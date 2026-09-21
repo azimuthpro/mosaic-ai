@@ -964,6 +964,31 @@ export interface Database {
           similarity: number;
         }[];
       };
+      find_user_id_by_email: {
+        Args: {
+          p_email: string;
+        };
+        Returns: string | null;
+      };
+      claim_offer_draft: {
+        Args: {
+          p_job_id: string;
+          p_next_status: string;
+        };
+        Returns: {
+          id: string;
+          tile_id: string;
+          job_id: string;
+          content: Json;
+        }[];
+      };
+      attach_offer_slack_ts: {
+        Args: {
+          p_job_id: string;
+          p_ts: string;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;
@@ -1260,7 +1285,17 @@ export interface OfferSenderConfig {
   bcc_email?: string;
 }
 
-export type OfferDraftStatus = "draft" | "sent" | "cancelled" | "failed";
+/**
+ * `sending` is the claimed state: one caller has taken the draft and is calling
+ * SendGrid. It exists so a second Approve click finds the draft already claimed
+ * instead of sending the email twice.
+ */
+export type OfferDraftStatus =
+  | "draft"
+  | "sending"
+  | "sent"
+  | "cancelled"
+  | "failed";
 
 export interface OfferDraftSlackContext {
   team_id: string;

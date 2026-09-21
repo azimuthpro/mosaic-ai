@@ -33,6 +33,7 @@ const STATUS_BADGE: Record<
   }
 > = {
   draft: { label: "Draft", variant: "secondary" },
+  sending: { label: "Sending", variant: "secondary" },
   sent: { label: "Sent", variant: "default" },
   cancelled: { label: "Cancelled", variant: "outline" },
   failed: { label: "Failed", variant: "destructive" },
@@ -164,6 +165,13 @@ function StatusFooter({ draft }: { draft: OfferDraftResult }) {
           {draft.sent_at
             ? ` at ${new Date(draft.sent_at).toLocaleString()}`
             : ""}
+        </div>
+      );
+    case "sending":
+      return (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Sending…
         </div>
       );
     case "cancelled":
