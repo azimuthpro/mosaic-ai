@@ -42,20 +42,32 @@ function extractTextFromContent(content: Json): string {
  * Headers become bold, `**bold**` becomes `*bold*`, `*italic*` becomes
  * `_italic_`, links become `<url|text>`, tables become code blocks,
  * and code blocks/inline code are preserved unchanged.
+ *
+ * Every finished conversion is parked behind a `\0n\0` placeholder instead of
+ * being written back into the text. Rewriting in place makes the passes feed
+ * each other: converting `**bold**` to `*bold*` leaves a single-asterisk pair
+ * for the italic pass to turn into `_bold_`, and a bold heading came out as
+ * literal `**Title**`.
  */
-function markdownToSlackMrkdwn(text: string): string {
-  // Protect code blocks and inline code from transformation
-  const codeBlocks: string[] = [];
-  let result = text.replace(/```[\s\S]*?```/g, (match) => {
-    codeBlocks.push(match);
-    return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
-  });
+export function markdownToSlackMrkdwn(text: string): string {
+  const parked: string[] = [];
+  const park = (value: string): string => {
+    parked.push(value);
+    return `\u0000${parked.length - 1}\u0000`;
+  };
 
-  const inlineCode: string[] = [];
-  result = result.replace(/`[^`]+`/g, (match) => {
-    inlineCode.push(match);
-    return `__INLINE_CODE_${inlineCode.length - 1}__`;
-  });
+  // Protect code blocks and inline code from transformation
+  let result = text.replace(/```[\s\S]*?```/g, park);
+  result = result.replace(/`[^`\n]+`/g, park);
+
+  // Split lines where non-table text runs into a table row
+  result = result.replace(
+    /^([^|\n]+[^|\s\n])\s*(\|(?:[^|\n]+\|)+)\s*$/gm,
+    "$1\n$2",
+  );
+
+  // Tables become monospace code blocks in Slack — Slack has no table markup
+  result = wrapTablesInCodeBlocks(result, park);
 
   // Convert markdown bullet markers (* ) to Unicode bullets (before italic/bold)
   result = result.replace(/^(\s*)\*(\s+\S)/gm, "$1•$2");
@@ -64,31 +76,37 @@ function markdownToSlackMrkdwn(text: string): string {
   result = result.replace(/^-{3,}\s*$/gm, "───────────────────");
   result = result.replace(/^\*{3,}\s*$/gm, "───────────────────");
 
-  // Split lines where non-table text runs into a table row
-  result = result.replace(
-    /^([^|\n]+[^|\s\n])\s*(\|(?:[^|\n]+\|)+)\s*$/gm,
-    "$1\n$2",
+  // Links: [text](url) -> <url|text>
+  result = result.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label, url) =>
+    park(`<${url}|${label}>`),
   );
 
-  // Tables become monospace code blocks in Slack (protected from later transforms)
-  result = wrapTablesInCodeBlocks(result, codeBlocks);
+  // Headers become bold. Any inner ** is dropped so "# **Title**" is not
+  // double-wrapped into literal asterisks.
+  result = result.replace(/^#{1,6}\s+(.+?)\s*#*$/gm, (_m, title: string) =>
+    park(`*${title.replace(/\*\*/g, "")}*`),
+  );
 
-  // Links: [text](url) -> <url|text>
-  result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<$2|$1>");
+  // Order matters: ***bold italic*** before **bold** before *italic*
+  result = result.replace(/\*\*\*(.+?)\*\*\*/g, (_m, t) => park(`*_${t}_*`));
+  result = result.replace(/\*\*(.+?)\*\*/g, (_m, t) => park(`*${t}*`));
+  // Requires non-space just inside the asterisks, so "2 * 3 * 4" is left alone
+  result = result.replace(
+    /(?<![*\w])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![*\w])/g,
+    "_$1_",
+  );
 
-  // Order matters: ***bold italic*** before *italic* before **bold**,
-  // otherwise inner asterisks get consumed by the wrong pattern.
-  result = result.replace(/\*\*\*(.+?)\*\*\*/g, "*_$1_*");
-  result = result.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "_$1_");
-  result = result.replace(/\*\*(.+?)\*\*/g, "*$1*");
-
-  // Headers and strikethrough
-  result = result.replace(/^#{1,6}\s+(.+)$/gm, "*$1*");
   result = result.replace(/~~(.+?)~~/g, "~$1~");
 
-  // Restore protected code
-  result = result.replace(/__INLINE_CODE_(\d+)__/g, (_, i) => inlineCode[i]);
-  result = result.replace(/__CODE_BLOCK_(\d+)__/g, (_, i) => codeBlocks[i]);
+  // Restore protected content. Placeholders nest (a link inside a heading),
+  // so keep going until nothing is left to replace.
+  const placeholder = /\u0000(\d+)\u0000/g;
+  while (placeholder.test(result)) {
+    result = result.replace(
+      placeholder,
+      (_m, index: string) => parked[Number(index)] ?? "",
+    );
+  }
 
   return result;
 }
@@ -96,7 +114,7 @@ function markdownToSlackMrkdwn(text: string): string {
 /** Wraps consecutive pipe-delimited table lines in code block fences. */
 function wrapTablesInCodeBlocks(
   text: string,
-  protectedBlocks: string[],
+  park: (value: string) => string,
 ): string {
   const lines = text.split("\n");
   const out: string[] = [];
@@ -104,9 +122,7 @@ function wrapTablesInCodeBlocks(
 
   const flush = () => {
     if (table.length === 0) return;
-    const block = "```\n" + table.join("\n") + "\n```";
-    protectedBlocks.push(block);
-    out.push(`__CODE_BLOCK_${protectedBlocks.length - 1}__`);
+    out.push(park("```\n" + table.join("\n") + "\n```"));
     table = [];
   };
 
